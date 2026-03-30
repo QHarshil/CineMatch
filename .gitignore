@@ -10,14 +10,20 @@ __pycache__/
 tmp/
 vendor/
 bin/
+scripts/cinematch-scripts
 .DS_Store
 *.log
 coverage/
 .vercel/
+# AI tool configs — never commit
 .claude/
 CLAUDE.md
+AGENTS.md
 PROJECT_STATE.md
 .mcp.json
+.cursorrules
+.aider*
+.copilot/
 .venv/
 *.egg-info/
 .pytest_cache/

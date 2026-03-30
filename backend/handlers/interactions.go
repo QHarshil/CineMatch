@@ -29,6 +29,9 @@ func RecordInteraction(querier DBQuerier) http.HandlerFunc {
 			return
 		}
 
+		// Limit body size before decoding — an interaction payload has two fields,
+		// so anything over 4KB is either malformed or malicious.
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
 		var body interactionRequest
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON body")

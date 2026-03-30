@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/middleware"
+	"github.com/harshilc/cinematch-backend/ranker"
 )
 
 const (
@@ -12,18 +15,23 @@ const (
 	recommendedMovieCount   = 20 // final count returned after ranking
 )
 
+// MovieRanker re-scores Stage-1 candidates via the Python ranker service.
+// Implemented by ranker.Client; stubbed in tests.
+type MovieRanker interface {
+	Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, preferredGenres []string, minVotePref float64) (*ranker.RankResponse, error)
+}
+
 // RecommendForUser handles GET /recommend
 //
 // Two-stage pipeline:
 //
-//	Stage 1 (here): fetch user embedding -> match_movies RPC -> top-50 candidates
-//	Stage 2 (Task 7): POST candidates to Python ranker -> re-scored top-20
+//	Stage 1: fetch user embedding -> match_movies RPC -> top-50 candidates
+//	Stage 2: POST candidates to Python ranker -> re-scored top-20
 //
 // Cold-start fallback: users without an embedding receive popular movies.
-// The ranker stage is stubbed as a passthrough until Task 7 wires it up.
-// The authenticated user ID is taken from the JWT via RequireAuth middleware —
-// users cannot request recommendations on behalf of other users.
-func RecommendForUser(querier DBQuerier) http.HandlerFunc {
+// Ranker fallback: if the ranker is unreachable, candidates are returned
+// in their original cosine-similarity order so the endpoint stays available.
+func RecommendForUser(querier DBQuerier, movieRanker MovieRanker) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := middleware.UserIDFromContext(r.Context())
 		if !ok {
@@ -55,25 +63,33 @@ func RecommendForUser(querier DBQuerier) http.HandlerFunc {
 			return
 		}
 
-		// Stage-2 ranker stub: return the top candidates ordered by cosine similarity.
-		// Task 7 replaces this with a POST to the Python ranker service.
-		ranked := stubRank(candidates, recommendedMovieCount)
-		writeJSON(w, http.StatusOK, ranked)
+		// Stage-2: call the Python ranker to re-score candidates.
+		// On failure, degrade gracefully to cosine-similarity order rather than
+		// returning an error — partial recommendations are better than none.
+		ranked, err := movieRanker.Rank(r.Context(), candidates, recommendedMovieCount, nil, 0)
+		if err != nil {
+			slog.Warn("ranker unavailable, falling back to similarity order", "error", err)
+			writeJSON(w, http.StatusOK, similarityFallback(candidates, recommendedMovieCount))
+			return
+		}
+
+		writeJSON(w, http.StatusOK, rankedResponse(candidates, ranked))
 	}
 }
 
 type recommendResponse struct {
-	Movies []db.Movie `json:"movies"`
-	Source string     `json:"source"` // "personalized" | "popular"
+	Movies       []db.Movie `json:"movies"`
+	Source       string     `json:"source"` // "personalized" | "popular" | "similarity_fallback"
+	ModelVersion string     `json:"model_version,omitempty"`
 }
 
 func popularMoviesResponse(movies []db.Movie) recommendResponse {
 	return recommendResponse{Movies: movies, Source: "popular"}
 }
 
-// stubRank converts MovieCandidates to the recommend response format, capped at n results.
-// Replaced in Task 7 by a real call to the Python ranker microservice.
-func stubRank(candidates []db.MovieCandidate, n int) recommendResponse {
+// similarityFallback returns candidates in their original pgvector cosine-similarity
+// order when the ranker service is unreachable.
+func similarityFallback(candidates []db.MovieCandidate, n int) recommendResponse {
 	if len(candidates) > n {
 		candidates = candidates[:n]
 	}
@@ -81,5 +97,26 @@ func stubRank(candidates []db.MovieCandidate, n int) recommendResponse {
 	for i, c := range candidates {
 		movies[i] = c.Movie
 	}
-	return recommendResponse{Movies: movies, Source: "personalized"}
+	return recommendResponse{Movies: movies, Source: "similarity_fallback"}
+}
+
+// rankedResponse maps the ranker's scored results back to full Movie objects
+// preserving the ranker's sort order.
+func rankedResponse(candidates []db.MovieCandidate, ranked *ranker.RankResponse) recommendResponse {
+	movieByID := make(map[string]db.Movie, len(candidates))
+	for _, c := range candidates {
+		movieByID[c.ID] = c.Movie
+	}
+
+	movies := make([]db.Movie, 0, len(ranked.Ranked))
+	for _, r := range ranked.Ranked {
+		if m, ok := movieByID[r.MovieID]; ok {
+			movies = append(movies, m)
+		}
+	}
+	return recommendResponse{
+		Movies:       movies,
+		Source:       "personalized",
+		ModelVersion: ranked.ModelVersion,
+	}
 }

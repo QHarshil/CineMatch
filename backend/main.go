@@ -14,6 +14,7 @@ import (
 	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/handlers"
 	custommw "github.com/harshilc/cinematch-backend/middleware"
+	"github.com/harshilc/cinematch-backend/ranker"
 	"github.com/joho/godotenv"
 )
 
@@ -29,6 +30,12 @@ func main() {
 		slog.Error("JWT_SECRET is required but not set")
 		os.Exit(1)
 	}
+
+	rankerURL := os.Getenv("RANKER_URL")
+	if rankerURL == "" {
+		rankerURL = "http://localhost:8000"
+	}
+	movieRanker := ranker.NewClient(rankerURL)
 
 	supabase := db.NewSupabaseClient(
 		os.Getenv("SUPABASE_URL"),
@@ -59,7 +66,7 @@ func main() {
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
 		r.Use(custommw.RequireAuth(jwtSecret))
-		r.Get("/recommend", handlers.RecommendForUser(supabase))
+		r.Get("/recommend", handlers.RecommendForUser(supabase, movieRanker))
 		r.Post("/interactions", handlers.RecordInteraction(supabase))
 	})
 

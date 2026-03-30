@@ -2,15 +2,17 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import type { Movie } from "@/types/movie";
 import { MovieCard } from "@/components/movie-card";
 
 interface ScrollRowProps {
   title: string;
   movies: Movie[];
+  seeAllHref?: string;
 }
 
-export function ScrollRow({ title, movies }: ScrollRowProps) {
+export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -51,9 +53,18 @@ export function ScrollRow({ title, movies }: ScrollRowProps) {
 
   return (
     <section className="relative">
-      <h2 className="font-heading text-2xl font-semibold mb-4 px-4 lg:px-0">
-        {title}
-      </h2>
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-4 px-4 lg:px-0">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {seeAllHref && (
+          <Link
+            href={seeAllHref}
+            className="text-sm text-muted-foreground hover:text-gold transition-colors duration-200"
+          >
+            See all &rarr;
+          </Link>
+        )}
+      </div>
 
       <div className="relative group/row">
         {/* Left fade + arrow */}

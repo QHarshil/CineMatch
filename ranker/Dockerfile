@@ -1,6 +1,11 @@
 FROM python:3.12-slim
 
-# Install deps before copying source so layer is cached across code changes.
+# LightGBM requires libgomp for OpenMP parallelism at runtime.
+# python:3.12-slim doesn't include it, so install before pip.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

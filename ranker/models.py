@@ -47,6 +47,10 @@ class RankRequest(BaseModel):
     ]
     user_features: UserFeatures = Field(default_factory=UserFeatures)
     top_n: Annotated[int, Field(ge=1, le=50)] = 20
+    model: str = Field(
+        default="lambdamart-v1",
+        description="Which ranker model to use: 'feature-linear-v1' or 'lambdamart-v1'.",
+    )
 
 
 class RankedMovie(BaseModel):

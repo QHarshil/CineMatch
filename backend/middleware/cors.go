@@ -29,7 +29,9 @@ func CORSHandler() func(http.Handler) http.Handler {
 func parseOrigins(raw string) []string {
 	var origins []string
 	for _, o := range strings.Split(raw, ",") {
-		if trimmed := strings.TrimSpace(o); trimmed != "" {
+		trimmed := strings.TrimSpace(o)
+		trimmed = strings.TrimRight(trimmed, "/")
+		if trimmed != "" {
 			origins = append(origins, trimmed)
 		}
 	}

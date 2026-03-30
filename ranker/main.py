@@ -1,14 +1,16 @@
 """CineMatch ranker service — Stage-2 re-ranking microservice.
 
 Accepts Stage-1 pgvector candidates from the Go backend and re-scores them
-using the feature-weighted linear ranker. Designed to be swapped for a
-LambdaMART model once offline eval (Task 11) produces sufficient training data.
+using either feature-linear-v1 (explicit weights) or lambdamart-v1 (learned
+LightGBM model). The Go backend selects the model via the `model` field in
+the RankRequest body.
 
 Internal service only — not exposed to the browser. The Go backend calls
 POST /rank after match_movies returns Stage-1 candidates.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -16,7 +18,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from models import RankRequest, RankResponse
-from ranker import rank
+import ranker as linear_ranker
+import lambdamart_ranker
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("cinematch.ranker")
@@ -25,6 +28,12 @@ logger = logging.getLogger("cinematch.ranker")
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     logger.info("ranker service starting")
+    model_path = os.environ.get("LAMBDAMART_MODEL_PATH")
+    try:
+        lambdamart_ranker.load_model(model_path)
+        logger.info("lambdamart-v1 model loaded")
+    except Exception:
+        logger.warning("lambdamart-v1 model not available, feature-linear-v1 only")
     yield
     logger.info("ranker service shutting down")
 
@@ -64,7 +73,9 @@ def rank_candidates(request: RankRequest) -> RankResponse:
             "has_genre_prefs": bool(request.user_features.preferred_genres),
         },
     )
-    return rank(request)
+    if request.model == "lambdamart-v1":
+        return lambdamart_ranker.rank(request)
+    return linear_ranker.rank(request)
 
 
 @app.get("/health", summary="Health check")

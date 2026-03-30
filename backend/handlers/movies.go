@@ -2,15 +2,23 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/harshilc/cinematch-backend/db"
 )
+
+// PopularCache provides cached popular movies for graceful degradation.
+type PopularCache interface {
+	Get() []db.Movie
+}
 
 // ListMovies handles GET /movies?limit=20&offset=0
 // Returns movies ordered by popularity descending. limit is capped at 100.
-func ListMovies(querier DBQuerier) http.HandlerFunc {
+// Falls back to cached popular movies if Supabase is unreachable.
+func ListMovies(querier DBQuerier, cache PopularCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, err := boundedIntParam(r, "limit", 20, 1, 100)
 		if err != nil {
@@ -25,6 +33,15 @@ func ListMovies(querier DBQuerier) http.HandlerFunc {
 
 		movies, err := querier.ListMovies(r.Context(), limit, offset)
 		if err != nil {
+			slog.Warn("supabase unreachable for ListMovies, serving cached popular movies", "error", err)
+			if cached := cache.Get(); cached != nil {
+				end := limit
+				if end > len(cached) {
+					end = len(cached)
+				}
+				writeJSON(w, http.StatusOK, cached[:end])
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "failed to fetch movies")
 			return
 		}

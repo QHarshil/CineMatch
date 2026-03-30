@@ -16,12 +16,14 @@ import (
 // stubQuerier provides controlled responses for handler tests.
 // Fields left nil will panic if called — intentional, to catch unexpected calls.
 type stubQuerier struct {
-	listMoviesFunc    func(ctx context.Context, limit, offset int) ([]db.Movie, error)
-	getMovieByIDFunc  func(ctx context.Context, id string) (*db.Movie, error)
-	searchFunc        func(ctx context.Context, query string, limit int) ([]db.Movie, error)
-	insertInteraction func(ctx context.Context, i db.InteractionInsert) error
-	getUserEmbedding  func(ctx context.Context, userID string) ([]float32, error)
-	matchMovies       func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
+	listMoviesFunc              func(ctx context.Context, limit, offset int) ([]db.Movie, error)
+	getMovieByIDFunc            func(ctx context.Context, id string) (*db.Movie, error)
+	searchFunc                  func(ctx context.Context, query string, limit int) ([]db.Movie, error)
+	insertInteraction           func(ctx context.Context, i db.InteractionInsert) error
+	countUserInteractions       func(ctx context.Context, userID string) (int, error)
+	countUserMovieInteractions  func(ctx context.Context, userID, movieID string) (int, error)
+	getUserEmbedding            func(ctx context.Context, userID string) ([]float32, error)
+	matchMovies                 func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
 }
 
 func (s *stubQuerier) ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error) {
@@ -36,12 +38,25 @@ func (s *stubQuerier) SearchMoviesByTitle(ctx context.Context, q string, limit i
 func (s *stubQuerier) InsertInteraction(ctx context.Context, i db.InteractionInsert) error {
 	return s.insertInteraction(ctx, i)
 }
+func (s *stubQuerier) CountUserInteractions(ctx context.Context, userID string) (int, error) {
+	return s.countUserInteractions(ctx, userID)
+}
+func (s *stubQuerier) CountUserMovieInteractions(ctx context.Context, userID, movieID string) (int, error) {
+	return s.countUserMovieInteractions(ctx, userID, movieID)
+}
 func (s *stubQuerier) GetUserEmbedding(ctx context.Context, userID string) ([]float32, error) {
 	return s.getUserEmbedding(ctx, userID)
 }
 func (s *stubQuerier) MatchMovies(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error) {
 	return s.matchMovies(ctx, emb, limit)
 }
+
+// stubCache implements handlers.PopularCache for tests.
+type stubCache struct {
+	movies []db.Movie
+}
+
+func (c *stubCache) Get() []db.Movie { return c.movies }
 
 var sampleMovies = []db.Movie{
 	{ID: "11111111-1111-1111-1111-111111111111", Title: "Inception", TmdbID: 27205, Popularity: 99.9},
@@ -82,10 +97,11 @@ func TestListMovies(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "returns 500 on db error",
+			name:       "falls back to cache on db error",
 			query:      "",
 			dbErr:      errors.New("connection reset"),
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusOK,
+			wantCount:  2,
 		},
 	}
 
@@ -96,7 +112,8 @@ func TestListMovies(t *testing.T) {
 					return tc.dbMovies, tc.dbErr
 				},
 			}
-			handler := handlers.ListMovies(q)
+			cache := &stubCache{movies: sampleMovies}
+			handler := handlers.ListMovies(q, cache)
 			req := httptest.NewRequest(http.MethodGet, "/movies"+tc.query, nil)
 			rec := httptest.NewRecorder()
 			handler(rec, req)

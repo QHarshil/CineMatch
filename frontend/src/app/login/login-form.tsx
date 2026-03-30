@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
+
+const COOLDOWN_SECONDS = 60;
 
 export function LoginForm() {
   const { signInWithMagicLink } = useAuth();
@@ -15,6 +17,27 @@ export function LoginForm() {
     callbackError ? "Magic link expired or invalid. Please try again." : null
   );
   const [submitting, setSubmitting] = useState(false);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  function startCooldown() {
+    setCooldownLeft(COOLDOWN_SECONDS);
+    cooldownRef.current = setInterval(() => {
+      setCooldownLeft((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -23,8 +46,11 @@ export function LoginForm() {
     try {
       await signInWithMagicLink(email);
       setSent(true);
+      startCooldown();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed");
+      // Don't reveal whether email exists — always show generic message
+      // unless it's clearly a client-side error.
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -37,9 +63,21 @@ export function LoginForm() {
           Check your email
         </h1>
         <p className="text-muted-foreground text-sm text-center max-w-md">
-          We sent a magic link to <strong className="text-foreground">{email}</strong>.
-          Click it to sign in.
+          If an account exists for <strong className="text-foreground">{email}</strong>,
+          we sent a magic link. Click it to sign in.
         </p>
+        {cooldownLeft > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            You can request another link in {cooldownLeft}s
+          </p>
+        ) : (
+          <button
+            onClick={() => setSent(false)}
+            className="text-sm text-gold hover:text-gold-dim transition-colors"
+          >
+            Send another link
+          </button>
+        )}
       </div>
     );
   }
@@ -64,10 +102,14 @@ export function LoginForm() {
         />
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || cooldownLeft > 0}
           className="h-12 bg-gold text-background text-sm font-medium hover:bg-gold-dim transition-colors duration-200 disabled:opacity-50"
         >
-          {submitting ? "Sending..." : "Send magic link"}
+          {submitting
+            ? "Sending..."
+            : cooldownLeft > 0
+              ? `Wait ${cooldownLeft}s`
+              : "Send magic link"}
         </button>
         {error && (
           <p className="text-sm text-destructive text-center">{error}</p>

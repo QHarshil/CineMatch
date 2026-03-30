@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -134,6 +135,112 @@ func (c *SupabaseClient) MatchMovies(ctx context.Context, queryEmbedding []float
 		return nil, fmt.Errorf("match_movies rpc: %w", err)
 	}
 	return candidates, nil
+}
+
+// CountUserInteractions returns the total number of interactions for a user.
+func (c *SupabaseClient) CountUserInteractions(ctx context.Context, userID string) (int, error) {
+	params := url.Values{}
+	params.Set("select", "id")
+	params.Set("user_id", "eq."+userID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.baseURL+"/rest/v1/interactions?"+params.Encode(), nil)
+	if err != nil {
+		return 0, fmt.Errorf("building count request: %w", err)
+	}
+	c.injectAuthHeaders(req)
+	req.Header.Set("Prefer", "count=exact")
+	req.Header.Set("Range-Unit", "items")
+	req.Header.Set("Range", "0-0")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("counting user interactions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
+}
+
+// CountUserMovieInteractions returns the number of interactions a user has for a specific movie.
+func (c *SupabaseClient) CountUserMovieInteractions(ctx context.Context, userID, movieID string) (int, error) {
+	params := url.Values{}
+	params.Set("select", "id")
+	params.Set("user_id", "eq."+userID)
+	params.Set("movie_id", "eq."+movieID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.baseURL+"/rest/v1/interactions?"+params.Encode(), nil)
+	if err != nil {
+		return 0, fmt.Errorf("building count request: %w", err)
+	}
+	c.injectAuthHeaders(req)
+	req.Header.Set("Prefer", "count=exact")
+	req.Header.Set("Range-Unit", "items")
+	req.Header.Set("Range", "0-0")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("counting user-movie interactions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
+}
+
+// TableStats holds row counts for monitoring the database size on the free tier.
+type TableStats struct {
+	MovieCount      int `json:"movie_count"`
+	UserCount       int `json:"user_count"`
+	InteractionCount int `json:"interaction_count"`
+}
+
+// GetTableStats returns row counts for core tables.
+// Used by the /health endpoint for database size monitoring.
+func (c *SupabaseClient) GetTableStats(ctx context.Context) (TableStats, error) {
+	var stats TableStats
+
+	tables := []struct {
+		name  string
+		dest  *int
+	}{
+		{"movies", &stats.MovieCount},
+		{"users", &stats.UserCount},
+		{"interactions", &stats.InteractionCount},
+	}
+
+	for _, t := range tables {
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.baseURL+"/rest/v1/"+t.name+"?select=id", nil)
+		if err != nil {
+			return stats, fmt.Errorf("building count request for %s: %w", t.name, err)
+		}
+		c.injectAuthHeaders(req)
+		req.Header.Set("Prefer", "count=exact")
+		req.Header.Set("Range-Unit", "items")
+		req.Header.Set("Range", "0-0")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return stats, fmt.Errorf("counting %s: %w", t.name, err)
+		}
+		resp.Body.Close()
+		*t.dest = parseContentRangeCount(resp.Header.Get("Content-Range"))
+	}
+
+	return stats, nil
+}
+
+// parseContentRangeCount extracts the total from a Supabase Content-Range header.
+// Format: "0-0/42" where 42 is the total count. Returns 0 if unparseable.
+func parseContentRangeCount(header string) int {
+	// Content-Range: 0-0/42 or */42 for empty results
+	parts := strings.Split(header, "/")
+	if len(parts) != 2 {
+		return 0
+	}
+	n, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // parseVectorString converts the PostgreSQL vector string "[0.1,-0.2,0.3,...]" to []float32.

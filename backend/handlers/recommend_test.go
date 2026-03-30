@@ -101,11 +101,12 @@ func TestRecommendForUser(t *testing.T) {
 			wantStatus:    http.StatusUnauthorized,
 		},
 		{
-			name:          "returns 500 when embedding fetch fails",
+			name:          "falls back to cache when embedding fetch fails",
 			authenticated: true,
 			embeddingErr:  errors.New("db error"),
 			ranker:        successRanker(),
-			wantStatus:    http.StatusInternalServerError,
+			wantStatus:    http.StatusOK,
+			wantSource:    "popular",
 		},
 		{
 			name:          "returns 500 when match_movies fails",
@@ -137,7 +138,8 @@ func TestRecommendForUser(t *testing.T) {
 			}
 			rec := httptest.NewRecorder()
 
-			handlers.RecommendForUser(q, tc.ranker).ServeHTTP(rec, req)
+			cache := &stubCache{movies: sampleMovies}
+			handlers.RecommendForUser(q, tc.ranker, cache).ServeHTTP(rec, req)
 
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)

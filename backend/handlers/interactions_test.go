@@ -18,12 +18,14 @@ func TestRecordInteraction(t *testing.T) {
 	validUserID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
 	tests := []struct {
-		name        string
-		body        string
-		injectUser  string // user ID injected into context; empty = unauthenticated
-		dbErr       error
-		wantStatus  int
-		wantCapture *db.InteractionInsert // non-nil: verify what was written to DB
+		name            string
+		body            string
+		injectUser      string // user ID injected into context; empty = unauthenticated
+		dbErr           error
+		totalCount      int
+		perMovieCount   int
+		wantStatus      int
+		wantCapture     *db.InteractionInsert // non-nil: verify what was written to DB
 	}{
 		{
 			name:       "records like interaction",
@@ -61,11 +63,32 @@ func TestRecordInteraction(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
+			name:       "returns 400 for unknown JSON fields",
+			body:       `{"movie_id":"` + validMovieID + `","type":"like","extra":"field"}`,
+			injectUser: validUserID,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
 			name:       "returns 500 on db error",
 			body:       `{"movie_id":"` + validMovieID + `","type":"skip"}`,
 			injectUser: validUserID,
 			dbErr:      errors.New("insert failed"),
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:        "returns 429 when user total cap reached",
+			body:        `{"movie_id":"` + validMovieID + `","type":"like"}`,
+			injectUser:  validUserID,
+			totalCount:  500,
+			wantStatus:  http.StatusTooManyRequests,
+		},
+		{
+			name:          "returns 429 when per-movie cap reached",
+			body:          `{"movie_id":"` + validMovieID + `","type":"like"}`,
+			injectUser:    validUserID,
+			totalCount:    10,
+			perMovieCount: 5,
+			wantStatus:    http.StatusTooManyRequests,
 		},
 	}
 
@@ -76,6 +99,12 @@ func TestRecordInteraction(t *testing.T) {
 				insertInteraction: func(_ context.Context, i db.InteractionInsert) error {
 					captured = i
 					return tc.dbErr
+				},
+				countUserInteractions: func(_ context.Context, _ string) (int, error) {
+					return tc.totalCount, nil
+				},
+				countUserMovieInteractions: func(_ context.Context, _, _ string) (int, error) {
+					return tc.perMovieCount, nil
 				},
 			}
 			handler := handlers.RecordInteraction(q)

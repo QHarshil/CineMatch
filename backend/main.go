@@ -42,6 +42,10 @@ func main() {
 		os.Getenv("SUPABASE_SECRET_KEY"),
 	)
 
+	// Cache top 50 popular movies in memory, refreshed hourly.
+	// Serves as fallback when Supabase is temporarily unreachable.
+	popularCache := db.NewPopularMoviesCache(supabase, 1*time.Hour)
+
 	r := chi.NewRouter()
 
 	// Middleware order matters: RequestID and RealIP must come before logging
@@ -54,22 +58,23 @@ func main() {
 	r.Use(custommw.RateLimiter())
 	r.Use(custommw.SecurityHeaders())
 	r.Use(custommw.RequireJSONContentType())
+	r.Use(custommw.MaxBodySize(10 * 1024)) // 10KB global body limit
 
 	bootTime := time.Now()
 
 	r.Get("/health", handlers.Health(supabase, bootTime))
 
 	// Public endpoints — no auth required.
-	r.Get("/movies", handlers.ListMovies(supabase))
+	r.Get("/movies", handlers.ListMovies(supabase, popularCache))
 	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
-	r.Get("/search", handlers.SearchMovies(supabase))
+	r.With(custommw.SearchRateLimiter()).Get("/search", handlers.SearchMovies(supabase, popularCache))
 
 	// Authenticated endpoints — require a valid Supabase JWT.
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
 		r.Use(custommw.RequireAuth(jwtSecret))
-		r.Get("/recommend", handlers.RecommendForUser(supabase, movieRanker))
-		r.Post("/interactions", handlers.RecordInteraction(supabase))
+		r.With(custommw.RecommendRateLimiter()).Get("/recommend", handlers.RecommendForUser(supabase, movieRanker, popularCache))
+		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.RecordInteraction(supabase))
 	})
 
 	port := os.Getenv("APP_PORT")

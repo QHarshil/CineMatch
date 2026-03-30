@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { recordInteraction } from "@/lib/api";
+import { recordInteraction, RateLimitError } from "@/lib/api";
+import { useToast } from "@/components/toast";
 import { Heart, ThumbsDown, Eye, Bookmark } from "lucide-react";
 import Link from "next/link";
 import type { InteractionType } from "@/types/movie";
@@ -18,10 +19,14 @@ const INTERACTIONS: {
   { type: "skip", label: "Watchlist", icon: Bookmark },
 ];
 
+const COOLDOWN_MS = 1000;
+
 export function InteractionButtons({ movieId }: { movieId: string }) {
   const { session } = useAuth();
+  const { showToast } = useToast();
   const [selected, setSelected] = useState<InteractionType | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
   const [showAuthHint, setShowAuthHint] = useState(false);
 
   async function handleClick(type: InteractionType) {
@@ -29,14 +34,22 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
       setShowAuthHint(true);
       return;
     }
+    if (cooldown) return;
+
     setSubmitting(true);
+    setCooldown(true);
     try {
       await recordInteraction(session.access_token, movieId, type);
       setSelected(type);
     } catch (err) {
-      console.error("Failed to record interaction:", err);
+      if (err instanceof RateLimitError) {
+        showToast("Slow down, try again in a moment");
+      } else {
+        showToast("Failed to save, please try again");
+      }
     } finally {
       setSubmitting(false);
+      setTimeout(() => setCooldown(false), COOLDOWN_MS);
     }
   }
 
@@ -48,7 +61,7 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
           return (
             <button
               key={type}
-              disabled={submitting}
+              disabled={submitting || cooldown}
               onClick={() => handleClick(type)}
               className={`flex flex-col items-center gap-1.5 transition-colors duration-200 disabled:opacity-50 group ${
                 isActive ? "text-gold" : "text-muted-foreground"

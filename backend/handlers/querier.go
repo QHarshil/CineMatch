@@ -13,6 +13,8 @@ type DBQuerier interface {
 	GetMovieByID(ctx context.Context, id string) (*db.Movie, error)
 	SearchMoviesByTitle(ctx context.Context, query string, limit int) ([]db.Movie, error)
 	InsertInteraction(ctx context.Context, interaction db.InteractionInsert) error
+	CountUserInteractions(ctx context.Context, userID string) (int, error)
+	CountUserMovieInteractions(ctx context.Context, userID, movieID string) (int, error)
 	GetUserEmbedding(ctx context.Context, userID string) ([]float32, error)
 	MatchMovies(ctx context.Context, queryEmbedding []float32, limit int) ([]db.MovieCandidate, error)
 }

@@ -1,103 +1,84 @@
 # CineMatch
 
-A movie recommendation engine that combines vector similarity search with a learned ranking model. You rate movies, CineMatch learns your taste, and surfaces what you actually want to watch next.
+A movie recommendation engine using two-stage retrieve-then-rank architecture. Users rate movies, the system builds a taste profile, and recommendations improve with each interaction.
 
 Live at [cinematch.harshilc.com](https://cinematch.harshilc.com)
+
+## How it works
+
+The recommendation pipeline runs in two stages:
+
+1. **Retrieval:** A user's taste is encoded as a 1536-dimensional embedding. Supabase pgvector finds the 50 nearest movies by cosine similarity using an HNSW index.
+2. **Ranking:** A Python microservice re-scores those 50 candidates using a weighted feature model (or a trained LambdaMART model), combining similarity, quality, popularity, and genre overlap. The top 20 come back to the frontend.
+
+Cold-start users (no interactions yet) get popularity-ranked movies. If the ranker is down, candidates return in their original similarity order. If Supabase is unreachable, an in-memory cache of popular movies keeps the site functional.
 
 ## Architecture
 
 ```
-Browser (cinematch.harshilc.com)
-         |
-         | HTTPS
-         v
-Next.js 14 Frontend  (Vercel)
-  - Supabase Auth (magic link)
-  - Direct Supabase reads for movie data (RLS)
-  - Calls Go API for search + recommendations
-         |
-         | REST
-         v
-Go API Backend  (Railway)
-  - Chi router + CORS / rate-limit / logging middleware
-  - Supabase service key for server-side writes
-  - OpenAI API for embedding generation
-  - Calls Python ranker for Stage-2 re-scoring
-         |              |
-    Supabase       Python Ranker  (Railway, internal)
-   Postgres          FastAPI + LambdaMART/MLP
-   pgvector          POST /rank
-   HNSW indexes
-   RLS on all tables
+Browser
+  |
+  |  HTTPS
+  v
+Next.js Frontend (Vercel)
+  |  - Supabase Auth (magic link, no passwords)
+  |  - Direct Supabase reads for browsing (RLS-protected)
+  |  - Calls Go API for search + recommendations
+  |
+  |  REST
+  v
+Go API (Railway)
+  |  - Chi router, 9-layer middleware stack
+  |  - Per-endpoint rate limiting (10-30 req/min by route)
+  |  - JWT auth via Supabase secret
+  |
+  +-------> Supabase Postgres
+  |           - pgvector HNSW indexes (1536-dim, cosine)
+  |           - RLS on all tables, service key server-side only
+  |           - match_movies() RPC for kNN retrieval
+  |
+  +-------> Python Ranker (Railway, internal only)
+              - FastAPI, POST /rank
+              - feature-linear-v1: explicit weighted formula
+              - lambdamart-v1: LightGBM learned model
 ```
-
-### Two-stage recommendation pipeline
-
-1. **Retrieval (Go):** user embedding -> `match_movies()` RPC -> top 50 candidates by cosine similarity (pgvector HNSW)
-2. **Ranking (Python):** candidates + user features -> LambdaMART/MLP re-scores -> top 20 returned to frontend
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14 App Router, TypeScript strict, Tailwind CSS, shadcn/ui |
-| Backend | Go 1.22, Chi router |
-| Database | Supabase Postgres + pgvector (1536-dim HNSW indexes) |
-| Embeddings | OpenAI text-embedding-3-small |
-| Ranker | Python 3.12, FastAPI, LambdaMART / lightweight MLP |
-| Eval | Python: MRR, NDCG@k, Hit Rate offline pipeline |
-| Hosting | Vercel (frontend), Railway (Go + Python) |
-| Auth | Supabase magic link (no passwords stored) |
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Frontend | Next.js 16, TypeScript strict, Tailwind, shadcn/ui | App Router for SSR movie pages, client components for interactive bits |
+| API | Go 1.22, Chi router | Fast compilation, small binary, Chi's composable middleware |
+| Database | Supabase Postgres + pgvector | Managed Postgres with vector search built in, no separate search infra |
+| Embeddings | OpenAI text-embedding-3-small (1536-dim) | Good quality-to-cost ratio, single API call per movie |
+| Ranker | Python 3.12, FastAPI, LightGBM | Python for ML flexibility, FastAPI for async, LightGBM for LambdaMART |
+| Auth | Supabase magic link | Passwordless, no credential storage |
+| Hosting | Vercel + Railway | Vercel for frontend CDN, Railway for backend containers |
 
-## Repo structure
+## Getting started
 
-```
-CineMatch/
-├── backend/      # Go API (Chi router, Supabase client, handlers)
-├── frontend/     # Next.js 14 app
-├── ranker/       # Python FastAPI ranking microservice
-├── eval/         # Offline evaluation pipeline (MRR, NDCG@k)
-└── scripts/      # TMDB seeder (fetches movies + generates embeddings)
-```
-
-Each subdirectory has its own README with setup instructions and API contracts.
-
-## Running locally
-
-### Prerequisites
-
-- Go 1.22+
-- Node.js 20+
-- Python 3.12+
-- A Supabase project (see environment variables below)
-- TMDB API account (free)
-- OpenAI API key
-
-### Backend
+You need Go 1.22+, Node.js 20+, Python 3.12+, a [Supabase](https://supabase.com) project, a [TMDB](https://www.themoviedb.org/settings/api) API key, and an [OpenAI](https://platform.openai.com) API key.
 
 ```bash
-cd backend
-cp ../.env.example ../.env   # fill in your credentials
-go run .
-# Starts on http://localhost:8080
+git clone https://github.com/QHarshil/CineMatch.git
+cd CineMatch
+cp .env.example .env          # fill in credentials
 ```
 
-### Frontend
+Then, in three terminals:
 
 ```bash
-cd frontend
-npm install
-npm run dev
-# Starts on http://localhost:3000
+# Terminal 1: Go API
+cd backend && go run .
+
+# Terminal 2: Python ranker
+cd ranker && pip install -r requirements.txt && uvicorn main:app --port 8000
+
+# Terminal 3: Next.js frontend
+cd frontend && npm install && npm run dev
 ```
 
-### Python ranker
-
-```bash
-cd ranker
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
-```
+The frontend runs on `localhost:3000`, the API on `localhost:8080`, the ranker on `localhost:8000`.
 
 ## Environment variables
 
@@ -105,26 +86,39 @@ Copy `.env.example` to `.env` and fill in:
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `SUPABASE_URL` | backend | Supabase project URL |
-| `SUPABASE_SECRET_KEY` | backend only | Service-role key — never in frontend |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend only | Publishable key |
-| `TMDB_READ_ACCESS_TOKEN` | backend / scripts | TMDB Bearer token |
-| `OPENAI_API_KEY` | backend | For embedding generation |
+| `SUPABASE_URL` | backend, scripts | Supabase project URL |
+| `SUPABASE_SECRET_KEY` | backend, scripts | Service-role key (never in frontend) |
+| `NEXT_PUBLIC_SUPABASE_URL` | frontend | Same Supabase URL, exposed to browser |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Publishable anon key (RLS restricts access) |
+| `JWT_SECRET` | backend | Supabase JWT secret for token verification |
+| `TMDB_READ_ACCESS_TOKEN` | backend, scripts | TMDB v4 Bearer token |
+| `OPENAI_API_KEY` | backend, scripts | For embedding generation |
 | `ALLOWED_ORIGINS` | backend | Comma-separated CORS origins |
-| `RATE_LIMIT_RPM` | backend | Requests/min per IP (default 60) |
-| `APP_PORT` | backend | HTTP listen port (default 8080) |
+| `APP_PORT` | backend | HTTP listen port (default `8080`) |
+| `RANKER_URL` | backend | Python ranker URL (default `http://localhost:8000`) |
 
-## Deploying
+## Repo structure
 
-- **Frontend:** connect the `frontend/` directory to a Vercel project. Set `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel environment settings.
-- **Backend:** connect `backend/` to a Railway service. The Dockerfile is included. Set all non-`NEXT_PUBLIC_` variables in the Railway dashboard.
-- **Ranker:** connect `ranker/` to a separate Railway service (internal networking only — not exposed publicly).
-- **DNS:** point `cinematch.harshilc.com` to the Vercel deployment.
-
-## Evaluation
-
-```bash
-cd eval
-pip install -r requirements.txt
-python run_eval.py   # outputs MRR, NDCG@10, Hit Rate
 ```
+CineMatch/
+  backend/     Go API server, middleware, Supabase client
+  frontend/    Next.js app, pages, components, design system
+  ranker/      Python ranking microservice (FastAPI)
+  eval/        Offline evaluation pipeline and synthetic data generation
+  scripts/     TMDB seeder and data backfill scripts
+```
+
+Each subdirectory has its own README with setup instructions and API contracts.
+
+## Evaluation results
+
+Offline eval on synthetic data (200 users, 8 taste profiles, 9607 interactions):
+
+| Model | NDCG@10 | MRR | Hit Rate@10 |
+|-------|---------|-----|-------------|
+| Popularity baseline | 0.62 | 0.71 | 0.85 |
+| Vector retrieval only | 0.76 | 0.89 | 0.95 |
+| Two-stage (linear ranker) | 0.86 | 1.00 | 1.00 |
+| Two-stage (LambdaMART) | 0.71 | 0.86 | 1.00 |
+
+The linear ranker outperforms LambdaMART on synthetic data because the synthetic generation process mirrors the linear formula. On real user data with messier preferences, the learned model should close that gap. See [eval/README.md](eval/README.md) for details.

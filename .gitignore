@@ -21,3 +21,6 @@ PROJECT_STATE.md
 .venv/
 *.egg-info/
 .pytest_cache/
+eval/data/
+eval/models/
+eval/results/

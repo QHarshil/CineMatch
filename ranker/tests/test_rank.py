@@ -197,6 +197,7 @@ def test_post_rank_valid_request():
         ],
         "user_features": {"preferred_genres": ["Action"], "min_vote_preference": 6.0},
         "top_n": 5,
+        "model": "feature-linear-v1",
     }
     resp = client.post("/rank", json=payload)
     assert resp.status_code == 200
@@ -257,6 +258,44 @@ def test_post_rank_default_user_features():
         "runtime": 100,
         "similarity": 0.8,
     }
-    resp = client.post("/rank", json={"candidates": [candidate]})
+    resp = client.post("/rank", json={"candidates": [candidate], "model": "feature-linear-v1"})
     assert resp.status_code == 200
     assert len(resp.json()["ranked"]) == 1
+
+
+def test_post_rank_lambdamart_model():
+    """Endpoint routes to lambdamart-v1 when model field is set."""
+    candidates = [
+        {
+            "movie_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "title": "Inception",
+            "genres": ["Action", "Science Fiction"],
+            "release_year": 2010,
+            "vote_average": 8.8,
+            "popularity": 850.0,
+            "runtime": 148,
+            "similarity": 0.92,
+        },
+        {
+            "movie_id": "aaaaaaaa-0000-0000-0000-000000000002",
+            "title": "Low Budget Film",
+            "genres": ["Drama"],
+            "release_year": 2005,
+            "vote_average": 4.2,
+            "popularity": 10.0,
+            "runtime": 90,
+            "similarity": 0.40,
+        },
+    ]
+    resp = client.post(
+        "/rank",
+        json={"candidates": candidates, "model": "lambdamart-v1", "top_n": 2},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["model_version"] == "lambdamart-v1"
+    assert len(body["ranked"]) == 2
+    assert body["ranked"][0]["rank"] == 1
+    assert body["ranked"][1]["rank"] == 2
+    # Higher quality/popularity movie should rank first
+    assert body["ranked"][0]["movie_id"] == "aaaaaaaa-0000-0000-0000-000000000001"

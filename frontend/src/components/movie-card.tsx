@@ -8,9 +8,10 @@ const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
 
 interface MovieCardProps {
   movie: Movie;
+  matchScore?: number;
 }
 
-export function MovieCard({ movie }: MovieCardProps) {
+export function MovieCard({ movie, matchScore }: MovieCardProps) {
   const posterUrl = movie.poster_path
     ? `${TMDB_IMAGE_BASE}${movie.poster_path}`
     : null;
@@ -36,6 +37,11 @@ export function MovieCard({ movie }: MovieCardProps) {
           <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
             No poster
           </div>
+        )}
+        {matchScore != null && matchScore > 0.7 && (
+          <span className="absolute top-2 right-2 bg-gold text-background text-[10px] font-medium px-1.5 py-0.5">
+            {Math.round(matchScore * 100)}% match
+          </span>
         )}
       </div>
 

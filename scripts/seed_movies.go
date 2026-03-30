@@ -10,6 +10,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -33,8 +35,11 @@ const (
 	tmdbPageSize     = 20
 	tmdbPages        = targetMovieCount / tmdbPageSize // 25
 
-	// 5 concurrent OpenAI calls balances throughput with rate-limit headroom.
-	embedWorkers    = 5
+	// 5 concurrent workers; actual request rate is throttled to openAIRPM below.
+	embedWorkers = 5
+	// Stay at 80 RPM — safely under Tier-1's 100 RPM hard limit, with headroom
+	// for occasional retries and other API activity on the same key.
+	openAIRPM = 80
 	upsertBatchSize = 50
 
 	// 260ms between TMDB page requests keeps us under the 40 req/10s limit
@@ -129,10 +134,14 @@ func main() {
 		slog.Error("movie fetch failed", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("movies fetched", "count", len(tmdbMovies))
+	tmdbMovies = deduplicateByTmdbID(tmdbMovies)
+	slog.Info("movies after deduplication", "count", len(tmdbMovies))
 
-	slog.Info("generating embeddings", "workers", embedWorkers, "movies", len(tmdbMovies))
-	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, tmdbMovies, genreMap)
+	// Rate-limit embedding calls to openAIRPM to avoid Tier-1 429s.
+	embeddingLimiter := rate.NewLimiter(rate.Limit(openAIRPM)/60, 1)
+
+	slog.Info("generating embeddings", "workers", embedWorkers, "rpm_limit", openAIRPM, "movies", len(tmdbMovies))
+	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, tmdbMovies, genreMap, embeddingLimiter)
 	if embedErrors > 0 {
 		slog.Warn("some embeddings failed", "failed", embedErrors, "succeeded", len(rows))
 	}
@@ -246,9 +255,9 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 // — OpenAI helpers ———————————————————————————————————————————————————————————
 
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
-// Each movie's title + overview is embedded, and the result is assembled into a movieRow.
+// The shared limiter enforces openAIRPM so we never exceed Tier-1 rate limits.
 // Returns completed rows and the count of movies that failed embedding (logged as warnings).
-func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, genreMap map[int]string) ([]movieRow, int) {
+func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
 	results := make(chan embedResult, len(movies))
 	sem := make(chan struct{}, embedWorkers)
 	var wg sync.WaitGroup
@@ -259,6 +268,13 @@ func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, 
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
+
+			// Wait for a rate-limit token before calling OpenAI.
+			// This serialises bursts across all workers to stay under 80 RPM.
+			if err := limiter.Wait(context.Background()); err != nil {
+				results <- embedResult{err: fmt.Errorf("rate limiter cancelled for movie %d: %w", movie.ID, err)}
+				return
+			}
 
 			text := buildEmbeddingText(movie.Title, movie.Overview)
 			embedding, err := callOpenAIEmbedding(client, apiKey, text)
@@ -390,7 +406,22 @@ func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []mo
 	return total, nil
 }
 
-// — Pure helpers (also tested) ————————————————————————————————————————————————
+// — Pure helpers (also tested) ———————————————————————————————————————————————
+
+// deduplicateByTmdbID removes movies with duplicate tmdb_id values, keeping the first
+// occurrence. TMDB's discover pagination occasionally returns the same movie on multiple
+// pages (e.g. when a movie's popularity score changes between requests).
+func deduplicateByTmdbID(movies []tmdbMovie) []tmdbMovie {
+	seen := make(map[int]bool, len(movies))
+	unique := make([]tmdbMovie, 0, len(movies))
+	for _, m := range movies {
+		if !seen[m.ID] {
+			seen[m.ID] = true
+			unique = append(unique, m)
+		}
+	}
+	return unique
+}
 
 // buildEmbeddingText constructs the string that gets embedded.
 // Combining title and overview gives the model enough semantic signal to distinguish

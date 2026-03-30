@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/harshilc/cinematch-backend/db"
+	"github.com/harshilc/cinematch-backend/middleware"
 )
 
 const (
@@ -12,7 +12,7 @@ const (
 	recommendedMovieCount   = 20 // final count returned after ranking
 )
 
-// RecommendForUser handles GET /recommend/{userId}
+// RecommendForUser handles GET /recommend
 //
 // Two-stage pipeline:
 //
@@ -21,11 +21,13 @@ const (
 //
 // Cold-start fallback: users without an embedding receive popular movies.
 // The ranker stage is stubbed as a passthrough until Task 7 wires it up.
+// The authenticated user ID is taken from the JWT via RequireAuth middleware —
+// users cannot request recommendations on behalf of other users.
 func RecommendForUser(querier DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := chi.URLParam(r, "userId")
-		if !isValidUUID(userID) {
-			writeError(w, http.StatusBadRequest, "userId must be a valid UUID")
+		userID, ok := middleware.UserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication required")
 			return
 		}
 

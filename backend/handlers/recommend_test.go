@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/handlers"
+	"github.com/harshilc/cinematch-backend/middleware"
 )
 
 func TestRecommendForUser(t *testing.T) {
@@ -19,7 +19,7 @@ func TestRecommendForUser(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		userID        string
+		authenticated bool
 		embedding     []float32
 		embeddingErr  error
 		candidates    []db.MovieCandidate
@@ -30,35 +30,35 @@ func TestRecommendForUser(t *testing.T) {
 		wantSource    string
 	}{
 		{
-			name:       "returns personalized results when embedding exists",
-			userID:     validUserID,
-			embedding:  sampleEmbedding,
-			candidates: []db.MovieCandidate{{Movie: sampleMovies[0], Similarity: 0.95}},
-			wantStatus: http.StatusOK,
-			wantSource: "personalized",
+			name:          "returns personalized results when embedding exists",
+			authenticated: true,
+			embedding:     sampleEmbedding,
+			candidates:    []db.MovieCandidate{{Movie: sampleMovies[0], Similarity: 0.95}},
+			wantStatus:    http.StatusOK,
+			wantSource:    "personalized",
 		},
 		{
 			name:          "returns popular fallback for cold-start user",
-			userID:        validUserID,
+			authenticated: true,
 			embedding:     nil,
 			popularMovies: sampleMovies,
 			wantStatus:    http.StatusOK,
 			wantSource:    "popular",
 		},
 		{
-			name:       "returns 400 for invalid userId",
-			userID:     "not-a-uuid",
-			wantStatus: http.StatusBadRequest,
+			name:          "returns 401 when not authenticated",
+			authenticated: false,
+			wantStatus:    http.StatusUnauthorized,
 		},
 		{
-			name:         "returns 500 when embedding fetch fails",
-			userID:       validUserID,
-			embeddingErr: errors.New("db error"),
-			wantStatus:   http.StatusInternalServerError,
+			name:          "returns 500 when embedding fetch fails",
+			authenticated: true,
+			embeddingErr:  errors.New("db error"),
+			wantStatus:    http.StatusInternalServerError,
 		},
 		{
 			name:          "returns 500 when match_movies fails",
-			userID:        validUserID,
+			authenticated: true,
 			embedding:     sampleEmbedding,
 			candidatesErr: errors.New("rpc error"),
 			wantStatus:    http.StatusInternalServerError,
@@ -79,12 +79,13 @@ func TestRecommendForUser(t *testing.T) {
 				},
 			}
 
-			r := chi.NewRouter()
-			r.Get("/recommend/{userId}", handlers.RecommendForUser(q))
-
-			req := httptest.NewRequest(http.MethodGet, "/recommend/"+tc.userID, nil)
+			req := httptest.NewRequest(http.MethodGet, "/recommend", nil)
+			if tc.authenticated {
+				req = req.WithContext(middleware.WithUserID(req.Context(), validUserID))
+			}
 			rec := httptest.NewRecorder()
-			r.ServeHTTP(rec, req)
+
+			handlers.RecommendForUser(q).ServeHTTP(rec, req)
 
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)

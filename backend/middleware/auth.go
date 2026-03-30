@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -13,26 +12,28 @@ type contextKey string
 
 const contextKeyUserID contextKey = "userID"
 
-// RequireAuth verifies the Supabase JWT in the Authorization header and injects
-// the user UUID into the request context. Requests with missing or invalid tokens
-// receive 401 before reaching the handler.
-func RequireAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := extractBearerToken(r)
-		if !ok {
-			http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
-			return
-		}
+// RequireAuth returns a middleware that verifies the Supabase JWT and injects the user UUID
+// into the request context. jwtSecret is captured once at server startup so we avoid
+// an os.Getenv call on every authenticated request.
+func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token, ok := extractBearerToken(r)
+			if !ok {
+				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+				return
+			}
 
-		userID, err := verifySupabaseJWT(token, os.Getenv("JWT_SECRET"))
-		if err != nil {
-			http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
-			return
-		}
+			userID, err := verifySupabaseJWT(token, jwtSecret)
+			if err != nil {
+				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+				return
+			}
 
-		ctx := context.WithValue(r.Context(), contextKeyUserID, userID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			ctx := context.WithValue(r.Context(), contextKeyUserID, userID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // UserIDFromContext extracts the authenticated user UUID injected by RequireAuth.

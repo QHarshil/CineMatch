@@ -30,7 +30,6 @@ func makeSupabaseJWT(t *testing.T, userID string, secret string, expiry time.Dur
 
 func TestRequireAuth(t *testing.T) {
 	validUserID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	t.Setenv("JWT_SECRET", testJWTSecret)
 
 	tests := []struct {
 		name       string
@@ -74,7 +73,7 @@ func TestRequireAuth(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := middleware.RequireAuth(next)
+			handler := middleware.RequireAuth(testJWTSecret)(next)
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)

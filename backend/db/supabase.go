@@ -52,7 +52,9 @@ func (c *SupabaseClient) Ping() error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 500 {
+	// Treat any 4xx/5xx as a failure — a 401 means the service key is wrong,
+	// which is just as broken as a 500 from the database's perspective.
+	if resp.StatusCode >= 400 {
 		return fmt.Errorf("supabase returned %d", resp.StatusCode)
 	}
 	return nil

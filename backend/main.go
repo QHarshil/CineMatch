@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +22,12 @@ func main() {
 	// godotenv.Load is a no-op if .env is absent, which is expected in production.
 	if err := godotenv.Load(); err != nil {
 		slog.Info("no .env file found, reading environment variables directly")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		slog.Error("JWT_SECRET is required but not set")
+		os.Exit(1)
 	}
 
 	supabase := db.NewSupabaseClient(
@@ -45,11 +54,12 @@ func main() {
 	r.Get("/movies", handlers.ListMovies(supabase))
 	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
 	r.Get("/search", handlers.SearchMovies(supabase))
-	r.Get("/recommend/{userId}", handlers.RecommendForUser(supabase))
 
 	// Authenticated endpoints — require a valid Supabase JWT.
+	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
-		r.Use(custommw.RequireAuth)
+		r.Use(custommw.RequireAuth(jwtSecret))
+		r.Get("/recommend", handlers.RecommendForUser(supabase))
 		r.Post("/interactions", handlers.RecordInteraction(supabase))
 	})
 
@@ -58,9 +68,34 @@ func main() {
 		port = "8080"
 	}
 
-	slog.Info("cinematch backend ready", "port", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
-		slog.Error("server exited with error", "error", err)
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Capture SIGINT/SIGTERM so Railway can shut down the container cleanly.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		slog.Info("cinematch backend ready", "port", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("shutdown signal received, draining connections")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
 		os.Exit(1)
 	}
+	slog.Info("server stopped cleanly")
 }

@@ -12,7 +12,7 @@ export function Header() {
 
   const navLinks = [
     { href: "/browse", label: "Browse" },
-    ...(user ? [{ href: "/for-you", label: "For You" }] : []),
+    { href: "/for-you", label: "For You" },
     { href: "/how-it-works", label: "How It Works" },
   ];
 

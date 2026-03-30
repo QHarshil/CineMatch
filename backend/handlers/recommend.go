@@ -31,7 +31,7 @@ type MovieRanker interface {
 // Cold-start fallback: users without an embedding receive popular movies.
 // Ranker fallback: if the ranker is unreachable, candidates are returned
 // in their original cosine-similarity order so the endpoint stays available.
-func RecommendForUser(querier DBQuerier, movieRanker MovieRanker) http.HandlerFunc {
+func RecommendForUser(querier DBQuerier, movieRanker MovieRanker, cache PopularCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := middleware.UserIDFromContext(r.Context())
 		if !ok {
@@ -41,6 +41,16 @@ func RecommendForUser(querier DBQuerier, movieRanker MovieRanker) http.HandlerFu
 
 		embedding, err := querier.GetUserEmbedding(r.Context(), userID)
 		if err != nil {
+			// Supabase unreachable — serve cached popular movies instead of 500.
+			slog.Warn("supabase unreachable for user embedding, serving cached popular", "error", err)
+			if cached := cache.Get(); cached != nil {
+				n := recommendedMovieCount
+				if n > len(cached) {
+					n = len(cached)
+				}
+				writeJSON(w, http.StatusOK, popularMoviesResponse(cached[:n]))
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "failed to load user profile")
 			return
 		}
@@ -50,6 +60,15 @@ func RecommendForUser(querier DBQuerier, movieRanker MovieRanker) http.HandlerFu
 		if embedding == nil {
 			movies, err := querier.ListMovies(r.Context(), recommendedMovieCount, 0)
 			if err != nil {
+				slog.Warn("supabase unreachable for cold-start popular, serving cache", "error", err)
+				if cached := cache.Get(); cached != nil {
+					n := recommendedMovieCount
+					if n > len(cached) {
+						n = len(cached)
+					}
+					writeJSON(w, http.StatusOK, popularMoviesResponse(cached[:n]))
+					return
+				}
 				writeError(w, http.StatusInternalServerError, "failed to load recommendations")
 				return
 			}

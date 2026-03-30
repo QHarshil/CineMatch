@@ -2,6 +2,14 @@ import type { Movie, RecommendResponse, InteractionType } from "@/types/movie";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+/** Thrown when the API returns 429 Too Many Requests. */
+export class RateLimitError extends Error {
+  constructor() {
+    super("Too many requests");
+    this.name = "RateLimitError";
+  }
+}
+
 async function apiFetch<T>(
   path: string,
   options?: RequestInit
@@ -13,6 +21,10 @@ async function apiFetch<T>(
       ...options?.headers,
     },
   });
+
+  if (res.status === 429) {
+    throw new RateLimitError();
+  }
 
   if (!res.ok) {
     const body = await res.text();

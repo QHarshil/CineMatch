@@ -85,7 +85,7 @@ export function PipelineDiagram() {
 
   return (
     <div ref={ref} className="w-full overflow-x-auto py-8 scrollbar-hide">
-      <div className="flex items-start justify-center gap-3 sm:gap-4 min-w-[700px] px-4">
+      <div className="flex items-start gap-3 sm:gap-4 min-w-[700px] px-4 mx-auto w-fit">
         <Stage
           label="User Profile"
           sublabel="Embedding"

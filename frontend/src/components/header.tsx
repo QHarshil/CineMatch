@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -15,19 +15,22 @@ export function Header() {
   ];
 
   return (
-    <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        {/* Left: logo + desktop nav */}
-        <div className="flex items-center gap-6">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8">
+        {/* Left: wordmark + nav */}
+        <div className="flex items-center gap-8">
+          <Link
+            href="/"
+            className="font-heading text-xl font-bold tracking-tight text-gold"
+          >
             CineMatch
           </Link>
-          <nav className="hidden sm:flex items-center gap-4 text-sm">
+          <nav className="hidden sm:flex items-center gap-6 text-sm">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 {link.label}
               </Link>
@@ -35,39 +38,33 @@ export function Header() {
           </nav>
         </div>
 
-        {/* Right: auth + mobile hamburger */}
-        <div className="flex items-center gap-3">
+        {/* Right: auth + mobile toggle */}
+        <div className="flex items-center gap-4">
           {loading ? null : user ? (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => signOut()}
-              className="hidden sm:inline-flex"
+              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
             >
               Sign out
-            </Button>
+            </button>
           ) : (
-            <Link href="/login" className="hidden sm:inline-flex">
-              <Button variant="default" size="sm">
-                Sign in
-              </Button>
+            <Link
+              href="/login"
+              className="hidden sm:block text-sm text-gold hover:text-gold-dim transition-colors duration-200"
+            >
+              Sign in
             </Link>
           )}
 
-          {/* Mobile hamburger */}
           <button
-            className="sm:hidden p-2 text-muted-foreground hover:text-foreground"
+            className="sm:hidden p-1.5 text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
             {mobileOpen ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" strokeWidth={1.5} />
             ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12h18M3 6h18M3 18h18" />
-              </svg>
+              <Menu className="w-5 h-5" strokeWidth={1.5} />
             )}
           </button>
         </div>
@@ -75,21 +72,21 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <nav className="sm:hidden border-t border-border bg-background px-4 py-3 space-y-2">
+        <nav className="sm:hidden bg-surface border-t border-border px-4 py-4 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="block py-2 text-sm text-muted-foreground hover:text-foreground"
+              className="block py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setMobileOpen(false)}
             >
               {link.label}
             </Link>
           ))}
-          {!loading && (
-            user ? (
+          {!loading &&
+            (user ? (
               <button
-                className="block w-full text-left py-2 text-sm text-muted-foreground hover:text-foreground"
+                className="block w-full text-left py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => {
                   signOut();
                   setMobileOpen(false);
@@ -100,13 +97,12 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="block py-2 text-sm text-muted-foreground hover:text-foreground"
+                className="block py-2.5 text-sm text-gold hover:text-gold-dim transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Sign in
               </Link>
-            )
-          )}
+            ))}
         </nav>
       )}
     </header>

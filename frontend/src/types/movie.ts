@@ -7,6 +7,7 @@ export interface Movie {
   genres: string[];
   release_year: number;
   poster_path: string;
+  backdrop_path?: string;
   vote_average: number;
   popularity: number;
   runtime: number;

@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import type { Movie } from "@/types/movie";
 import { fetchMovies } from "@/lib/api";
 import { MovieGrid } from "@/components/movie-grid";
-import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 20;
 
@@ -27,15 +26,14 @@ export function BrowseGrid({ initialMovies }: { initialMovies: Movie[] }) {
     <>
       <MovieGrid movies={movies} />
       {hasMore && (
-        <div className="flex justify-center mt-8">
-          <Button
-            variant="outline"
-            size="lg"
+        <div className="flex justify-center mt-12">
+          <button
             onClick={loadMore}
             disabled={isPending}
+            className="px-8 py-3 border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors duration-200 disabled:opacity-50"
           >
             {isPending ? "Loading..." : "Load more"}
-          </Button>
+          </button>
         </div>
       )}
     </>

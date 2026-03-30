@@ -1,31 +1,52 @@
-import Link from "next/link";
+import { fetchMovies } from "@/lib/api";
+import { Hero } from "@/components/hero";
+import { ScrollRow } from "@/components/scroll-row";
 import { SearchBar } from "@/components/search-bar";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const movies = await fetchMovies(40, 0);
+
+  const featured = movies[0];
+  const trending = movies.slice(0, 20);
+  const recent = movies.slice(20, 40);
+
   return (
-    <div className="flex flex-col items-center justify-center gap-8 py-24 px-4 text-center">
-      <div className="flex flex-col gap-3 max-w-2xl">
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-          Find your next favourite movie
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          CineMatch uses a two-stage ML pipeline to surface movies you will
-          actually enjoy, not just what is popular.
-        </p>
-      </div>
+    <div className="-mt-14">
+      {/* Hero with featured movie backdrop */}
+      {featured && <Hero movie={featured} />}
 
-      <SearchBar />
+      {/* Content rows */}
+      <div className="mx-auto max-w-7xl space-y-12 py-12">
+        {/* Search */}
+        <div className="flex flex-col items-center gap-3 px-4">
+          <p className="text-sm text-muted-foreground">
+            Find something specific
+          </p>
+          <SearchBar variant="hero" />
+        </div>
 
-      <div className="flex gap-3">
-        <Link href="/browse">
-          <Button variant="outline" size="lg">
-            Browse all
-          </Button>
-        </Link>
-        <Link href="/for-you">
-          <Button size="lg">Get recommendations</Button>
-        </Link>
+        {/* Trending row */}
+        {trending.length > 0 && (
+          <ScrollRow title="Trending Now" movies={trending} />
+        )}
+
+        {/* More to explore */}
+        {recent.length > 0 && (
+          <ScrollRow title="More to Explore" movies={recent} />
+        )}
+
+        {/* Browse CTA */}
+        <div className="flex justify-center px-4">
+          <Link
+            href="/browse"
+            className="px-8 py-3 border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors duration-200"
+          >
+            Browse all movies
+          </Link>
+        </div>
       </div>
     </div>
   );

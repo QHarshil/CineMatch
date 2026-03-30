@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Menu, X } from "lucide-react";
+import { SearchBar } from "@/components/search-bar";
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -21,11 +22,11 @@ export function Header() {
         <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="font-heading text-xl font-bold tracking-tight text-gold"
+            className="font-heading text-xl font-bold tracking-tight text-gold shrink-0"
           >
             CineMatch
           </Link>
-          <nav className="hidden sm:flex items-center gap-6 text-sm">
+          <nav className="hidden md:flex items-center gap-6 text-sm">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -38,26 +39,30 @@ export function Header() {
           </nav>
         </div>
 
-        {/* Right: auth + mobile toggle */}
+        {/* Right: search + auth + mobile toggle */}
         <div className="flex items-center gap-4">
+          <div className="hidden sm:block">
+            <SearchBar variant="header" />
+          </div>
+
           {loading ? null : user ? (
             <button
               onClick={() => signOut()}
-              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="hidden md:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 shrink-0"
             >
               Sign out
             </button>
           ) : (
             <Link
               href="/login"
-              className="hidden sm:block text-sm text-gold hover:text-gold-dim transition-colors duration-200"
+              className="hidden md:block text-sm text-gold hover:text-gold-dim transition-colors duration-200 shrink-0"
             >
               Sign in
             </Link>
           )}
 
           <button
-            className="sm:hidden p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="md:hidden p-1.5 text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -72,12 +77,15 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <nav className="sm:hidden bg-surface border-t border-border px-4 py-4 space-y-1">
+        <nav className="md:hidden bg-surface border-t border-border px-4 py-4 space-y-3">
+          <div className="sm:hidden pb-2">
+            <SearchBar variant="inline" />
+          </div>
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="block py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="block py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setMobileOpen(false)}
             >
               {link.label}
@@ -86,7 +94,7 @@ export function Header() {
           {!loading &&
             (user ? (
               <button
-                className="block w-full text-left py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="block w-full text-left py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => {
                   signOut();
                   setMobileOpen(false);
@@ -97,7 +105,7 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="block py-2.5 text-sm text-gold hover:text-gold-dim transition-colors"
+                className="block py-2 text-sm text-gold hover:text-gold-dim transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Sign in

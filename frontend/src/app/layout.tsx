@@ -20,7 +20,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "CineMatch",
   description:
-    "Personalised movie recommendations powered by a two-stage ML pipeline.",
+    "Discover films you will love. Personalised movie recommendations curated to your taste.",
 };
 
 export default function RootLayout({

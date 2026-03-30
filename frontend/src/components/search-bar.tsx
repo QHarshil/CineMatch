@@ -14,7 +14,7 @@ const DEBOUNCE_MS = 300;
 
 interface SearchBarProps {
   initialQuery?: string;
-  variant?: "inline" | "hero";
+  variant?: "inline" | "hero" | "header";
 }
 
 export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarProps) {
@@ -23,9 +23,9 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
   const [results, setResults] = useState<Movie[]>([]);
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Derive whether results should show based on query length
   const trimmed = query.trim();
   const showDropdown = open && results.length > 0 && trimmed.length >= 2;
 
@@ -60,6 +60,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setFocused(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -70,13 +71,23 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
     e.preventDefault();
     if (trimmed.length === 0) return;
     setOpen(false);
+    setFocused(false);
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
   const isHero = variant === "hero";
+  const isHeader = variant === "header";
+
+  const widthClass = isHero
+    ? "w-full max-w-lg"
+    : isHeader
+      ? `transition-all duration-300 ease-out ${focused ? "w-96" : "w-64"}`
+      : "w-full max-w-sm";
+
+  const inputHeight = isHero ? "h-12 text-base" : "h-9 text-sm";
 
   return (
-    <div ref={containerRef} className={`relative ${isHero ? "w-full max-w-lg" : "w-full max-w-sm"}`}>
+    <div ref={containerRef} className={`relative ${widthClass}`}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -91,8 +102,15 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
             placeholder="Search movies..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => results.length > 0 && trimmed.length >= 2 && setOpen(true)}
-            className={`pl-10 bg-surface border-border text-foreground placeholder:text-muted-foreground ${isHero ? "h-12 text-base" : "h-10 text-sm"}`}
+            onFocus={() => {
+              setFocused(true);
+              if (results.length > 0 && trimmed.length >= 2) setOpen(true);
+            }}
+            onBlur={() => {
+              // Delay blur so click on dropdown registers
+              setTimeout(() => setFocused(false), 200);
+            }}
+            className={`pl-10 bg-surface border-border text-foreground placeholder:text-muted-foreground ${inputHeight}`}
           />
         </div>
       </form>
@@ -104,7 +122,10 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
             <Link
               key={movie.id}
               href={`/movie/${movie.id}`}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setFocused(false);
+              }}
               className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-hover transition-colors duration-150"
             >
               {movie.poster_path ? (
@@ -135,7 +156,10 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
           ))}
           <Link
             href={`/search?q=${encodeURIComponent(trimmed)}`}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setFocused(false);
+            }}
             className="block px-3 py-2.5 text-xs text-gold hover:bg-surface-hover transition-colors duration-150 border-t border-border"
           >
             View all results

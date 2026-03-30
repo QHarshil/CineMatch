@@ -1,12 +1,11 @@
 import { fetchMovies } from "@/lib/api";
-import { MovieGrid } from "@/components/movie-grid";
 import { SearchBar } from "@/components/search-bar";
+import { BrowseGrid } from "./browse-grid";
 
-// Always fetch fresh data at request time — the movie catalog changes when we re-seed.
 export const dynamic = "force-dynamic";
 
 export default async function BrowsePage() {
-  const movies = await fetchMovies(40, 0);
+  const initialMovies = await fetchMovies(20, 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -14,7 +13,7 @@ export default async function BrowsePage() {
         <h1 className="text-2xl font-bold">Browse Movies</h1>
         <SearchBar />
       </div>
-      <MovieGrid movies={movies} />
+      <BrowseGrid initialMovies={initialMovies} />
     </div>
   );
 }

@@ -1,15 +1,40 @@
-import { fetchMovies } from "@/lib/api";
-import { BrowseGrid } from "./browse-grid";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { BrowseContent } from "./browse-content";
 
 export const dynamic = "force-dynamic";
 
-export default async function BrowsePage() {
-  const initialMovies = await fetchMovies(20, 0);
+export const metadata = {
+  title: "Browse | CineMatch",
+  description: "Browse movies by genre, sort by popularity, rating, or release date.",
+};
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 lg:px-8 pt-20 pb-12">
-      <h1 className="font-heading text-3xl font-semibold mb-10">Browse</h1>
-      <BrowseGrid initialMovies={initialMovies} />
-    </div>
-  );
+async function fetchGenres(): Promise<string[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("movies")
+      .select("genres");
+    if (!data) return [];
+
+    const genreSet = new Set<string>();
+    for (const row of data) {
+      if (Array.isArray(row.genres)) {
+        for (const g of row.genres) genreSet.add(g);
+      }
+    }
+    return Array.from(genreSet).sort();
+  } catch {
+    return [];
+  }
+}
+
+export default async function BrowsePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const genres = await fetchGenres();
+
+  return <BrowseContent genres={genres} searchQuery={q ?? ""} />;
 }

@@ -72,7 +72,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
     if (trimmed.length === 0) return;
     setOpen(false);
     setFocused(false);
-    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    router.push(`/browse?q=${encodeURIComponent(trimmed)}`);
   }
 
   const isHero = variant === "hero";

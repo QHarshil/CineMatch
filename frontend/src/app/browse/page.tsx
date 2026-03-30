@@ -8,9 +8,9 @@ export default async function BrowsePage() {
   const initialMovies = await fetchMovies(20, 0);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <h1 className="text-2xl font-bold">Browse Movies</h1>
+    <div className="mx-auto max-w-7xl px-4 lg:px-8 pt-20 pb-12">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-10">
+        <h1 className="font-heading text-3xl font-semibold">Browse</h1>
         <SearchBar />
       </div>
       <BrowseGrid initialMovies={initialMovies} />

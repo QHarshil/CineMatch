@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { recordInteraction } from "@/lib/api";
-import { Button } from "@/components/ui/button";
 import type { InteractionType } from "@/types/movie";
 
 const INTERACTION_LABELS: { type: InteractionType; label: string }[] = [
@@ -42,15 +41,18 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
   return (
     <div className="flex flex-wrap gap-2">
       {INTERACTION_LABELS.map(({ type, label }) => (
-        <Button
+        <button
           key={type}
-          variant={selected === type ? "default" : "outline"}
-          size="sm"
           disabled={submitting}
           onClick={() => handleClick(type)}
+          className={`px-4 py-2 text-sm border transition-colors duration-200 disabled:opacity-50 ${
+            selected === type
+              ? "border-gold text-gold bg-gold/10"
+              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+          }`}
         >
           {label}
-        </Button>
+        </button>
       ))}
     </div>
   );

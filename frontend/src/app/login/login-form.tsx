@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function LoginForm() {
@@ -33,20 +32,23 @@ export function LoginForm() {
 
   if (sent) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4 px-4">
-        <h1 className="text-2xl font-bold">Check your email</h1>
-        <p className="text-muted-foreground text-center max-w-md">
-          We sent a magic link to <strong>{email}</strong>. Click it to sign in.
+      <div className="flex flex-col items-center justify-center pt-32 pb-16 gap-4 px-4">
+        <h1 className="font-heading text-3xl font-semibold">
+          Check your email
+        </h1>
+        <p className="text-muted-foreground text-sm text-center max-w-md">
+          We sent a magic link to <strong className="text-foreground">{email}</strong>.
+          Click it to sign in.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-6 px-4">
+    <div className="flex flex-col items-center justify-center pt-32 pb-16 gap-8 px-4">
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-bold">Sign in to CineMatch</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-heading text-3xl font-semibold">Sign in</h1>
+        <p className="text-muted-foreground text-sm">
           No password needed. We will email you a magic link.
         </p>
       </div>
@@ -58,11 +60,18 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          className="h-12 bg-surface border-border text-foreground placeholder:text-muted-foreground"
         />
-        <Button type="submit" disabled={submitting}>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="h-12 bg-gold text-background text-sm font-medium hover:bg-gold-dim transition-colors duration-200 disabled:opacity-50"
+        >
           {submitting ? "Sending..." : "Send magic link"}
-        </Button>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        </button>
+        {error && (
+          <p className="text-sm text-destructive text-center">{error}</p>
+        )}
       </form>
     </div>
   );

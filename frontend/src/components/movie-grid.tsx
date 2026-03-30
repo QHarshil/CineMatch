@@ -8,14 +8,14 @@ interface MovieGridProps {
 export function MovieGrid({ movies }: MovieGridProps) {
   if (movies.length === 0) {
     return (
-      <p className="text-muted-foreground text-center py-12">
+      <p className="text-muted-foreground text-center py-16 text-sm">
         No movies found.
       </p>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8">
       {movies.map((movie) => (
         <MovieCard key={movie.id} movie={movie} />
       ))}

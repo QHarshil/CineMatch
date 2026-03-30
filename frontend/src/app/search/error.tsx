@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-
 export default function SearchError({
   reset,
 }: {
@@ -9,12 +7,17 @@ export default function SearchError({
   reset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4 px-4">
-      <h2 className="text-xl font-bold">Search failed</h2>
-      <p className="text-muted-foreground text-center max-w-md">
+    <div className="flex flex-col items-center justify-center pt-32 pb-16 gap-4 px-4">
+      <h2 className="font-heading text-2xl font-semibold">Search failed</h2>
+      <p className="text-muted-foreground text-sm text-center max-w-md">
         Something went wrong while searching. Please try again.
       </p>
-      <Button onClick={reset}>Try again</Button>
+      <button
+        onClick={reset}
+        className="px-6 py-2.5 border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors duration-200"
+      >
+        Try again
+      </button>
     </div>
   );
 }

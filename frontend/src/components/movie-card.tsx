@@ -15,8 +15,13 @@ export function MovieCard({ movie }: MovieCardProps) {
     ? `${TMDB_IMAGE_BASE}${movie.poster_path}`
     : null;
 
+  const primaryGenre = movie.genres[0] ?? null;
+
   return (
-    <Link href={`/movie/${movie.id}`} className="group flex flex-col gap-2">
+    <Link
+      href={`/movie/${movie.id}`}
+      className="group flex flex-col transition-transform duration-200 ease-out hover:scale-[1.03] hover:shadow-lg hover:shadow-black/40"
+    >
       {/* Poster */}
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-surface">
         {posterUrl ? (
@@ -24,35 +29,35 @@ export function MovieCard({ movie }: MovieCardProps) {
             src={posterUrl}
             alt={`${movie.title} poster`}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-            className="object-cover transition-opacity duration-200 ease-out group-hover:opacity-80"
+            sizes="(max-width: 640px) 140px, 180px"
+            className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+          <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
             No poster
           </div>
         )}
       </div>
 
-      {/* Metadata below poster */}
-      <div className="flex flex-col gap-0.5">
-        <h3 className="font-heading text-base font-semibold leading-tight line-clamp-1 group-hover:text-gold transition-colors duration-200">
+      {/* Always-visible metadata */}
+      <div className="flex flex-col gap-0.5 pt-2">
+        <h3 className="font-heading text-sm font-semibold leading-tight truncate">
           {movie.title}
         </h3>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{movie.release_year}</span>
-          {movie.genres.length > 0 && (
+          {movie.vote_average > 0 && (
             <>
-              <span className="text-border">|</span>
-              <span className="line-clamp-1">
-                {movie.genres.slice(0, 2).join(", ")}
+              <span className="text-gold">&#9733;</span>
+              <span className="text-gold font-medium">
+                {movie.vote_average.toFixed(1)}
               </span>
             </>
           )}
         </div>
-        {movie.vote_average > 0 && (
-          <span className="text-xs font-medium text-gold">
-            {movie.vote_average.toFixed(1)}
+        {primaryGenre && (
+          <span className="mt-0.5 inline-block w-fit text-[10px] px-2 py-0.5 text-muted-foreground border border-border">
+            {primaryGenre}
           </span>
         )}
       </div>

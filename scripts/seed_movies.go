@@ -55,14 +55,15 @@ type tmdbGenre struct {
 }
 
 type tmdbMovie struct {
-	ID          int     `json:"id"`
-	Title       string  `json:"title"`
-	Overview    string  `json:"overview"`
-	GenreIDs    []int   `json:"genre_ids"`
-	ReleaseDate string  `json:"release_date"` // "YYYY-MM-DD" or ""
-	PosterPath  string  `json:"poster_path"`
-	VoteAverage float64 `json:"vote_average"`
-	Popularity  float64 `json:"popularity"`
+	ID           int     `json:"id"`
+	Title        string  `json:"title"`
+	Overview     string  `json:"overview"`
+	GenreIDs     []int   `json:"genre_ids"`
+	ReleaseDate  string  `json:"release_date"` // "YYYY-MM-DD" or ""
+	PosterPath   string  `json:"poster_path"`
+	BackdropPath string  `json:"backdrop_path"`
+	VoteAverage  float64 `json:"vote_average"`
+	Popularity   float64 `json:"popularity"`
 }
 
 // — Supabase row type ————————————————————————————————————————————————————————
@@ -71,15 +72,16 @@ type tmdbMovie struct {
 // Embedding is []float64 because json.Unmarshal decodes JSON numbers as float64;
 // pgvector accepts a JSON array for vector columns over the PostgREST API.
 type movieRow struct {
-	TmdbID      int       `json:"tmdb_id"`
-	Title       string    `json:"title"`
-	Overview    string    `json:"overview"`
-	Genres      []string  `json:"genres"`
-	ReleaseYear int       `json:"release_year"`
-	PosterPath  string    `json:"poster_path"`
-	VoteAverage float64   `json:"vote_average"`
-	Popularity  float64   `json:"popularity"`
-	Embedding   []float64 `json:"embedding"`
+	TmdbID       int       `json:"tmdb_id"`
+	Title        string    `json:"title"`
+	Overview     string    `json:"overview"`
+	Genres       []string  `json:"genres"`
+	ReleaseYear  int       `json:"release_year"`
+	PosterPath   string    `json:"poster_path"`
+	BackdropPath string    `json:"backdrop_path"`
+	VoteAverage  float64   `json:"vote_average"`
+	Popularity   float64   `json:"popularity"`
+	Embedding    []float64 `json:"embedding"`
 }
 
 // — Worker pipeline ——————————————————————————————————————————————————————————
@@ -289,8 +291,9 @@ func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, 
 				Overview:    movie.Overview,
 				Genres:      genreNamesFromIDs(movie.GenreIDs, genreMap),
 				ReleaseYear: extractReleaseYear(movie.ReleaseDate),
-				PosterPath:  movie.PosterPath,
-				VoteAverage: movie.VoteAverage,
+				PosterPath:   movie.PosterPath,
+				BackdropPath: movie.BackdropPath,
+				VoteAverage:  movie.VoteAverage,
 				Popularity:  movie.Popularity,
 				Embedding:   embedding,
 			}}

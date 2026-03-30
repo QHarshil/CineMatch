@@ -24,6 +24,8 @@ import lambdamart_ranker
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("cinematch.ranker")
 
+IS_PRODUCTION = os.environ.get("APP_ENV", "development") == "production"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
@@ -43,8 +45,7 @@ app = FastAPI(
     description="Stage-2 re-ranking service for the two-stage recommendation pipeline.",
     version="1.0.0",
     lifespan=lifespan,
-    # Disable the default /docs and /redoc in production — internal service only.
-    docs_url="/docs",
+    docs_url=None if IS_PRODUCTION else "/docs",
     redoc_url=None,
 )
 
@@ -85,4 +86,6 @@ def health() -> JSONResponse:
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run("main:app", host=host, port=port, log_level="info")

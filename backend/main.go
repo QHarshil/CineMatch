@@ -52,6 +52,8 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(custommw.CORSHandler())
 	r.Use(custommw.RateLimiter())
+	r.Use(custommw.SecurityHeaders())
+	r.Use(custommw.RequireJSONContentType())
 
 	bootTime := time.Now()
 

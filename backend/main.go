@@ -38,7 +38,20 @@ func main() {
 	r.Use(custommw.RateLimiter())
 
 	bootTime := time.Now()
+
 	r.Get("/health", handlers.Health(supabase, bootTime))
+
+	// Public endpoints — no auth required.
+	r.Get("/movies", handlers.ListMovies(supabase))
+	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
+	r.Get("/search", handlers.SearchMovies(supabase))
+	r.Get("/recommend/{userId}", handlers.RecommendForUser(supabase))
+
+	// Authenticated endpoints — require a valid Supabase JWT.
+	r.Group(func(r chi.Router) {
+		r.Use(custommw.RequireAuth)
+		r.Post("/interactions", handlers.RecordInteraction(supabase))
+	})
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {

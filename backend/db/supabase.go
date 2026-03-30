@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -57,44 +58,66 @@ func (c *SupabaseClient) Ping() error {
 	return nil
 }
 
-// CallRPC invokes a Supabase Postgres function via the REST API RPC endpoint.
-// payload is JSON-marshalled and sent as the request body.
-// dest is populated with the decoded JSON response.
+// CallRPC invokes a Supabase Postgres function via the RPC endpoint.
+// payload is JSON-encoded as the request body; dest receives the decoded response.
 func (c *SupabaseClient) CallRPC(ctx context.Context, fn string, payload, dest any) error {
+	return c.doPost(ctx, "/rest/v1/rpc/"+fn, payload, dest)
+}
+
+// doGet performs an authenticated GET against the Supabase REST API.
+// table is the PostgREST table path (e.g. "movies"); params are appended as query string.
+func (c *SupabaseClient) doGet(ctx context.Context, table string, params url.Values, dest any) error {
+	endpoint := c.baseURL + "/rest/v1/" + table + "?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("building GET request for %s: %w", table, err)
+	}
+	c.injectAuthHeaders(req)
+	return c.execute(req, dest)
+}
+
+// doPost performs an authenticated POST against the Supabase REST API.
+// path is relative to baseURL (e.g. "/rest/v1/interactions" or "/rest/v1/rpc/match_movies").
+func (c *SupabaseClient) doPost(ctx context.Context, path string, payload, dest any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshalling rpc payload for %s: %w", fn, err)
+		return fmt.Errorf("marshalling payload for %s: %w", path, err)
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		c.baseURL+"/rest/v1/rpc/"+fn,
-		bytes.NewReader(body),
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("building rpc request for %s: %w", fn, err)
+		return fmt.Errorf("building POST request for %s: %w", path, err)
 	}
 	c.injectAuthHeaders(req)
 
+	// Request minimal response body on inserts — we don't need the echoed row.
+	if dest == nil {
+		req.Header.Set("Prefer", "return=minimal")
+	}
+
+	return c.execute(req, dest)
+}
+
+// execute dispatches a pre-built request and decodes the response into dest.
+func (c *SupabaseClient) execute(req *http.Request, dest any) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("calling supabase rpc %s: %w", fn, err)
+		return fmt.Errorf("executing %s %s: %w", req.Method, req.URL.Path, err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("reading rpc response from %s: %w", fn, err)
+		return fmt.Errorf("reading response from %s %s: %w", req.Method, req.URL.Path, err)
 	}
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("supabase rpc %s returned %d: %s", fn, resp.StatusCode, string(respBytes))
+		return fmt.Errorf("supabase %s %s returned %d: %s", req.Method, req.URL.Path, resp.StatusCode, string(respBytes))
 	}
 
-	if dest != nil {
+	if dest != nil && len(respBytes) > 0 {
 		if err := json.Unmarshal(respBytes, dest); err != nil {
-			return fmt.Errorf("decoding rpc response from %s: %w", fn, err)
+			return fmt.Errorf("decoding response from %s %s: %w", req.Method, req.URL.Path, err)
 		}
 	}
 	return nil

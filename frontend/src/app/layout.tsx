@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant, Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/header";
+import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 const cormorant = Cormorant({
@@ -35,8 +36,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
+          <ToastProvider>
+            <Header />
+            <main className="flex-1">{children}</main>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

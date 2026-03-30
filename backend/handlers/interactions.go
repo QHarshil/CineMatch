@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/harshilc/cinematch-backend/db"
@@ -18,6 +19,11 @@ var validInteractionTypes = map[string]bool{
 	"like": true, "dislike": true, "watch": true, "skip": true,
 }
 
+const (
+	maxInteractionsPerUser  = 500
+	maxInteractionsPerMovie = 5
+)
+
 // RecordInteraction handles POST /interactions
 // Requires a valid Supabase JWT. The user_id is taken from the token, not the request body,
 // so users cannot record interactions on behalf of other users.
@@ -29,14 +35,18 @@ func RecordInteraction(querier DBQuerier) http.HandlerFunc {
 			return
 		}
 
-		// Limit body size before decoding — an interaction payload has two fields,
-		// so anything over 4KB is either malformed or malicious.
-		r.Body = http.MaxBytesReader(w, r.Body, 4096)
+		// Strict JSON decoding: reject unknown fields to prevent schema confusion.
 		var body interactionRequest
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+
+		// Sanitize string inputs.
+		body.MovieID = sanitizeString(body.MovieID)
+		body.Type = sanitizeString(body.Type)
 
 		if !isValidUUID(body.MovieID) {
 			writeError(w, http.StatusBadRequest, "movie_id must be a valid UUID")
@@ -44,6 +54,30 @@ func RecordInteraction(querier DBQuerier) http.HandlerFunc {
 		}
 		if !validInteractionTypes[body.Type] {
 			writeError(w, http.StatusBadRequest, "type must be one of: like, dislike, watch, skip")
+			return
+		}
+
+		// Enforce per-user total interaction cap.
+		totalCount, err := querier.CountUserInteractions(r.Context(), userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check interaction limits")
+			return
+		}
+		if totalCount >= maxInteractionsPerUser {
+			writeError(w, http.StatusTooManyRequests,
+				fmt.Sprintf("interaction limit reached (%d max per account)", maxInteractionsPerUser))
+			return
+		}
+
+		// Enforce per-user-per-movie interaction cap.
+		movieCount, err := querier.CountUserMovieInteractions(r.Context(), userID, body.MovieID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check interaction limits")
+			return
+		}
+		if movieCount >= maxInteractionsPerMovie {
+			writeError(w, http.StatusTooManyRequests,
+				fmt.Sprintf("you have already recorded %d interactions for this movie", maxInteractionsPerMovie))
 			return
 		}
 

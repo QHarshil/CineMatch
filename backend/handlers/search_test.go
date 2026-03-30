@@ -45,10 +45,11 @@ func TestSearchMovies(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "returns 500 on db error",
-			query:      "?q=nolan",
+			name:       "falls back to cache on db error",
+			query:      "?q=Inception",
 			dbErr:      errors.New("db unreachable"),
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusOK,
+			wantCount:  1,
 		},
 		{
 			name:       "returns empty slice when no matches",
@@ -66,7 +67,8 @@ func TestSearchMovies(t *testing.T) {
 					return tc.dbMovies, tc.dbErr
 				},
 			}
-			handler := handlers.SearchMovies(q)
+			cache := &stubCache{movies: sampleMovies}
+			handler := handlers.SearchMovies(q, cache)
 			req := httptest.NewRequest(http.MethodGet, "/search"+tc.query, nil)
 			rec := httptest.NewRecorder()
 			handler(rec, req)

@@ -10,7 +10,7 @@ import { searchMovies } from "@/lib/api";
 import type { Movie } from "@/types/movie";
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w92";
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 500;
 
 interface SearchBarProps {
   initialQuery?: string;
@@ -155,7 +155,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
             </Link>
           ))}
           <Link
-            href={`/search?q=${encodeURIComponent(trimmed)}`}
+            href={`/browse?q=${encodeURIComponent(trimmed)}`}
             onClick={() => {
               setOpen(false);
               setFocused(false);

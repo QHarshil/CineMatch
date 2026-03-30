@@ -1,3 +1,4 @@
+import { Film } from "lucide-react";
 import type { Movie } from "@/types/movie";
 import { MovieCard } from "@/components/movie-card";
 
@@ -8,9 +9,15 @@ interface MovieGridProps {
 export function MovieGrid({ movies }: MovieGridProps) {
   if (movies.length === 0) {
     return (
-      <p className="text-muted-foreground text-center py-16 text-sm">
-        No movies found.
-      </p>
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="w-16 h-16 border border-border flex items-center justify-center">
+          <Film className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
+        </div>
+        <p className="font-heading text-xl font-semibold">No movies found</p>
+        <p className="text-sm text-muted-foreground">
+          Try adjusting your filters or search term.
+        </p>
+      </div>
     );
   }
 

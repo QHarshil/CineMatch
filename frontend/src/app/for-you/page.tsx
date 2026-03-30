@@ -35,10 +35,16 @@ const DEMO_PROFILES = [
 const MOVIE_FIELDS =
   "id,tmdb_id,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
 
+interface BecauseYouLikedSection {
+  likedMovie: Movie;
+  similarMovies: Movie[];
+}
+
 export default function ForYouPage() {
   const { session, loading: authLoading } = useAuth();
   const [topPicks, setTopPicks] = useState<Movie[]>([]);
   const [popular, setPopular] = useState<Movie[]>([]);
+  const [becauseYouLiked, setBecauseYouLiked] = useState<BecauseYouLikedSection[]>([]);
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
@@ -59,7 +65,6 @@ export default function ForYouPage() {
 
   const fetchDemoRecommendations = useCallback(
     async (genres: string[]) => {
-      // Fetch movies matching the demo profile's preferred genres
       const { data } = await supabase.current
         .from("movies")
         .select(MOVIE_FIELDS)
@@ -71,28 +76,82 @@ export default function ForYouPage() {
     []
   );
 
+  /** Fetch the user's recent liked movies and find similar titles for each. */
+  const fetchBecauseYouLiked = useCallback(async (userId: string): Promise<BecauseYouLikedSection[]> => {
+    // Get the 3 most recent "like" interactions
+    const { data: interactions } = await supabase.current
+      .from("interactions")
+      .select("movie_id")
+      .eq("user_id", userId)
+      .eq("type", "like")
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    if (!interactions || interactions.length === 0) return [];
+
+    const likedMovieIds = interactions.map((i) => i.movie_id as string);
+
+    // Fetch the liked movies themselves
+    const { data: likedMovies } = await supabase.current
+      .from("movies")
+      .select(MOVIE_FIELDS)
+      .in("id", likedMovieIds);
+
+    if (!likedMovies || likedMovies.length === 0) return [];
+
+    // For each liked movie, find similar movies by genre overlap
+    const sections: BecauseYouLikedSection[] = [];
+    const seenMovieIds = new Set(likedMovieIds);
+
+    for (const liked of likedMovies as Movie[]) {
+      const topGenres = liked.genres.slice(0, 2);
+      if (topGenres.length === 0) continue;
+
+      const { data: similar } = await supabase.current
+        .from("movies")
+        .select(MOVIE_FIELDS)
+        .neq("id", liked.id)
+        .overlaps("genres", topGenres)
+        .gte("vote_average", Math.max(0, liked.vote_average - 2))
+        .order("popularity", { ascending: false })
+        .limit(20);
+
+      // Filter out movies already shown in other sections
+      const filtered = ((similar ?? []) as Movie[]).filter((m) => !seenMovieIds.has(m.id));
+      filtered.forEach((m) => seenMovieIds.add(m.id));
+
+      if (filtered.length > 0) {
+        sections.push({ likedMovie: liked, similarMovies: filtered });
+      }
+    }
+
+    return sections;
+  }, []);
+
   // Fetch authenticated user's recommendations
   const fetchAuthRecs = useCallback(async () => {
     if (!session || fetchedRef.current) return;
     fetchedRef.current = true;
     setLoading(true);
     try {
-      const [recResult, popularResult] = await Promise.all([
+      const [recResult, popularResult, likedSections] = await Promise.all([
         fetchRecommendations(session.access_token).catch(() => null),
         fetchPopularMovies(),
+        fetchBecauseYouLiked(session.user.id).catch(() => [] as BecauseYouLikedSection[]),
       ]);
       if (recResult) {
         setTopPicks(recResult.movies);
         setSource(recResult.source);
       }
       setPopular(popularResult);
+      setBecauseYouLiked(likedSections);
     } catch (err) {
       setError(String(err));
     } finally {
       setLoading(false);
       setFetched(true);
     }
-  }, [session, fetchPopularMovies]);
+  }, [session, fetchPopularMovies, fetchBecauseYouLiked]);
 
   // Auto-fetch for authenticated users
   if (session && !fetched && !loading && !fetchedRef.current) {
@@ -116,6 +175,7 @@ export default function ForYouPage() {
     setDemoProfile(profile.id);
     setLoading(true);
     setFetched(false);
+    setBecauseYouLiked([]);
     try {
       const [demoResult, popularResult] = await Promise.all([
         fetchDemoRecommendations(profile.genres),
@@ -286,10 +346,20 @@ export default function ForYouPage() {
         <div className="mb-12">
           <ScrollRow
             title={isDemoMode ? "Top Picks" : "Top Picks for You"}
-            movies={topPicks.map((m) => m)}
+            movies={topPicks}
           />
         </div>
       )}
+
+      {/* Because you liked X — personalized sections */}
+      {becauseYouLiked.map((section) => (
+        <div key={section.likedMovie.id} className="mb-12">
+          <ScrollRow
+            title={`Because you liked ${section.likedMovie.title}`}
+            movies={section.similarMovies}
+          />
+        </div>
+      ))}
 
       {/* Popular right now — always shown */}
       {popular.length > 0 && (

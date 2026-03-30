@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,34 +9,47 @@ import (
 	"testing"
 	"time"
 
+	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/handlers"
 )
 
-// stubDB satisfies DBPinger so we can control Ping behaviour in tests.
-type stubDB struct{ err error }
+// stubHealthDB satisfies handlers.HealthChecker so we can control behavior in tests.
+type stubHealthDB struct {
+	pingErr  error
+	stats    db.TableStats
+	statsErr error
+}
 
-func (s stubDB) Ping() error { return s.err }
+func (s stubHealthDB) Ping() error { return s.pingErr }
+func (s stubHealthDB) GetTableStats(_ context.Context) (db.TableStats, error) {
+	return s.stats, s.statsErr
+}
 
 func TestHealth(t *testing.T) {
 	bootTime := time.Now().Add(-30 * time.Second)
 
 	tests := []struct {
 		name        string
-		db          stubDB
+		db          stubHealthDB
 		wantStatus  int
 		wantDBField string
+		wantStats   bool
 	}{
 		{
-			name:        "supabase reachable",
-			db:          stubDB{err: nil},
+			name: "supabase reachable with stats",
+			db: stubHealthDB{
+				stats: db.TableStats{MovieCount: 494, UserCount: 10, InteractionCount: 150},
+			},
 			wantStatus:  http.StatusOK,
 			wantDBField: "ok",
+			wantStats:   true,
 		},
 		{
 			name:        "supabase unreachable",
-			db:          stubDB{err: errors.New("connection refused")},
-			wantStatus:  http.StatusOK, // service is up, database field signals the problem
+			db:          stubHealthDB{pingErr: errors.New("connection refused")},
+			wantStatus:  http.StatusOK,
 			wantDBField: "unreachable",
+			wantStats:   false,
 		},
 	}
 
@@ -52,10 +66,11 @@ func TestHealth(t *testing.T) {
 			}
 
 			var body struct {
-				Status        string  `json:"status"`
-				Version       string  `json:"version"`
-				UptimeSeconds float64 `json:"uptime_seconds"`
-				Database      string  `json:"database"`
+				Status        string         `json:"status"`
+				Version       string         `json:"version"`
+				UptimeSeconds float64        `json:"uptime_seconds"`
+				Database      string         `json:"database"`
+				Stats         *db.TableStats `json:"stats"`
 			}
 			if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 				t.Fatalf("decoding response body: %v", err)
@@ -72,6 +87,15 @@ func TestHealth(t *testing.T) {
 			}
 			if body.Version == "" {
 				t.Error("version field must not be empty")
+			}
+			if tc.wantStats && body.Stats == nil {
+				t.Error("expected stats in response, got nil")
+			}
+			if tc.wantStats && body.Stats != nil && body.Stats.MovieCount != 494 {
+				t.Errorf("movie_count = %d, want 494", body.Stats.MovieCount)
+			}
+			if !tc.wantStats && body.Stats != nil {
+				t.Error("expected no stats when db unreachable, got stats")
 			}
 		})
 	}

@@ -35,9 +35,14 @@ async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
-/** Attach the Supabase JWT to authenticated requests. */
+/** Attach the Supabase JWT to authenticated requests.
+ *  Sends via both Authorization and X-Authorization because Railway's
+ *  CDN edge (Fastly) strips the standard Authorization header. */
 function authHeaders(token: string): HeadersInit {
-  return { Authorization: `Bearer ${token}` };
+  return {
+    Authorization: `Bearer ${token}`,
+    "X-Authorization": `Bearer ${token}`,
+  };
 }
 
 // ---------------------------------------------------------------------------

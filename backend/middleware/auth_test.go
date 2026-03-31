@@ -66,6 +66,30 @@ func TestRequireAuth(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		// Also test X-Authorization fallback for each case with a header
+		if tc.authHeader != "" {
+			t.Run(tc.name+" via X-Authorization", func(t *testing.T) {
+				var capturedUserID string
+				next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					capturedUserID, _ = middleware.UserIDFromContext(r.Context())
+					w.WriteHeader(http.StatusOK)
+				})
+
+				handler := middleware.RequireAuth(testJWTSecret)(next)
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.Header.Set("X-Authorization", tc.authHeader)
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+
+				if rec.Code != tc.wantStatus {
+					t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+				}
+				if tc.wantUserID != "" && capturedUserID != tc.wantUserID {
+					t.Errorf("userID in context = %q, want %q", capturedUserID, tc.wantUserID)
+				}
+			})
+		}
+
 		t.Run(tc.name, func(t *testing.T) {
 			var capturedUserID string
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -16,14 +16,18 @@ import (
 // stubQuerier provides controlled responses for handler tests.
 // Fields left nil will panic if called — intentional, to catch unexpected calls.
 type stubQuerier struct {
-	listMoviesFunc              func(ctx context.Context, limit, offset int) ([]db.Movie, error)
-	getMovieByIDFunc            func(ctx context.Context, id string) (*db.Movie, error)
-	searchFunc                  func(ctx context.Context, query string, limit int) ([]db.Movie, error)
-	insertInteraction           func(ctx context.Context, i db.InteractionInsert) error
-	countUserInteractions       func(ctx context.Context, userID string) (int, error)
-	countUserMovieInteractions  func(ctx context.Context, userID, movieID string) (int, error)
-	getUserEmbedding            func(ctx context.Context, userID string) ([]float32, error)
-	matchMovies                 func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
+	listMoviesFunc           func(ctx context.Context, limit, offset int) ([]db.Movie, error)
+	getMovieByIDFunc         func(ctx context.Context, id string) (*db.Movie, error)
+	searchFunc               func(ctx context.Context, query string, limit int) ([]db.Movie, error)
+	upsertInteraction        func(ctx context.Context, i db.InteractionInsert) error
+	deleteInteraction        func(ctx context.Context, userID, movieID, iType string) error
+	getUserMovieInteractions func(ctx context.Context, userID, movieID string) ([]db.InteractionRow, error)
+	upsertRating             func(ctx context.Context, r db.RatingUpsert) error
+	deleteRating             func(ctx context.Context, userID, movieID string) error
+	getUserMovieRating       func(ctx context.Context, userID, movieID string) (*db.RatingRow, error)
+	countUserInteractions    func(ctx context.Context, userID string) (int, error)
+	getUserEmbedding         func(ctx context.Context, userID string) ([]float32, error)
+	matchMovies              func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
 }
 
 func (s *stubQuerier) ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error) {
@@ -35,14 +39,26 @@ func (s *stubQuerier) GetMovieByID(ctx context.Context, id string) (*db.Movie, e
 func (s *stubQuerier) SearchMoviesByTitle(ctx context.Context, q string, limit int) ([]db.Movie, error) {
 	return s.searchFunc(ctx, q, limit)
 }
-func (s *stubQuerier) InsertInteraction(ctx context.Context, i db.InteractionInsert) error {
-	return s.insertInteraction(ctx, i)
+func (s *stubQuerier) UpsertInteraction(ctx context.Context, i db.InteractionInsert) error {
+	return s.upsertInteraction(ctx, i)
+}
+func (s *stubQuerier) DeleteInteraction(ctx context.Context, userID, movieID, iType string) error {
+	return s.deleteInteraction(ctx, userID, movieID, iType)
+}
+func (s *stubQuerier) GetUserMovieInteractions(ctx context.Context, userID, movieID string) ([]db.InteractionRow, error) {
+	return s.getUserMovieInteractions(ctx, userID, movieID)
+}
+func (s *stubQuerier) UpsertRating(ctx context.Context, r db.RatingUpsert) error {
+	return s.upsertRating(ctx, r)
+}
+func (s *stubQuerier) DeleteRating(ctx context.Context, userID, movieID string) error {
+	return s.deleteRating(ctx, userID, movieID)
+}
+func (s *stubQuerier) GetUserMovieRating(ctx context.Context, userID, movieID string) (*db.RatingRow, error) {
+	return s.getUserMovieRating(ctx, userID, movieID)
 }
 func (s *stubQuerier) CountUserInteractions(ctx context.Context, userID string) (int, error) {
 	return s.countUserInteractions(ctx, userID)
-}
-func (s *stubQuerier) CountUserMovieInteractions(ctx context.Context, userID, movieID string) (int, error) {
-	return s.countUserMovieInteractions(ctx, userID, movieID)
 }
 func (s *stubQuerier) GetUserEmbedding(ctx context.Context, userID string) ([]float32, error) {
 	return s.getUserEmbedding(ctx, userID)

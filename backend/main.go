@@ -74,7 +74,9 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(custommw.RequireAuth(jwtSecret))
 		r.With(custommw.RecommendRateLimiter()).Get("/recommend", handlers.RecommendForUser(supabase, movieRanker, popularCache))
-		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.RecordInteraction(supabase))
+		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.ToggleInteraction(supabase))
+		r.Get("/interactions", handlers.GetMovieInteractionState(supabase))
+		r.With(custommw.WriteRateLimiter()).Put("/ratings", handlers.RecordRating(supabase))
 	})
 
 	port := os.Getenv("APP_PORT")

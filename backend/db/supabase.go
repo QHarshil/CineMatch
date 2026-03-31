@@ -100,6 +100,33 @@ func (c *SupabaseClient) doPost(ctx context.Context, path string, payload, dest 
 	return c.execute(req, dest)
 }
 
+// doDelete performs an authenticated DELETE against the Supabase REST API.
+func (c *SupabaseClient) doDelete(ctx context.Context, path string, params url.Values) error {
+	endpoint := c.baseURL + path + "?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("building DELETE request for %s: %w", path, err)
+	}
+	c.injectAuthHeaders(req)
+	return c.execute(req, nil)
+}
+
+// doUpsert performs an authenticated POST with merge-duplicates resolution.
+// Used for tables with unique constraints where we want insert-or-update semantics.
+func (c *SupabaseClient) doUpsert(ctx context.Context, path string, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshalling upsert payload for %s: %w", path, err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("building upsert request for %s: %w", path, err)
+	}
+	c.injectAuthHeaders(req)
+	req.Header.Set("Prefer", "resolution=merge-duplicates,return=minimal")
+	return c.execute(req, nil)
+}
+
 // execute dispatches a pre-built request and decodes the response into dest.
 func (c *SupabaseClient) execute(req *http.Request, dest any) error {
 	resp, err := c.httpClient.Do(req)

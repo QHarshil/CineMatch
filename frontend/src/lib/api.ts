@@ -1,4 +1,4 @@
-import type { Movie, RecommendResponse, InteractionType } from "@/types/movie";
+import type { Movie, RecommendResponse, InteractionType, InteractionState, ToggleResponse } from "@/types/movie";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -77,14 +77,36 @@ export function fetchRecommendations(
   });
 }
 
-export function recordInteraction(
+export function toggleInteraction(
   token: string,
   movieId: string,
   type: InteractionType
-): Promise<void> {
-  return apiFetch("/interactions", {
+): Promise<ToggleResponse> {
+  return apiFetch<ToggleResponse>("/interactions", {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ movie_id: movieId, type }),
+  });
+}
+
+export function fetchInteractionState(
+  token: string,
+  movieId: string
+): Promise<InteractionState> {
+  return apiFetch<InteractionState>(
+    `/interactions?movie_id=${movieId}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export function submitRating(
+  token: string,
+  movieId: string,
+  score: number
+): Promise<void> {
+  return apiFetch("/ratings", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ movie_id: movieId, score }),
   });
 }

@@ -43,6 +43,29 @@ type InteractionInsert struct {
 	Type    string `json:"type"`
 }
 
+// InteractionRow represents a persisted interaction returned from the database.
+type InteractionRow struct {
+	ID      string `json:"id"`
+	UserID  string `json:"user_id"`
+	MovieID string `json:"movie_id"`
+	Type    string `json:"type"`
+}
+
+// RatingRow represents a persisted rating returned from the database.
+type RatingRow struct {
+	ID      string `json:"id"`
+	UserID  string `json:"user_id"`
+	MovieID string `json:"movie_id"`
+	Score   int    `json:"score"`
+}
+
+// RatingUpsert carries the fields for inserting or updating a user rating.
+type RatingUpsert struct {
+	UserID  string `json:"user_id"`
+	MovieID string `json:"movie_id"`
+	Score   int    `json:"score"`
+}
+
 // ListMovies returns movies ordered by popularity descending.
 func (c *SupabaseClient) ListMovies(ctx context.Context, limit, offset int) ([]Movie, error) {
 	params := url.Values{}
@@ -90,12 +113,75 @@ func (c *SupabaseClient) SearchMoviesByTitle(ctx context.Context, query string, 
 	return movies, nil
 }
 
-// InsertInteraction records one user signal (like/dislike/watch/skip).
-func (c *SupabaseClient) InsertInteraction(ctx context.Context, interaction InteractionInsert) error {
-	if err := c.doPost(ctx, "/rest/v1/interactions", interaction, nil); err != nil {
-		return fmt.Errorf("inserting interaction: %w", err)
+// UpsertInteraction inserts an interaction if it doesn't exist (unique on user_id, movie_id, type).
+// Uses merge-duplicates so re-submitting the same interaction is idempotent.
+func (c *SupabaseClient) UpsertInteraction(ctx context.Context, interaction InteractionInsert) error {
+	if err := c.doUpsert(ctx, "/rest/v1/interactions", interaction); err != nil {
+		return fmt.Errorf("upserting interaction: %w", err)
 	}
 	return nil
+}
+
+// DeleteInteraction removes a specific interaction by user, movie, and type.
+func (c *SupabaseClient) DeleteInteraction(ctx context.Context, userID, movieID, interactionType string) error {
+	params := url.Values{}
+	params.Set("user_id", "eq."+userID)
+	params.Set("movie_id", "eq."+movieID)
+	params.Set("type", "eq."+interactionType)
+	if err := c.doDelete(ctx, "/rest/v1/interactions", params); err != nil {
+		return fmt.Errorf("deleting interaction: %w", err)
+	}
+	return nil
+}
+
+// GetUserMovieInteractions returns all interaction types a user has recorded for a movie.
+func (c *SupabaseClient) GetUserMovieInteractions(ctx context.Context, userID, movieID string) ([]InteractionRow, error) {
+	params := url.Values{}
+	params.Set("select", "id,user_id,movie_id,type")
+	params.Set("user_id", "eq."+userID)
+	params.Set("movie_id", "eq."+movieID)
+
+	var rows []InteractionRow
+	if err := c.doGet(ctx, "interactions", params, &rows); err != nil {
+		return nil, fmt.Errorf("fetching interactions for user %s movie %s: %w", userID, movieID, err)
+	}
+	return rows, nil
+}
+
+// UpsertRating inserts or updates a user's rating for a movie.
+func (c *SupabaseClient) UpsertRating(ctx context.Context, rating RatingUpsert) error {
+	if err := c.doUpsert(ctx, "/rest/v1/ratings", rating); err != nil {
+		return fmt.Errorf("upserting rating: %w", err)
+	}
+	return nil
+}
+
+// DeleteRating removes a user's rating for a movie.
+func (c *SupabaseClient) DeleteRating(ctx context.Context, userID, movieID string) error {
+	params := url.Values{}
+	params.Set("user_id", "eq."+userID)
+	params.Set("movie_id", "eq."+movieID)
+	if err := c.doDelete(ctx, "/rest/v1/ratings", params); err != nil {
+		return fmt.Errorf("deleting rating: %w", err)
+	}
+	return nil
+}
+
+// GetUserMovieRating returns the user's rating for a movie, or nil if none exists.
+func (c *SupabaseClient) GetUserMovieRating(ctx context.Context, userID, movieID string) (*RatingRow, error) {
+	params := url.Values{}
+	params.Set("select", "id,user_id,movie_id,score")
+	params.Set("user_id", "eq."+userID)
+	params.Set("movie_id", "eq."+movieID)
+
+	var rows []RatingRow
+	if err := c.doGet(ctx, "ratings", params, &rows); err != nil {
+		return nil, fmt.Errorf("fetching rating for user %s movie %s: %w", userID, movieID, err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
 }
 
 // GetUserEmbedding returns the stored preference vector for a user.
@@ -161,30 +247,6 @@ func (c *SupabaseClient) CountUserInteractions(ctx context.Context, userID strin
 	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
 }
 
-// CountUserMovieInteractions returns the number of interactions a user has for a specific movie.
-func (c *SupabaseClient) CountUserMovieInteractions(ctx context.Context, userID, movieID string) (int, error) {
-	params := url.Values{}
-	params.Set("select", "id")
-	params.Set("user_id", "eq."+userID)
-	params.Set("movie_id", "eq."+movieID)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.baseURL+"/rest/v1/interactions?"+params.Encode(), nil)
-	if err != nil {
-		return 0, fmt.Errorf("building count request: %w", err)
-	}
-	c.injectAuthHeaders(req)
-	req.Header.Set("Prefer", "count=exact")
-	req.Header.Set("Range-Unit", "items")
-	req.Header.Set("Range", "0-0")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("counting user-movie interactions: %w", err)
-	}
-	defer resp.Body.Close()
-
-	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
-}
 
 // TableStats holds row counts for monitoring the database size on the free tier.
 type TableStats struct {

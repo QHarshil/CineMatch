@@ -32,7 +32,9 @@ async function apiFetch<T>(
     throw new Error(`API ${res.status}: ${body}`);
   }
 
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 /** Attach the Supabase JWT to authenticated requests.

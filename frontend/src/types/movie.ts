@@ -22,3 +22,15 @@ export interface RecommendResponse {
 
 /** Interaction types the user can record. */
 export type InteractionType = "like" | "dislike" | "watch" | "skip";
+
+/** Response from GET /interactions?movie_id=UUID */
+export interface InteractionState {
+  interactions: InteractionType[];
+  rating: number | null;
+}
+
+/** Response from POST /interactions (toggle) */
+export interface ToggleResponse {
+  action: "added" | "removed";
+  type: string;
+}

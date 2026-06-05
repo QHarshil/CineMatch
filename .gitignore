@@ -18,15 +18,6 @@ scripts/cinematch-scripts
 *.log
 coverage/
 .vercel/
-
-
-
-
-
-
-
-
-
 .venv/
 *.egg-info/
 .pytest_cache/

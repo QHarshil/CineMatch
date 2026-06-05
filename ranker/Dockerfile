@@ -12,9 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway injects PORT; fall back to 8000 for local runs.
+# Container platforms (Cloud Run, Render) inject PORT; fall back to 8000 locally.
 ENV PORT=8000
 EXPOSE $PORT
 
-# Bind to 0.0.0.0 so Railway can route traffic to the container.
+# Bind to 0.0.0.0 so the platform can route traffic into the container.
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info"]

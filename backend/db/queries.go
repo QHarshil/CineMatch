@@ -247,11 +247,10 @@ func (c *SupabaseClient) CountUserInteractions(ctx context.Context, userID strin
 	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
 }
 
-
 // TableStats holds row counts for monitoring the database size on the free tier.
 type TableStats struct {
-	MovieCount      int `json:"movie_count"`
-	UserCount       int `json:"user_count"`
+	MovieCount       int `json:"movie_count"`
+	UserCount        int `json:"user_count"`
 	InteractionCount int `json:"interaction_count"`
 }
 
@@ -261,8 +260,8 @@ func (c *SupabaseClient) GetTableStats(ctx context.Context) (TableStats, error) 
 	var stats TableStats
 
 	tables := []struct {
-		name  string
-		dest  *int
+		name string
+		dest *int
 	}{
 		{"movies", &stats.MovieCount},
 		{"users", &stats.UserCount},

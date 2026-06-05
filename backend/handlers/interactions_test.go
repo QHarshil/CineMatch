@@ -19,15 +19,15 @@ func TestToggleInteraction(t *testing.T) {
 	validUserID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
 	tests := []struct {
-		name               string
-		body               string
-		injectUser         string
-		existingTypes      []string // interaction types already in DB for this movie
-		totalCount         int
-		upsertErr          error
-		wantStatus         int
-		wantAction         string // "added" or "removed"
-		wantDeletedType    string // if non-empty, we expect this type was deleted (opposite sentiment)
+		name            string
+		body            string
+		injectUser      string
+		existingTypes   []string // interaction types already in DB for this movie
+		totalCount      int
+		upsertErr       error
+		wantStatus      int
+		wantAction      string // "added" or "removed"
+		wantDeletedType string // if non-empty, we expect this type was deleted (opposite sentiment)
 	}{
 		{
 			name:       "toggle on: adds like when none exists",

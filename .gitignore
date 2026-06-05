@@ -2,6 +2,9 @@
 .env.local
 .env.*.local
 !.env.example
+# Cloud Run env-var files hold secrets
+*.cloudrun.yaml
+.env.cloudrun.yaml
 node_modules/
 dist/
 __pycache__/

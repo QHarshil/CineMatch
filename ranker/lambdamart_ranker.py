@@ -60,19 +60,40 @@ def _build_feature_vector(
 _booster: lgb.Booster | None = None
 
 
+def _resolve_model_path(model_path: str | None) -> str:
+    """Locate the model file.
+
+    Search order: explicit argument, LAMBDAMART_MODEL_PATH env var, the copy
+    bundled inside the deployed image (ranker/model/), then the eval training
+    output (eval/models/) for local development. Bundling the model in the
+    ranker directory is what makes it available inside the container, since the
+    Docker build context is the ranker/ directory.
+    """
+    if model_path:
+        return model_path
+    env_path = os.environ.get("LAMBDAMART_MODEL_PATH")
+    if env_path:
+        return env_path
+
+    here = Path(__file__).resolve().parent
+    candidates = [
+        here / "model" / "lambdamart-v1.txt",                   # bundled in the container image
+        here.parent / "eval" / "models" / "lambdamart-v1.txt",  # local dev / training output
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    # Nothing found — return the bundled path so the loader raises a clear error.
+    return str(candidates[0])
+
+
 def load_model(model_path: str | None = None) -> lgb.Booster:
     """Load the LambdaMART model from disk. Caches on first call."""
     global _booster
     if _booster is not None:
         return _booster
 
-    if model_path is None:
-        model_path = os.environ.get(
-            "LAMBDAMART_MODEL_PATH",
-            str(Path(__file__).resolve().parent.parent / "eval" / "models" / "lambdamart-v1.txt"),
-        )
-
-    _booster = lgb.Booster(model_file=model_path)
+    _booster = lgb.Booster(model_file=_resolve_model_path(model_path))
     return _booster
 
 

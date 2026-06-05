@@ -1,15 +1,17 @@
 // seed_movies populates the Supabase movies catalog with TMDB data and OpenAI
-// embeddings. It seeds movies and/or TV shows, in popularity order (initial
-// seed) or by most recent release (the freshness cron).
+// embeddings. It seeds movies and/or TV shows, restricted to a set of original
+// languages, in popularity order (initial seed) or by most recent release (the
+// freshness cron).
 //
 // Usage:
 //
-//	go run seed_movies.go [--dry-run] [--media movie|tv|both] [--mode popular|recent] [--count N]
+//	go run seed_movies.go [--dry-run] [--media movie|tv|both] [--mode popular|recent] [--count N] [--languages en,ko]
 //
 // Examples:
 //
-//	go run seed_movies.go --media both --count 600          # large initial catalog
-//	go run seed_movies.go --media both --mode recent --count 100   # weekly refresh
+//	go run seed_movies.go --media both --count 700                       # initial catalog (en, ko)
+//	go run seed_movies.go --media both --mode recent --count 100         # monthly refresh
+//	go run seed_movies.go --media both --languages en                    # English only
 //
 // Required env vars: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY
 // Reads ../.env relative to the scripts/ directory, then falls back to process environment.
@@ -64,18 +66,19 @@ type tmdbGenre struct {
 // title/release_date; TV shows use name/first_air_date. mediaType is set by the
 // seeder, not decoded from the API.
 type tmdbItem struct {
-	mediaType    string
-	ID           int     `json:"id"`
-	Title        string  `json:"title"`
-	Name         string  `json:"name"`
-	Overview     string  `json:"overview"`
-	GenreIDs     []int   `json:"genre_ids"`
-	ReleaseDate  string  `json:"release_date"`
-	FirstAirDate string  `json:"first_air_date"`
-	PosterPath   string  `json:"poster_path"`
-	BackdropPath string  `json:"backdrop_path"`
-	VoteAverage  float64 `json:"vote_average"`
-	Popularity   float64 `json:"popularity"`
+	mediaType        string
+	ID               int     `json:"id"`
+	Title            string  `json:"title"`
+	Name             string  `json:"name"`
+	Overview         string  `json:"overview"`
+	GenreIDs         []int   `json:"genre_ids"`
+	ReleaseDate      string  `json:"release_date"`
+	FirstAirDate     string  `json:"first_air_date"`
+	PosterPath       string  `json:"poster_path"`
+	BackdropPath     string  `json:"backdrop_path"`
+	VoteAverage      float64 `json:"vote_average"`
+	Popularity       float64 `json:"popularity"`
+	OriginalLanguage string  `json:"original_language"`
 }
 
 // displayTitle returns the movie title or TV show name, whichever is present.
@@ -100,17 +103,18 @@ func (t tmdbItem) dateString() string {
 // Embedding is []float64 because json.Unmarshal decodes JSON numbers as float64;
 // pgvector accepts a JSON array for vector columns over the PostgREST API.
 type movieRow struct {
-	TmdbID       int       `json:"tmdb_id"`
-	MediaType    string    `json:"media_type"`
-	Title        string    `json:"title"`
-	Overview     string    `json:"overview"`
-	Genres       []string  `json:"genres"`
-	ReleaseYear  int       `json:"release_year"`
-	PosterPath   string    `json:"poster_path"`
-	BackdropPath string    `json:"backdrop_path"`
-	VoteAverage  float64   `json:"vote_average"`
-	Popularity   float64   `json:"popularity"`
-	Embedding    []float64 `json:"embedding"`
+	TmdbID           int       `json:"tmdb_id"`
+	MediaType        string    `json:"media_type"`
+	Title            string    `json:"title"`
+	Overview         string    `json:"overview"`
+	Genres           []string  `json:"genres"`
+	ReleaseYear      int       `json:"release_year"`
+	PosterPath       string    `json:"poster_path"`
+	BackdropPath     string    `json:"backdrop_path"`
+	VoteAverage      float64   `json:"vote_average"`
+	Popularity       float64   `json:"popularity"`
+	OriginalLanguage string    `json:"original_language"`
+	Embedding        []float64 `json:"embedding"`
 }
 
 type embedResult struct {
@@ -124,7 +128,8 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "fetch and embed without writing to the database")
 	media := flag.String("media", "movie", "which catalog to seed: movie | tv | both")
 	mode := flag.String("mode", "popular", "ordering: popular (most popular) | recent (newest releases)")
-	count := flag.Int("count", 500, "number of titles to fetch per media type")
+	count := flag.Int("count", 500, "number of titles to fetch per media type (split across languages)")
+	languages := flag.String("languages", "en,ko", "comma-separated TMDB original-language codes to include")
 	flag.Parse()
 
 	mediaTypes, err := parseMediaTypes(*media)
@@ -136,6 +141,7 @@ func main() {
 		slog.Error("invalid --mode, want popular or recent", "got", *mode)
 		os.Exit(1)
 	}
+	langs := parseLanguages(*languages)
 
 	// The seeder is run from scripts/ so secrets are one level up.
 	if err := godotenv.Load("../.env"); err != nil {
@@ -168,8 +174,8 @@ func main() {
 
 	var items []tmdbItem
 	for _, mt := range mediaTypes {
-		slog.Info("fetching from TMDB", "media", mt, "mode", *mode, "target", *count)
-		fetched, err := fetchItems(client, cfg.tmdbToken, mt, *mode, *count)
+		slog.Info("fetching from TMDB", "media", mt, "mode", *mode, "languages", langs, "target", *count)
+		fetched, err := fetchItems(client, cfg.tmdbToken, mt, *mode, *count, langs)
 		if err != nil {
 			slog.Error("fetch failed", "media", mt, "error", err)
 			os.Exit(1)
@@ -228,39 +234,55 @@ func fetchGenreMap(client *http.Client, token string, mediaTypes []string) (map[
 	return genreMap, nil
 }
 
-// fetchItems pages through TMDB discover for one media type, returning up to
-// count items with mediaType stamped on each.
-func fetchItems(client *http.Client, token, mediaType, mode string, count int) ([]tmdbItem, error) {
-	pages := (count + tmdbPageSize - 1) / tmdbPageSize
-	items := make([]tmdbItem, 0, count)
-
-	for page := 1; page <= pages; page++ {
-		if page > 1 {
-			time.Sleep(tmdbRequestDelay)
-		}
-
-		resp, err := tmdbGET(client, token, "/discover/"+mediaType, discoverParams(mediaType, mode, page))
-		if err != nil {
-			return nil, fmt.Errorf("discover %s page %d: %w", mediaType, page, err)
-		}
-		var body struct {
-			Results []tmdbItem `json:"results"`
-		}
-		jsonErr := json.NewDecoder(resp.Body).Decode(&body)
-		resp.Body.Close()
-		if jsonErr != nil {
-			return nil, fmt.Errorf("decoding %s page %d: %w", mediaType, page, jsonErr)
-		}
-
-		for i := range body.Results {
-			body.Results[i].mediaType = mediaType
-			items = append(items, body.Results[i])
-		}
-		slog.Info("tmdb page fetched", "media", mediaType, "page", page, "running_total", len(items))
+// fetchItems pages through TMDB discover for one media type across the given
+// original languages, returning up to count items (split evenly across
+// languages) with mediaType stamped on each.
+func fetchItems(client *http.Client, token, mediaType, mode string, count int, languages []string) ([]tmdbItem, error) {
+	perLang := count / len(languages)
+	if perLang < 1 {
+		perLang = count
 	}
+	items := make([]tmdbItem, 0, count)
+	firstRequest := true
 
-	if len(items) > count {
-		items = items[:count]
+	for _, lang := range languages {
+		pages := (perLang + tmdbPageSize - 1) / tmdbPageSize
+		collected := 0
+		for page := 1; page <= pages && collected < perLang; page++ {
+			if !firstRequest {
+				time.Sleep(tmdbRequestDelay)
+			}
+			firstRequest = false
+
+			params := discoverParams(mediaType, mode, page)
+			params["with_original_language"] = lang
+
+			resp, err := tmdbGET(client, token, "/discover/"+mediaType, params)
+			if err != nil {
+				return nil, fmt.Errorf("discover %s [%s] page %d: %w", mediaType, lang, page, err)
+			}
+			var body struct {
+				Results []tmdbItem `json:"results"`
+			}
+			jsonErr := json.NewDecoder(resp.Body).Decode(&body)
+			resp.Body.Close()
+			if jsonErr != nil {
+				return nil, fmt.Errorf("decoding %s [%s] page %d: %w", mediaType, lang, page, jsonErr)
+			}
+			if len(body.Results) == 0 {
+				break // no more results for this language
+			}
+
+			for i := range body.Results {
+				if collected >= perLang {
+					break
+				}
+				body.Results[i].mediaType = mediaType
+				items = append(items, body.Results[i])
+				collected++
+			}
+			slog.Info("tmdb page fetched", "media", mediaType, "lang", lang, "page", page, "running_total", len(items))
+		}
 	}
 	return items, nil
 }
@@ -353,17 +375,18 @@ func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, ge
 			}
 
 			results <- embedResult{row: movieRow{
-				TmdbID:       item.ID,
-				MediaType:    item.mediaType,
-				Title:        item.displayTitle(),
-				Overview:     item.Overview,
-				Genres:       genreNamesFromIDs(item.GenreIDs, genreMap),
-				ReleaseYear:  extractReleaseYear(item.dateString()),
-				PosterPath:   item.PosterPath,
-				BackdropPath: item.BackdropPath,
-				VoteAverage:  item.VoteAverage,
-				Popularity:   item.Popularity,
-				Embedding:    embedding,
+				TmdbID:           item.ID,
+				MediaType:        item.mediaType,
+				Title:            item.displayTitle(),
+				Overview:         item.Overview,
+				Genres:           genreNamesFromIDs(item.GenreIDs, genreMap),
+				ReleaseYear:      extractReleaseYear(item.dateString()),
+				PosterPath:       item.PosterPath,
+				BackdropPath:     item.BackdropPath,
+				VoteAverage:      item.VoteAverage,
+				Popularity:       item.Popularity,
+				OriginalLanguage: item.OriginalLanguage,
+				Embedding:        embedding,
 			}}
 		}(it)
 	}
@@ -488,6 +511,21 @@ func parseMediaTypes(media string) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("want movie, tv, or both; got %q", media)
 	}
+}
+
+// parseLanguages splits the --languages flag into TMDB original-language codes,
+// defaulting to English if the flag is empty.
+func parseLanguages(languages string) []string {
+	var out []string
+	for _, part := range strings.Split(languages, ",") {
+		if code := strings.ToLower(strings.TrimSpace(part)); code != "" {
+			out = append(out, code)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"en"}
+	}
+	return out
 }
 
 // deduplicate removes items sharing the same (media_type, tmdb_id). TMDB's

@@ -14,9 +14,9 @@ go run seed_movies.go --media both --mode recent --count 100  # newest releases 
 go run seed_movies.go --dry-run                               # fetch + embed, skip the DB write
 ```
 
-Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--count` (titles per media type, default 500), `--dry-run`.
+Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--count` (titles per media type, split across languages, default 500), `--languages` (comma-separated TMDB original-language codes, default `en,ko`), `--dry-run`.
 
-**Prerequisite:** apply `migrations/0002_add_media_type.sql` before seeding TV. It adds the `media_type` column and a `(tmdb_id, media_type)` unique index, because TMDB movie and TV IDs are separate namespaces and the upsert key is `(tmdb_id, media_type)`.
+**Prerequisite:** apply the migrations in `migrations/` before seeding TV — `0002_add_media_type.sql` (the `media_type` column + `(tmdb_id, media_type)` unique index, since TMDB movie and TV IDs are separate namespaces) and `0003_add_original_language.sql` (stores `original_language` for the language filter).
 
 **What it does:**
 1. Fetches titles from TMDB discover (`/discover/movie` and/or `/discover/tv`), 20 per page, sorted by popularity or release date
@@ -32,7 +32,7 @@ Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for 
 
 ## Weekly freshness (.github/workflows/refresh-catalog.yml)
 
-A scheduled GitHub Actions workflow runs the seeder in `recent` mode every Monday to ingest new releases (upserts, so no duplicates). Add the four env vars above as repository secrets (Settings > Secrets and variables > Actions), then it runs automatically or on demand via "Run workflow" in the Actions tab.
+A scheduled GitHub Actions workflow runs the seeder in `recent` mode **monthly** (English + Korean) to ingest new releases (upserts, so no duplicates). Add the four env vars above as repository secrets (Settings > Secrets and variables > Actions), then it runs automatically or on demand via "Run workflow" in the Actions tab.
 
 ## backfill_backdrop.mjs
 

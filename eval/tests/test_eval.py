@@ -11,63 +11,83 @@ from pathlib import Path
 EVAL_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(EVAL_DIR))
 
-from eval_rankers import compute_ndcg_at_k, compute_mrr, compute_hit_rate
+from eval_rankers import (
+    ndcg_at_k,
+    mrr,
+    hit_rate_at_k,
+    score_popularity,
+    score_vector_only,
+    score_linear,
+)
 from build_training_data import engineer_features, RELEVANCE_MAP, FEATURE_COLUMNS
 
 
 # ── Metric tests ──────────────────────────────────────────────────────────────
 
 class TestNDCG:
+    """Metrics take relevance values already in ranked order (graded gains)."""
+
     def test_perfect_ranking(self):
-        """NDCG@3 should be 1.0 when items are in ideal order."""
-        ranked = ["a", "b", "c"]
-        relevance = {"a": 3, "b": 2, "c": 1}
-        assert compute_ndcg_at_k(ranked, relevance, 3) == pytest.approx(1.0)
+        assert ndcg_at_k(np.array([3, 2, 1]), 3) == pytest.approx(1.0)
 
     def test_reversed_ranking(self):
-        """NDCG should be < 1.0 when items are in worst order."""
-        ranked = ["c", "b", "a"]
-        relevance = {"a": 3, "b": 2, "c": 1}
-        assert compute_ndcg_at_k(ranked, relevance, 3) < 1.0
+        assert ndcg_at_k(np.array([1, 2, 3]), 3) < 1.0
 
     def test_single_item(self):
-        ranked = ["a"]
-        relevance = {"a": 3}
-        assert compute_ndcg_at_k(ranked, relevance, 1) == pytest.approx(1.0)
+        assert ndcg_at_k(np.array([3]), 1) == pytest.approx(1.0)
 
     def test_no_relevant_items(self):
-        ranked = ["a", "b"]
-        relevance = {"a": 0, "b": 0}
-        assert compute_ndcg_at_k(ranked, relevance, 2) == pytest.approx(0.0)
+        assert ndcg_at_k(np.array([0, 0]), 2) == pytest.approx(0.0)
 
     def test_k_truncation(self):
-        """Only top-k items should matter."""
-        ranked = ["bad", "a"]
-        relevance = {"a": 3, "bad": 0}
-        ndcg_1 = compute_ndcg_at_k(ranked, relevance, 1)
-        assert ndcg_1 == pytest.approx(0.0)  # "bad" is at position 1, relevance=0
+        # An irrelevant item at position 1 pushes the relevant one past the cutoff.
+        assert ndcg_at_k(np.array([0, 3]), 1) == pytest.approx(0.0)
 
 
 class TestMRR:
     def test_first_item_relevant(self):
-        assert compute_mrr(["a", "b"], {"a"}) == pytest.approx(1.0)
+        assert mrr(np.array([3, 1])) == pytest.approx(1.0)
 
     def test_second_item_relevant(self):
-        assert compute_mrr(["b", "a"], {"a"}) == pytest.approx(0.5)
+        assert mrr(np.array([1, 2])) == pytest.approx(0.5)
 
     def test_no_relevant_items(self):
-        assert compute_mrr(["b", "c"], {"a"}) == pytest.approx(0.0)
+        # skip (1) and dislike (0) are below the relevance >= 2 bar.
+        assert mrr(np.array([1, 0])) == pytest.approx(0.0)
 
 
 class TestHitRate:
     def test_hit_in_top_k(self):
-        assert compute_hit_rate(["a", "b", "c"], {"b"}, 3) == pytest.approx(1.0)
+        assert hit_rate_at_k(np.array([1, 2, 1]), 3) == pytest.approx(1.0)
 
     def test_no_hit(self):
-        assert compute_hit_rate(["a", "b", "c"], {"d"}, 3) == pytest.approx(0.0)
+        assert hit_rate_at_k(np.array([1, 1, 1]), 3) == pytest.approx(0.0)
 
     def test_hit_beyond_k(self):
-        assert compute_hit_rate(["a", "b", "c"], {"c"}, 2) == pytest.approx(0.0)
+        assert hit_rate_at_k(np.array([1, 1, 2]), 2) == pytest.approx(0.0)
+
+
+class TestScorers:
+    @pytest.fixture()
+    def group(self):
+        # First row is the stronger candidate on every signal.
+        return pd.DataFrame({
+            "affinity_score": [0.9, -0.5],
+            "vote_average": [8.0, 5.0],
+            "popularity": [500.0, 20.0],
+        })
+
+    def test_vector_only_prefers_higher_affinity(self, group):
+        scores = score_vector_only(group)
+        assert scores[0] > scores[1]
+
+    def test_linear_prefers_better_candidate(self, group):
+        scores = score_linear(group)
+        assert scores[0] > scores[1]
+
+    def test_popularity_prefers_more_popular(self, group):
+        scores = score_popularity(group)
+        assert scores[0] > scores[1]
 
 
 # ── Feature engineering tests ─────────────────────────────────────────────────

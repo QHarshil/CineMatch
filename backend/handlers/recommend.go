@@ -18,7 +18,7 @@ const (
 // MovieRanker re-scores Stage-1 candidates via the Python ranker service.
 // Implemented by ranker.Client; stubbed in tests.
 type MovieRanker interface {
-	Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, preferredGenres []string, minVotePref float64) (*ranker.RankResponse, error)
+	Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, user ranker.UserContext) (*ranker.RankResponse, error)
 }
 
 // RecommendForUser handles GET /recommend
@@ -85,7 +85,16 @@ func RecommendForUser(querier DBQuerier, movieRanker MovieRanker, cache PopularC
 		// Stage-2: call the Python ranker to re-score candidates.
 		// On failure, degrade gracefully to cosine-similarity order rather than
 		// returning an error — partial recommendations are better than none.
-		ranked, err := movieRanker.Rank(r.Context(), candidates, recommendedMovieCount, nil, 0)
+		stats, statsErr := querier.UserInteractionStats(r.Context(), userID)
+		if statsErr != nil {
+			slog.Warn("failed to load user stats for ranker, using defaults", "error", statsErr)
+			stats = db.UserStats{LikeRatio: 0.5}
+		}
+
+		ranked, err := movieRanker.Rank(r.Context(), candidates, recommendedMovieCount, ranker.UserContext{
+			LikeRatio:        stats.LikeRatio,
+			InteractionCount: stats.Total,
+		})
 		if err != nil {
 			slog.Warn("ranker unavailable, falling back to similarity order", "error", err)
 			writeJSON(w, http.StatusOK, similarityFallback(candidates, recommendedMovieCount))

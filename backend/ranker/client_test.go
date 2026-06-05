@@ -58,6 +58,7 @@ func TestClientRank(t *testing.T) {
 				Candidates   []json.RawMessage `json:"candidates"`
 				UserFeatures json.RawMessage   `json:"user_features"`
 				TopN         int               `json:"top_n"`
+				Model        string            `json:"model"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Fatalf("decoding request body: %v", err)
@@ -67,6 +68,9 @@ func TestClientRank(t *testing.T) {
 			}
 			if body.TopN != 5 {
 				t.Fatalf("expected top_n=5, got %d", body.TopN)
+			}
+			if body.Model != "lambdamart-v1" {
+				t.Fatalf("expected model lambdamart-v1, got %q", body.Model)
 			}
 
 			resp := map[string]any{
@@ -82,7 +86,7 @@ func TestClientRank(t *testing.T) {
 		defer srv.Close()
 
 		client := ranker.NewClient(srv.URL)
-		result, err := client.Rank(context.Background(), testCandidates, 5, []string{"Action"}, 7.0)
+		result, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{PreferredGenres: []string{"Action"}, MinVotePref: 7.0})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -105,7 +109,7 @@ func TestClientRank(t *testing.T) {
 		defer srv.Close()
 
 		client := ranker.NewClient(srv.URL)
-		_, err := client.Rank(context.Background(), testCandidates, 5, nil, 0)
+		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{})
 		if err == nil {
 			t.Fatal("expected error for 500 response")
 		}
@@ -113,7 +117,7 @@ func TestClientRank(t *testing.T) {
 
 	t.Run("ranker unreachable", func(t *testing.T) {
 		client := ranker.NewClient("http://127.0.0.1:1") // nothing listening
-		_, err := client.Rank(context.Background(), testCandidates, 5, nil, 0)
+		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{})
 		if err == nil {
 			t.Fatal("expected error for unreachable ranker")
 		}
@@ -140,7 +144,7 @@ func TestClientRank(t *testing.T) {
 		defer srv.Close()
 
 		client := ranker.NewClient(srv.URL)
-		_, err := client.Rank(context.Background(), testCandidates, 5, []string{}, 0)
+		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{PreferredGenres: []string{}})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

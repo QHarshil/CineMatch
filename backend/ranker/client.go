@@ -33,11 +33,15 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
+// ModelVersion is the ranker model the backend requests in production.
+const ModelVersion = "lambdamart-v1"
+
 // rankRequest mirrors the Python ranker's POST /rank schema.
 type rankRequest struct {
 	Candidates   []candidateMovie `json:"candidates"`
 	UserFeatures userFeatures     `json:"user_features"`
 	TopN         int              `json:"top_n"`
+	Model        string           `json:"model"`
 }
 
 type candidateMovie struct {
@@ -52,8 +56,18 @@ type candidateMovie struct {
 }
 
 type userFeatures struct {
-	PreferredGenres []string `json:"preferred_genres"`
-	MinVotePref     float64  `json:"min_vote_preference"`
+	PreferredGenres      []string `json:"preferred_genres"`
+	MinVotePref          float64  `json:"min_vote_preference"`
+	UserLikeRatio        float64  `json:"user_like_ratio"`
+	UserInteractionCount int      `json:"user_interaction_count"`
+}
+
+// UserContext carries the per-user signals the ranker uses to personalize scoring.
+type UserContext struct {
+	PreferredGenres  []string
+	MinVotePref      float64
+	LikeRatio        float64
+	InteractionCount int
 }
 
 // RankResponse is the parsed response from the Python ranker.
@@ -69,20 +83,29 @@ type RankedMovie struct {
 	Rank    int     `json:"rank"`
 }
 
-// Rank sends Stage-1 candidates to the Python ranker and returns re-scored results.
-// preferredGenres and minVotePref come from the user's interaction history;
-// pass empty/zero when the user has no history yet.
+// Rank sends Stage-1 candidates to the Python ranker and returns re-scored
+// results, requesting the production model. user carries the per-user signals
+// derived from interaction history; pass a zero UserContext for new users.
 func (c *Client) Rank(
 	ctx context.Context,
 	candidates []db.MovieCandidate,
 	topN int,
-	preferredGenres []string,
-	minVotePref float64,
+	user UserContext,
 ) (*RankResponse, error) {
+	genres := user.PreferredGenres
+	if genres == nil {
+		genres = []string{} // serialize as [] not null so Pydantic accepts it
+	}
 	body := rankRequest{
-		Candidates:   mapCandidates(candidates),
-		UserFeatures: userFeatures{PreferredGenres: preferredGenres, MinVotePref: minVotePref},
-		TopN:         topN,
+		Candidates: mapCandidates(candidates),
+		UserFeatures: userFeatures{
+			PreferredGenres:      genres,
+			MinVotePref:          user.MinVotePref,
+			UserLikeRatio:        user.LikeRatio,
+			UserInteractionCount: user.InteractionCount,
+		},
+		TopN:  topN,
+		Model: ModelVersion,
 	}
 
 	payload, err := json.Marshal(body)

@@ -15,45 +15,27 @@ from models import CandidateMovie, RankRequest, RankedMovie, RankResponse, UserF
 
 MODEL_VERSION = "lambdamart-v1"
 
-# Feature engineering must match eval/build_training_data.py exactly
-_POPULARITY_LOG_CEIL = math.log1p(3000.0)
+def _build_feature_vector(candidate: CandidateMovie, user: UserFeatures) -> list[float]:
+    """Build the feature vector matching FEATURE_COLUMNS in
+    eval/build_training_data.py. Order: similarity, vote_average,
+    log_popularity, decade, is_recent, user_like_ratio, user_interaction_count.
 
-
-def _build_feature_vector(
-    candidate: CandidateMovie, user: UserFeatures, user_stats: dict
-) -> list[float]:
-    """Build the 10-feature vector matching FEATURE_COLUMNS from training.
-
-    Feature order: affinity_score, vote_average, log_popularity, runtime_hours,
-    decade, genre_count, is_recent, user_avg_affinity, user_like_ratio,
-    user_interaction_count.
+    similarity is the pgvector cosine score from Stage-1 retrieval, the
+    production analogue of the synthetic genre affinity used in training. The
+    log_popularity transform matches training (np.log1p, no clamp).
     """
-    # affinity_score: approximate genre affinity from user preferred genres
-    preferred_set = {g.lower() for g in user.preferred_genres} if user.preferred_genres else set()
-    if candidate.genres and preferred_set:
-        affinity = sum(1.0 if g.lower() in preferred_set else -0.3 for g in candidate.genres) / len(candidate.genres)
-    else:
-        affinity = 0.0
-    # Add quality boost like training data
-    affinity += (candidate.vote_average - 5.0) / 10.0
-
-    log_pop = min(math.log1p(max(candidate.popularity, 0.0)), _POPULARITY_LOG_CEIL)
-    runtime_hours = (candidate.runtime or 120) / 60.0
+    log_pop = math.log1p(max(candidate.popularity, 0.0))
     decade = max(0, (candidate.release_year - 1970) // 10)
-    genre_count = len(candidate.genres) if candidate.genres else 0
     is_recent = 1 if candidate.release_year >= 2021 else 0
 
     return [
-        affinity,                                  # affinity_score
-        candidate.vote_average,                    # vote_average
-        log_pop,                                   # log_popularity
-        runtime_hours,                             # runtime_hours
-        decade,                                    # decade
-        genre_count,                               # genre_count
-        is_recent,                                 # is_recent
-        user_stats.get("user_avg_affinity", 0.0),  # user_avg_affinity
-        user_stats.get("user_like_ratio", 0.5),    # user_like_ratio
-        user_stats.get("user_interaction_count", 0),  # user_interaction_count
+        candidate.similarity,
+        candidate.vote_average,
+        log_pop,
+        float(decade),
+        float(is_recent),
+        user.user_like_ratio,
+        float(user.user_interaction_count),
     ]
 
 
@@ -101,17 +83,10 @@ def rank(request: RankRequest) -> RankResponse:
     """Re-rank candidates using the LambdaMART model."""
     booster = load_model()
 
-    # Derive user-level stats from the request context.
-    # In production these would come from the Go backend; for now we derive
-    # reasonable defaults from the request itself.
-    user_stats = {
-        "user_avg_affinity": 0.0,
-        "user_like_ratio": 0.5,
-        "user_interaction_count": 0,
-    }
-
+    # User-level features arrive on request.user_features from the Go backend;
+    # similarity comes from each candidate's Stage-1 retrieval score.
     features = np.array([
-        _build_feature_vector(c, request.user_features, user_stats)
+        _build_feature_vector(c, request.user_features)
         for c in request.candidates
     ])
 

@@ -247,6 +247,41 @@ func (c *SupabaseClient) CountUserInteractions(ctx context.Context, userID strin
 	return parseContentRangeCount(resp.Header.Get("Content-Range")), nil
 }
 
+// UserStats summarizes a user's interaction history for the ranker's per-user
+// features (user_like_ratio, user_interaction_count).
+type UserStats struct {
+	Total     int
+	LikeRatio float64
+}
+
+// UserInteractionStats returns the user's total interaction count and the
+// fraction that are likes, matching the features the ranker was trained on.
+// New users (no history) get a neutral 0.5 like ratio.
+func (c *SupabaseClient) UserInteractionStats(ctx context.Context, userID string) (UserStats, error) {
+	params := url.Values{}
+	params.Set("select", "type")
+	params.Set("user_id", "eq."+userID)
+	params.Set("limit", "1000")
+
+	var rows []struct {
+		Type string `json:"type"`
+	}
+	if err := c.doGet(ctx, "interactions", params, &rows); err != nil {
+		return UserStats{}, fmt.Errorf("fetching interaction stats for user %s: %w", userID, err)
+	}
+	if len(rows) == 0 {
+		return UserStats{Total: 0, LikeRatio: 0.5}, nil
+	}
+
+	likes := 0
+	for _, row := range rows {
+		if row.Type == "like" {
+			likes++
+		}
+	}
+	return UserStats{Total: len(rows), LikeRatio: float64(likes) / float64(len(rows))}, nil
+}
+
 // TableStats holds row counts for monitoring the database size on the free tier.
 type TableStats struct {
 	MovieCount       int `json:"movie_count"`

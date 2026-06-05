@@ -36,6 +36,19 @@ class UserFeatures(BaseModel):
         le=10.0,
         description="Minimum vote_average the user tends to enjoy.",
     )
+    # Behavioural signals the Go backend derives from interaction history; used
+    # by the lambdamart-v1 feature vector.
+    user_like_ratio: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of the user's interactions that are likes.",
+    )
+    user_interaction_count: int = Field(
+        default=0,
+        ge=0,
+        description="Total interactions the user has recorded.",
+    )
 
 
 class RankRequest(BaseModel):

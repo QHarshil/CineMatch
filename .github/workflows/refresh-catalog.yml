@@ -1,0 +1,30 @@
+name: Refresh catalog
+
+# Weekly ingest of newly released movies and TV shows so the catalog stays
+# current. Runs the seeder in "recent" mode, which upserts (no duplicates).
+# Requires repo secrets: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL,
+# SUPABASE_SECRET_KEY. The media_type migration must be applied first.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  seed-recent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Seed recent releases (movies + TV)
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: go run . --media both --mode recent --count 100

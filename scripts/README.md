@@ -4,34 +4,35 @@ Data pipeline scripts for populating and maintaining the movie database.
 
 ## seed_movies.go
 
-Populates the Supabase `movies` table with TMDB movie data and OpenAI embeddings. This is the script that builds the initial movie catalog.
+Populates the Supabase `movies` table with TMDB data (movies and/or TV shows) and OpenAI embeddings. Builds the initial catalog and, in `recent` mode, ingests new releases.
 
 ```bash
 cd scripts
-go run seed_movies.go
+go run seed_movies.go --media both --count 600                # initial catalog: 600 movies + 600 shows
+go run seed_movies.go --media movie                           # movies only (default)
+go run seed_movies.go --media both --mode recent --count 100  # newest releases (freshness cron)
+go run seed_movies.go --dry-run                               # fetch + embed, skip the DB write
 ```
 
-Dry run (fetches from TMDB but skips the database write):
+Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--count` (titles per media type, default 500), `--dry-run`.
 
-```bash
-go run seed_movies.go --dry-run
-```
+**Prerequisite:** apply `migrations/0002_add_media_type.sql` before seeding TV. It adds the `media_type` column and a `(tmdb_id, media_type)` unique index, because TMDB movie and TV IDs are separate namespaces and the upsert key is `(tmdb_id, media_type)`.
 
 **What it does:**
-1. Fetches 500 movies from TMDB's discover endpoint (25 pages of 20, sorted by popularity)
-2. Maps TMDB genre IDs to names using the `/genre/movie/list` endpoint (1 request)
-3. Generates 1536-dim embeddings via OpenAI `text-embedding-3-small` (5 concurrent workers, rate limited to 80 RPM)
-4. Upserts into Supabase in batches of 50 (deduplicates by `tmdb_id`)
+1. Fetches titles from TMDB discover (`/discover/movie` and/or `/discover/tv`), 20 per page, sorted by popularity or release date
+2. Maps TMDB genre IDs to names using `/genre/movie/list` and `/genre/tv/list`
+3. Generates 1536-dim embeddings via OpenAI `text-embedding-3-small` (5 concurrent workers, 80 RPM)
+4. Upserts into Supabase in batches of 50, deduplicated by `(tmdb_id, media_type)`
 
-**Expected runtime:** 3-5 minutes (mostly waiting on OpenAI rate limits).
+**Expected runtime:** 3-5 minutes per ~500 titles (mostly OpenAI rate limiting).
 
-**Required env vars:**
-- `TMDB_READ_ACCESS_TOKEN`
-- `OPENAI_API_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_SECRET_KEY`
+**Required env vars:** `TMDB_READ_ACCESS_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
 
-Rate limiting: 260ms delay between TMDB requests (stays under 40 req/10s limit), 80 RPM for OpenAI (safely under Tier-1's 100 RPM limit).
+Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for OpenAI (under Tier-1's 100 RPM).
+
+## Weekly freshness (.github/workflows/refresh-catalog.yml)
+
+A scheduled GitHub Actions workflow runs the seeder in `recent` mode every Monday to ingest new releases (upserts, so no duplicates). Add the four env vars above as repository secrets (Settings > Secrets and variables > Actions), then it runs automatically or on demand via "Run workflow" in the Actions tab.
 
 ## backfill_backdrop.mjs
 

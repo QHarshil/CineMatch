@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -107,5 +108,79 @@ func TestGenreNamesFromIDs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseMediaTypes(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    []string
+		wantErr bool
+	}{
+		{"movie", []string{"movie"}, false},
+		{"tv", []string{"tv"}, false},
+		{"both", []string{"movie", "tv"}, false},
+		{"TV", []string{"tv"}, false},
+		{"music", nil, true},
+	}
+	for _, tc := range tests {
+		got, err := parseMediaTypes(tc.in)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("parseMediaTypes(%q) expected error", tc.in)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("parseMediaTypes(%q) unexpected error: %v", tc.in, err)
+		}
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("parseMediaTypes(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestDeduplicate(t *testing.T) {
+	// Same tmdb_id under different media types is two distinct titles.
+	items := []tmdbItem{
+		{ID: 1, mediaType: "movie"},
+		{ID: 1, mediaType: "movie"}, // duplicate, dropped
+		{ID: 1, mediaType: "tv"},    // same id, different namespace, kept
+		{ID: 2, mediaType: "movie"},
+	}
+	if got := deduplicate(items); len(got) != 3 {
+		t.Fatalf("deduplicate kept %d items, want 3 (%v)", len(got), got)
+	}
+}
+
+func TestTmdbItemAccessors(t *testing.T) {
+	movie := tmdbItem{Title: "Inception", ReleaseDate: "2010-07-16"}
+	if movie.displayTitle() != "Inception" || movie.dateString() != "2010-07-16" {
+		t.Errorf("movie accessors: %q %q", movie.displayTitle(), movie.dateString())
+	}
+	show := tmdbItem{Name: "Breaking Bad", FirstAirDate: "2008-01-20"}
+	if show.displayTitle() != "Breaking Bad" || show.dateString() != "2008-01-20" {
+		t.Errorf("tv accessors: %q %q", show.displayTitle(), show.dateString())
+	}
+}
+
+func TestDiscoverParams(t *testing.T) {
+	movieRecent := discoverParams("movie", "recent", 1)
+	if movieRecent["sort_by"] != "primary_release_date.desc" {
+		t.Errorf("movie recent sort = %q", movieRecent["sort_by"])
+	}
+	if _, ok := movieRecent["primary_release_date.lte"]; !ok {
+		t.Error("movie params missing primary_release_date.lte upper bound")
+	}
+
+	tvPopular := discoverParams("tv", "popular", 2)
+	if tvPopular["sort_by"] != "popularity.desc" {
+		t.Errorf("tv popular sort = %q", tvPopular["sort_by"])
+	}
+	if _, ok := tvPopular["first_air_date.lte"]; !ok {
+		t.Error("tv params missing first_air_date.lte upper bound")
+	}
+	if tvPopular["page"] != "2" {
+		t.Errorf("page = %q, want 2", tvPopular["page"])
 	}
 }

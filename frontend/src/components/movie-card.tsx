@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import type { Movie } from "@/types/movie";
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
@@ -19,12 +20,9 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
   const primaryGenre = movie.genres[0] ?? null;
 
   return (
-    <Link
-      href={`/movie/${movie.id}`}
-      className="group flex flex-col transition-transform duration-200 ease-out hover:scale-[1.03] hover:shadow-lg hover:shadow-black/40"
-    >
+    <Link href={`/movie/${movie.id}`} className="group flex flex-col">
       {/* Poster */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden bg-surface">
+      <div className="relative aspect-[2/3] w-full overflow-hidden border border-border bg-muted transition-colors duration-200 group-hover:border-primary">
         {posterUrl ? (
           <Image
             src={posterUrl}
@@ -34,35 +32,36 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
             No poster
           </div>
         )}
         {matchScore != null && matchScore > 0.7 && (
-          <span className="absolute top-2 right-2 bg-gold text-background text-[10px] font-medium px-1.5 py-0.5">
+          <span className="absolute right-0 top-0 bg-primary px-2 py-0.5 font-mono text-[10px] font-medium text-primary-foreground">
             {Math.round(matchScore * 100)}% match
           </span>
         )}
       </div>
 
       {/* Always-visible metadata */}
-      <div className="flex flex-col gap-0.5 pt-2">
-        <h3 className="font-heading text-sm font-semibold leading-tight truncate">
+      <div className="flex flex-col gap-1 pt-2.5">
+        <h3 className="truncate font-heading text-sm font-medium leading-tight text-foreground transition-colors group-hover:text-primary">
           {movie.title}
         </h3>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
           <span>{movie.release_year}</span>
           {movie.vote_average > 0 && (
             <>
-              <span className="text-gold">&#9733;</span>
-              <span className="text-gold font-medium">
+              <span aria-hidden="true">·</span>
+              <Star className="size-3 fill-gold text-gold" strokeWidth={0} />
+              <span className="text-foreground/75">
                 {movie.vote_average.toFixed(1)}
               </span>
             </>
           )}
         </div>
         {primaryGenre && (
-          <span className="mt-0.5 inline-block w-fit text-[10px] px-2 py-0.5 text-muted-foreground border border-border">
+          <span className="eyebrow mt-0.5 inline-block w-fit border border-border px-2 py-0.5 text-muted-foreground">
             {primaryGenre}
           </span>
         )}

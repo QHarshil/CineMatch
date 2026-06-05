@@ -17,31 +17,31 @@ export function Header() {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8">
-        {/* Left: wordmark + nav */}
-        <div className="flex items-center gap-8">
-          <Link
-            href="/"
-            className="font-heading text-xl font-bold tracking-tight text-gold shrink-0"
-          >
-            CineMatch
-          </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors duration-200"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-stretch px-4 lg:px-8">
+        {/* Wordmark */}
+        <Link
+          href="/"
+          className="flex items-center pr-6 font-heading text-xl font-semibold uppercase tracking-tight text-primary"
+        >
+          CineMatch
+        </Link>
 
-        {/* Right: search + auth + mobile toggle */}
-        <div className="flex items-center gap-4">
+        {/* Cell nav */}
+        <nav className="hidden items-stretch divide-x divide-border border-x border-border md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="eyebrow flex items-center px-6 text-muted-foreground transition-colors hover:bg-wash hover:text-primary"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Search + auth */}
+        <div className="ml-auto flex items-center gap-4 pl-6">
           <div className="hidden sm:block">
             <SearchBar variant="header" />
           </div>
@@ -49,28 +49,28 @@ export function Header() {
           {loading ? null : user ? (
             <button
               onClick={() => signOut()}
-              className="hidden md:block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 shrink-0"
+              className="eyebrow hidden text-muted-foreground transition-colors hover:text-primary md:block"
             >
               Sign out
             </button>
           ) : (
             <Link
               href="/login"
-              className="hidden md:block text-sm text-gold hover:text-gold-dim transition-colors duration-200 shrink-0"
+              className="eyebrow hidden border border-primary px-4 py-2 text-primary transition-colors hover:bg-primary hover:text-primary-foreground md:block"
             >
               Sign in
             </Link>
           )}
 
           <button
-            className="md:hidden p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 text-muted-foreground transition-colors hover:text-primary md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
             {mobileOpen ? (
-              <X className="w-5 h-5" strokeWidth={1.5} />
+              <X className="h-5 w-5" strokeWidth={1.5} />
             ) : (
-              <Menu className="w-5 h-5" strokeWidth={1.5} />
+              <Menu className="h-5 w-5" strokeWidth={1.5} />
             )}
           </button>
         </div>
@@ -78,15 +78,15 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <nav className="md:hidden bg-surface border-t border-border px-4 py-4 space-y-3">
-          <div className="sm:hidden pb-2">
+        <nav className="space-y-1 border-t border-border bg-background px-4 py-4 md:hidden">
+          <div className="pb-3 sm:hidden">
             <SearchBar variant="inline" />
           </div>
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="block py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="eyebrow block py-2.5 text-muted-foreground transition-colors hover:text-primary"
               onClick={() => setMobileOpen(false)}
             >
               {link.label}
@@ -95,7 +95,7 @@ export function Header() {
           {!loading &&
             (user ? (
               <button
-                className="block w-full text-left py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="eyebrow block w-full py-2.5 text-left text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => {
                   signOut();
                   setMobileOpen(false);
@@ -106,7 +106,7 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="block py-2 text-sm text-gold hover:text-gold-dim transition-colors"
+                className="eyebrow block py-2.5 text-primary"
                 onClick={() => setMobileOpen(false)}
               >
                 Sign in

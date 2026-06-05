@@ -7,13 +7,29 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-gold: #D4A843;
-  --color-gold-dim: #B8922F;
+
+  /* Pale-blue section washes (the lower half of the editorial layout). */
+  --color-wash: var(--wash);
+  --color-wash-deep: var(--wash-deep);
+
+  /* Accents: cornflower blue is dominant; amber is the sparing warm spark. */
+  --color-brand: var(--brand);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-violet: var(--brand-violet);
+  --color-amber: var(--amber);
+
+  /* Star ratings. Kept as tokens so pages not yet rebuilt still resolve gold. */
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-cormorant);
+  --font-heading: var(--font-fraunces);
+  --font-serif: var(--font-newsreader);
+  --font-mono: var(--font-jetbrains-mono);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -52,42 +68,64 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* CineMatch Mubi Design System — dark-first, editorial */
+/* CineMatch Atlas Design System — editorial, futuristic, white + pale blue.
+   White canvas, hairline borders forming a grid, serif display + body with
+   monospace for the terminal, cornflower blue as the working color, a sparing
+   amber spark, and a blue duotone treatment for cinematic imagery. */
 :root {
-  --background: #101012;
-  --foreground: #FAFAFA;
-  --surface: #18181B;
-  --surface-hover: #1F1F23;
-  --card: #18181B;
-  --card-foreground: #FAFAFA;
-  --popover: #18181B;
-  --popover-foreground: #FAFAFA;
-  --primary: #D4A843;
-  --primary-foreground: #101012;
-  --secondary: #1F1F23;
-  --secondary-foreground: #A1A1AA;
-  --muted: #27272A;
-  --muted-foreground: #71717A;
-  --accent: #1F1F23;
-  --accent-foreground: #FAFAFA;
-  --destructive: #DC2626;
-  --border: #27272A;
-  --input: #27272A;
-  --ring: #D4A843;
-  --chart-1: #D4A843;
-  --chart-2: #71717A;
-  --chart-3: #52525B;
-  --chart-4: #3F3F46;
-  --chart-5: #27272A;
-  --radius: 0rem;
-  --sidebar: #18181B;
-  --sidebar-foreground: #FAFAFA;
-  --sidebar-primary: #D4A843;
-  --sidebar-primary-foreground: #101012;
-  --sidebar-accent: #1F1F23;
-  --sidebar-accent-foreground: #FAFAFA;
-  --sidebar-border: #27272A;
-  --sidebar-ring: #D4A843;
+  color-scheme: light;
+
+  --background: #ffffff;
+  --foreground: #1b2440;
+
+  --wash: #e9f0ff;
+  --wash-deep: #dde7fc;
+
+  --surface: #ffffff;
+  --surface-hover: #f1f5ff;
+
+  --card: #ffffff;
+  --card-foreground: #1b2440;
+  --popover: #ffffff;
+  --popover-foreground: #1b2440;
+
+  --primary: #2f54ff;
+  --primary-foreground: #ffffff;
+  --secondary: #eaf0ff;
+  --secondary-foreground: #243a7a;
+  --muted: #eef2fb;
+  --muted-foreground: #5b6a8f;
+  --accent: #e6edff;
+  --accent-foreground: #1b3a8a;
+  --destructive: #d6453c;
+  --border: #d2ddf2;
+  --input: #d2ddf2;
+  --ring: #2f54ff;
+
+  --brand: #2f54ff;
+  --brand-cyan: #38b6ff;
+  --brand-violet: #6a7bff;
+  --amber: #f5a623;
+
+  --gold: #c8860b;
+  --gold-dim: #9a6a08;
+
+  --chart-1: #2f54ff;
+  --chart-2: #38b6ff;
+  --chart-3: #6a7bff;
+  --chart-4: #1b3a8a;
+  --chart-5: #aebfe6;
+
+  --radius: 0.25rem;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b2440;
+  --sidebar-primary: #2f54ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaf0ff;
+  --sidebar-accent-foreground: #1b3a8a;
+  --sidebar-border: #d2ddf2;
+  --sidebar-ring: #2f54ff;
 }
 
 @layer base {
@@ -103,6 +141,81 @@
   }
 }
 
+/* Letter-spaced uppercase label, the editorial section/eyebrow style. */
+.eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+}
+
+/* Fine halftone grain laid over the pale-blue washes (print-like texture). */
+.halftone {
+  position: relative;
+}
+.halftone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--primary) 26%, transparent) 0.5px,
+    transparent 0.7px
+  );
+  background-size: 4px 4px;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+}
+
+/* Blue duotone wrapper for cinematic stills. The image itself takes
+   `grayscale mix-blend-luminosity` so its luminance maps onto this blue. */
+.duotone {
+  position: relative;
+  background-color: var(--primary);
+  overflow: hidden;
+}
+.duotone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--wash) 60%, transparent),
+    color-mix(in oklab, var(--primary) 28%, transparent)
+  );
+  mix-blend-mode: screen;
+}
+
+/* Blinking block caret for the terminal / typing components. */
+.type-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  transform: translateY(0.16em);
+  background: var(--primary);
+  animation: caret-blink 1.05s steps(1) infinite;
+}
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.text-gradient {
+  background-image: linear-gradient(100deg, var(--brand), var(--brand-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* Scroll row: hide scrollbar but keep scroll functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -110,4 +223,20 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .type-caret {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

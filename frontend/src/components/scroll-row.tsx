@@ -54,39 +54,43 @@ export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
   return (
     <section className="relative">
       {/* Section header */}
-      <div className="flex items-center justify-between mb-4 px-4 lg:px-0">
-        <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-2.5">
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
+          {title}
+        </h3>
         {seeAllHref && (
           <Link
             href={seeAllHref}
-            className="text-sm text-muted-foreground hover:text-gold transition-colors duration-200"
+            className="eyebrow text-muted-foreground transition-colors duration-200 hover:text-primary"
           >
-            See all &rarr;
+            See all
           </Link>
         )}
       </div>
 
-      <div className="relative group/row">
+      <div className="group/row relative">
         {/* Left fade + arrow */}
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
-            className="absolute left-0 top-0 bottom-0 z-10 w-12 flex items-center justify-center bg-gradient-to-r from-background to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity duration-200"
+            className="absolute bottom-0 left-0 top-0 z-10 flex w-12 items-center justify-center bg-gradient-to-r from-background to-transparent opacity-0 transition-opacity duration-200 group-hover/row:opacity-100"
             aria-label="Scroll left"
           >
-            <ChevronLeft className="w-5 h-5 text-foreground" strokeWidth={1.5} />
+            <span className="grid size-9 place-items-center border border-border bg-background">
+              <ChevronLeft className="h-5 w-5 text-primary" strokeWidth={1.5} />
+            </span>
           </button>
         )}
 
         {/* Scroll container */}
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide px-4 lg:px-0 snap-x snap-mandatory"
+          className="flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide"
         >
           {movies.map((movie) => (
             <div
               key={movie.id}
-              className="w-[140px] sm:w-[160px] lg:w-[180px] shrink-0 snap-start"
+              className="w-[140px] shrink-0 snap-start sm:w-[160px] lg:w-[180px]"
             >
               <MovieCard movie={movie} />
             </div>
@@ -97,10 +101,12 @@ export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}
-            className="absolute right-0 top-0 bottom-0 z-10 w-12 flex items-center justify-center bg-gradient-to-l from-background to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity duration-200"
+            className="absolute bottom-0 right-0 top-0 z-10 flex w-12 items-center justify-center bg-gradient-to-l from-background to-transparent opacity-0 transition-opacity duration-200 group-hover/row:opacity-100"
             aria-label="Scroll right"
           >
-            <ChevronRight className="w-5 h-5 text-foreground" strokeWidth={1.5} />
+            <span className="grid size-9 place-items-center border border-border bg-background">
+              <ChevronRight className="h-5 w-5 text-primary" strokeWidth={1.5} />
+            </span>
           </button>
         )}
       </div>

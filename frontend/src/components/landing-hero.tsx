@@ -46,7 +46,7 @@ export function LandingHero() {
           pgvector + LambdaMART
         </p>
 
-        <h1 className="mt-6 font-heading text-5xl font-semibold uppercase leading-[1.02] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+        <h1 className="mt-6 font-heading text-3xl font-semibold uppercase leading-[1.06] tracking-tight text-foreground sm:text-5xl sm:leading-[1.02] lg:text-7xl">
           Recommendations that learn{" "}
           <span className="text-primary">your taste.</span>
         </h1>

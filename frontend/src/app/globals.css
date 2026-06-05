@@ -134,6 +134,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Guard against incidental horizontal overflow on small viewports. */
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;

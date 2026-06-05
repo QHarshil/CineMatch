@@ -1,6 +1,8 @@
 # CineMatch Frontend
 
-Next.js app that renders the movie browsing, search, and recommendation UI. Server components handle movie pages (SSR for SEO and initial load speed), client components handle interactive bits like auth, interactions, and the recommendation feed.
+Next.js app for movie and TV browsing, search, and recommendations. Server
+components render content pages (SSR for SEO and first paint); client components
+handle auth, interactions, search, and the recommendation feed.
 
 ## Running locally
 
@@ -18,10 +20,11 @@ npm run build
 npm start
 ```
 
-Lint:
+Lint and type-check:
 
 ```bash
 npm run lint
+npx tsc --noEmit
 ```
 
 ## Environment variables
@@ -38,51 +41,65 @@ cp .env.local.example .env.local
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable anon key (RLS restricts what it can access) |
 | `NEXT_PUBLIC_API_URL` | Go backend URL (default `http://localhost:8080`) |
 
-Only `NEXT_PUBLIC_*` vars are exposed to the browser. The Supabase service key and all other secrets stay in the Go backend.
+Only `NEXT_PUBLIC_*` vars reach the browser. The Supabase service key, TMDB
+token, OpenAI key, and OMDb key all stay in the Go backend.
 
 ## Pages
 
 | Route | Rendering | Description |
 |-------|-----------|-------------|
-| `/` | SSR | Landing page with featured movie backdrop, trending/top-rated scroll rows, search bar |
-| `/browse` | SSR + client | Genre filter chips, sort dropdown (popular/top-rated/newest/A-Z), 30-per-page pagination |
-| `/browse?q=term` | SSR + client | Search results from the Go backend, same grid layout as browse |
-| `/movie/[id]` | SSR | Movie detail: full-width TMDB backdrop, poster, rating, genres, overview, interaction buttons, similar movies row |
-| `/for-you` | client | Personalized recommendations (auth required). Shows "Because you liked X" rows, top picks, and popular movies. Unauthenticated users see demo taste profiles. |
-| `/how-it-works` | SSR + client | Technical deep-dive: pipeline diagram, interactive vector search demo, eval results, tech stack |
-| `/login` | client | Magic link sign-in via Supabase. 60-second cooldown between sends. |
-| `/auth/callback` | SSR | Handles the magic link redirect, exchanges the code for a session |
-| `/api/similar` | API route | Internal: fetches similar movies via pgvector for the how-it-works demo |
+| `/` | SSR | Landing: product hero with the pipeline typed out as setup steps, a "see it in action" terminal beside a duotone still, a feature grid, and live catalog rows |
+| `/browse` | SSR + client | Genre chips, sort dropdown (popular/top-rated/newest/A-Z), 30-per-page pagination |
+| `/browse?q=term` | SSR + client | Search results from the Go backend, same grid |
+| `/movie/[id]` | SSR | Detail: TMDB backdrop, poster, ratings, genres, overview, interaction buttons, similar titles |
+| `/for-you` | client | Personalized recommendations (auth required): "Top Picks", "Because you liked X", and popular rows. Signed-out visitors get demo taste profiles |
+| `/how-it-works` | SSR + client | Technical deep-dive: pipeline diagram, live pgvector similarity demo, eval table, tech stack |
+| `/login` | client | Supabase magic-link sign-in, 60-second resend cooldown |
+| `/auth/callback` | SSR | Exchanges the magic-link code for a session |
+| `/api/similar` | API route | Internal: pgvector neighbors for the how-it-works demo |
 
-## Design system
+Movie cards and the detail page show a Film/TV badge from each title's
+`media_type`.
 
-The visual language is inspired by [Mubi](https://mubi.com) -- editorial, restrained, dark-first.
+## Design system — Atlas
 
-**Colors:**
-- Background: `#101012`
-- Surface (cards, inputs): `#18181B`
-- Gold accent: `#D4A843` (CTAs, ratings, active states)
-- Text: `#FAFAFA`
-- Muted text: `#A1A1AA`
+Editorial, light, and futuristic, after the Hermes Agent site: a white canvas
+with pale-blue washed sections, hairline-grid framing, and serif display and
+body with monospace for the terminal. Tokens are defined CSS-first in
+`src/app/globals.css` (Tailwind v4 `@theme`); the bundled `cinematch-design`
+skill is the full reference.
 
-**Typography:**
-- Headings: Cormorant (serif), loaded via `next/font/google`
-- Body: Inter (sans-serif)
+**Color (light):**
+- Background `#ffffff`, section washes `#e9f0ff`
+- Ink text `#1b2440`, muted `#5b6a8f`
+- Primary (cornflower) `#2f54ff`; amber `#f5a623` as a sparing spark
+- Gold `#c8860b` reserved for star ratings only
+- Hairline borders `#d2ddf2`, radius `0.25rem`
 
-**Components:**
-- Base UI from shadcn/ui (button, input, skeleton, dropdown-menu, etc.)
-- Custom components: `ScrollRow` (CSS scroll-snap with chevron navigation), `MovieCard`, `SearchBar` (live dropdown with TMDB thumbnails), `InteractionButtons` (Lucide icons), `Toast`
-- No third-party carousel or slider libraries
+**Type (`next/font/google`):**
+- Display and headings: Fraunces (serif), frequently uppercase
+- Body: Newsreader (serif)
+- Terminal, labels, numbers: JetBrains Mono
+- App default sans: Inter
 
-**Interaction patterns:**
-- Square corners (0rem radius), no box shadows
-- 200ms ease-out transitions on hover/focus
-- Movie cards scale to 1.03 on hover
-- Scroll rows have edge-fade gradients and arrow buttons on hover
-- Skeleton loading states on all pages (surface-colored pulse)
+**Signature pieces:**
+- `useTypewriter` + `TypingText` + `CodeTyper` drive the code/terminal typing
+  motif. Both are reduced-motion aware and mirror full text to an `sr-only`
+  node, so the animation never costs accessibility or SSR content.
+- `.duotone` blue-tinted film stills, `.halftone` print grain, `.eyebrow`
+  letter-spaced labels.
+- `ScrollRow`, `MovieCard`, `SearchBar` (live TMDB-thumbnail dropdown),
+  `InteractionButtons`, `Toast`, plus shadcn/ui (Base UI) primitives.
 
-**Client-side protections:**
-- Search debounced to 500ms
-- Interaction buttons disabled for 1 second after click
-- Toast notification on API rate limit (429)
-- Magic link button has a 60-second cooldown
+**Conventions:**
+- Near-sharp corners, flat hairline borders, no glow.
+- Lucide icons only, no emoji; no em dashes in copy.
+- 200ms ease transitions; skeleton-shimmer loading states.
+- WCAG AA contrast; `prefers-reduced-motion` honored.
+
+## Client-side protections
+
+- Search is debounced to 500ms.
+- Interaction buttons disable briefly after each click.
+- A toast surfaces on API rate limit (429).
+- The magic-link button has a 60-second cooldown.

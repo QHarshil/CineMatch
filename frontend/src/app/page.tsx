@@ -9,7 +9,7 @@ import type { Movie } from "@/types/movie";
 export const dynamic = "force-dynamic";
 
 const MOVIE_FIELDS =
-  "id,tmdb_id,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
+  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
 
 const TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
 

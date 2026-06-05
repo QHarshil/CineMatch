@@ -50,7 +50,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
       let query = supabase.current
         .from("movies")
         .select(
-          "id,tmdb_id,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime"
+          "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime"
         )
         .order(column, { ascending })
         .range(offset, offset + PAGE_SIZE - 1);

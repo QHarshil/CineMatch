@@ -24,15 +24,13 @@ function Stage({
         transitionDelay: delay,
       }}
     >
-      <div className="w-44 sm:w-52 border border-border bg-surface px-5 py-5 text-center">
-        <p className="font-heading text-lg sm:text-xl font-semibold text-foreground">
+      <div className="w-44 border border-border bg-card px-5 py-5 text-center sm:w-52">
+        <p className="font-heading text-lg font-semibold text-foreground sm:text-xl">
           {label}
         </p>
-        <p className="mt-1 text-xs tracking-widest uppercase text-gold">
-          {sublabel}
-        </p>
+        <p className="eyebrow mt-1 text-primary">{sublabel}</p>
       </div>
-      <p className="text-xs text-muted-foreground max-w-[11rem] text-center leading-relaxed">
+      <p className="max-w-[11rem] text-center text-xs leading-relaxed text-muted-foreground">
         {detail}
       </p>
     </div>
@@ -42,7 +40,7 @@ function Stage({
 function Arrow({ delay, revealed }: { delay: string; revealed: boolean }) {
   return (
     <div
-      className="flex items-center self-start mt-5 transition-all duration-500 ease-out"
+      className="mt-5 flex items-center self-start transition-all duration-500 ease-out"
       style={{
         opacity: revealed ? 1 : 0,
         transform: revealed ? "scaleX(1)" : "scaleX(0)",
@@ -50,8 +48,8 @@ function Arrow({ delay, revealed }: { delay: string; revealed: boolean }) {
         transformOrigin: "left",
       }}
     >
-      <div className="w-10 sm:w-16 h-px bg-gold" />
-      <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-gold" />
+      <div className="h-px w-10 bg-primary sm:w-16" />
+      <div className="h-0 w-0 border-b-[5px] border-l-[8px] border-t-[5px] border-b-transparent border-l-primary border-t-transparent" />
     </div>
   );
 }
@@ -67,13 +65,13 @@ function DataLabel({
 }) {
   return (
     <div
-      className="flex items-center self-start mt-5 transition-all duration-500 ease-out"
+      className="mt-5 flex items-center self-start transition-all duration-500 ease-out"
       style={{
         opacity: revealed ? 0.7 : 0,
         transitionDelay: delay,
       }}
     >
-      <span className="text-[11px] text-muted-foreground tracking-wide whitespace-nowrap">
+      <span className="whitespace-nowrap font-mono text-[11px] tracking-wide text-muted-foreground">
         {text}
       </span>
     </div>
@@ -85,7 +83,7 @@ export function PipelineDiagram() {
 
   return (
     <div ref={ref} className="w-full overflow-x-auto py-8 scrollbar-hide">
-      <div className="flex items-start gap-3 sm:gap-4 min-w-[700px] px-4 mx-auto w-fit">
+      <div className="mx-auto flex w-fit min-w-[700px] items-start gap-3 px-4 sm:gap-4">
         <Stage
           label="User Profile"
           sublabel="Embedding"

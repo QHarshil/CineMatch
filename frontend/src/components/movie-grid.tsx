@@ -9,12 +9,14 @@ interface MovieGridProps {
 export function MovieGrid({ movies }: MovieGridProps) {
   if (movies.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="w-16 h-16 border border-border flex items-center justify-center">
-          <Film className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
+      <div className="flex flex-col items-center justify-center gap-4 py-20">
+        <div className="flex size-16 items-center justify-center border border-border text-primary">
+          <Film className="size-7" strokeWidth={1.5} />
         </div>
-        <p className="font-heading text-xl font-semibold">No movies found</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="font-heading text-xl font-semibold uppercase tracking-tight">
+          No titles found
+        </p>
+        <p className="font-serif text-muted-foreground">
           Try adjusting your filters or search term.
         </p>
       </div>
@@ -22,7 +24,7 @@ export function MovieGrid({ movies }: MovieGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {movies.map((movie) => (
         <MovieCard key={movie.id} movie={movie} />
       ))}

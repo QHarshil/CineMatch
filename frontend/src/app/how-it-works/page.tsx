@@ -14,13 +14,12 @@ import {
 import Link from "next/link";
 
 export const metadata = {
-  title: "How It Works | CineMatch",
+  title: "How It Works",
   description:
     "A technical deep-dive into how CineMatch builds personalized movie recommendations using vector search and learned ranking.",
 };
 
-const MOVIE_FIELDS =
-  "id, title, poster_path" as const;
+const MOVIE_FIELDS = "id, title, poster_path" as const;
 
 async function fetchSeedMovies() {
   try {
@@ -95,33 +94,31 @@ export default async function HowItWorksPage() {
   const seedMovies = await fetchSeedMovies();
 
   return (
-    <article className="min-h-screen">
+    <article className="min-h-screen font-serif">
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <header className="pt-32 pb-20 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs tracking-[0.3em] uppercase text-gold mb-6">
-            Engineering Deep Dive
-          </p>
-          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] mb-6">
-            How CineMatch Builds Recommendations
+      <header className="px-4 pb-20 pt-32">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="eyebrow mb-6 text-primary">Engineering deep dive</p>
+          <h1 className="mb-6 font-heading text-4xl font-semibold uppercase leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
+            How CineMatch builds recommendations
           </h1>
-          <p className="text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
+          <p className="mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground">
             A two-stage pipeline that combines vector similarity search with a
-            learned ranking model to surface movies you will actually want to
+            learned ranking model to surface titles you will actually want to
             watch.
           </p>
         </div>
       </header>
 
       {/* ── Section 1: Pipeline Overview ─────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-5xl mx-auto">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-5xl">
           <SectionHeading
             number="01"
             title="How recommendations work"
             subtitle="The two-stage pipeline"
           />
-          <p className="text-muted-foreground leading-relaxed max-w-2xl mb-12">
+          <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
             Every recommendation request flows through two stages. First, we
             cast a wide net using vector search to find movies that are
             semantically close to the user&apos;s taste. Then, a scoring model
@@ -133,28 +130,28 @@ export default async function HowItWorksPage() {
       </SectionReveal>
 
       {/* ── Section 2: Retrieval ──────────────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-4xl mx-auto">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-4xl">
           <SectionHeading
             number="02"
             title="The retrieval stage"
             subtitle="Vector search with pgvector"
           />
-          <div className="grid md:grid-cols-2 gap-12 mb-12">
+          <div className="mb-12 grid gap-12 md:grid-cols-2">
             <div className="space-y-5">
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="leading-relaxed text-muted-foreground">
                 Every movie is converted into a 1536-dimensional embedding using
                 OpenAI&apos;s text-embedding-3-small model. The input
                 combines the movie&apos;s plot summary, genres, release year,
                 and key metadata into a single dense vector that captures
                 its semantic identity.
               </p>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="leading-relaxed text-muted-foreground">
                 User preferences are encoded the same way, built from the
                 embeddings of movies they have liked and watched, weighted by
                 recency.
               </p>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="leading-relaxed text-muted-foreground">
                 Finding candidates is a nearest-neighbor search: we use
                 pgvector&apos;s HNSW index to find the 50 movies with the
                 highest cosine similarity to the user&apos;s embedding. This
@@ -162,33 +159,31 @@ export default async function HowItWorksPage() {
               </p>
             </div>
             <div className="space-y-4">
-              <div className="border border-border bg-surface/30 p-5">
-                <p className="text-xs text-gold uppercase tracking-widest mb-3">
-                  Embedding Space
-                </p>
+              <div className="border border-border bg-wash p-5">
+                <p className="eyebrow mb-3 text-primary">Embedding space</p>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Dimensions</span>
-                    <span className="text-foreground font-mono">1,536</span>
+                    <span className="font-mono text-foreground">1,536</span>
                   </div>
-                  <div className="w-full h-px bg-border/50" />
+                  <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
                     <span>Distance metric</span>
-                    <span className="text-foreground font-mono">
+                    <span className="font-mono text-foreground">
                       Cosine similarity
                     </span>
                   </div>
-                  <div className="w-full h-px bg-border/50" />
+                  <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
                     <span>Index type</span>
-                    <span className="text-foreground font-mono">
+                    <span className="font-mono text-foreground">
                       HNSW (m=16, ef=64)
                     </span>
                   </div>
-                  <div className="w-full h-px bg-border/50" />
+                  <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
                     <span>Candidates returned</span>
-                    <span className="text-foreground font-mono">50</span>
+                    <span className="font-mono text-foreground">50</span>
                   </div>
                 </div>
               </div>
@@ -197,11 +192,11 @@ export default async function HowItWorksPage() {
 
           {/* Interactive demo */}
           <div className="mt-16">
-            <h3 className="font-heading text-2xl font-semibold mb-2">
+            <h3 className="mb-2 font-heading text-2xl font-semibold uppercase tracking-tight">
               Try it yourself
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-lg">
-              Pick any movie below to see its 5 nearest neighbors in
+            <p className="mb-6 max-w-lg text-muted-foreground">
+              Pick any title below to see its 5 nearest neighbors in
               embedding space. This calls the real pgvector index with live
               data.
             </p>
@@ -211,14 +206,14 @@ export default async function HowItWorksPage() {
       </SectionReveal>
 
       {/* ── Section 3: Ranking ───────────────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-4xl mx-auto">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-4xl">
           <SectionHeading
             number="03"
             title="The ranking stage"
             subtitle="Multi-signal re-ranking"
           />
-          <p className="text-muted-foreground leading-relaxed max-w-2xl mb-12">
+          <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
             Raw similarity is not enough. A movie can be close in embedding
             space but poorly rated, or popular but not to the user&apos;s
             taste. The ranking stage combines multiple signals into a single
@@ -226,24 +221,22 @@ export default async function HowItWorksPage() {
           </p>
 
           {/* Feature weights */}
-          <div className="border border-border bg-surface/30 p-6 sm:p-8 mb-12">
-            <p className="text-xs text-gold uppercase tracking-widest mb-6">
-              Scoring Weights
-            </p>
+          <div className="mb-12 border border-border bg-wash p-6 sm:p-8">
+            <p className="eyebrow mb-6 text-primary">Scoring weights</p>
             <div className="space-y-5">
               {FEATURE_WEIGHTS.map((f) => (
                 <div key={f.name}>
-                  <div className="flex items-baseline justify-between mb-2">
+                  <div className="mb-2 flex items-baseline justify-between">
                     <span className="text-sm font-medium text-foreground">
                       {f.name}
                     </span>
-                    <span className="text-sm font-mono text-gold">
+                    <span className="font-mono text-sm text-primary">
                       {(f.weight * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full h-1.5 bg-muted">
+                  <div className="h-1.5 w-full bg-muted">
                     <div
-                      className="h-full bg-gold transition-all duration-1000 ease-out"
+                      className="h-full bg-primary transition-all duration-1000 ease-out"
                       style={{ width: `${f.weight * 100}%` }}
                     />
                   </div>
@@ -255,9 +248,9 @@ export default async function HowItWorksPage() {
             </div>
           </div>
 
-          <div className="border-l-2 border-gold/30 pl-6">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              <span className="text-foreground font-medium">
+          <div className="border-l-2 border-primary/40 pl-6">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
                 Learned re-ranker:
               </span>{" "}
               The weights above are the transparent linear baseline.
@@ -272,8 +265,8 @@ export default async function HowItWorksPage() {
       </SectionReveal>
 
       {/* ── Section 4: Evaluation ────────────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-4xl mx-auto">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-4xl">
           <SectionHeading
             number="04"
             title="Evaluation"
@@ -281,7 +274,7 @@ export default async function HowItWorksPage() {
           />
 
           {/* Metric definitions */}
-          <div className="grid sm:grid-cols-3 gap-6 mb-12">
+          <div className="mb-12 grid gap-6 sm:grid-cols-3">
             <MetricCard
               name="NDCG@10"
               definition="Measures whether the most relevant movies appear at the top of the list, penalizing good recommendations buried at position 8 more than position 2."
@@ -297,20 +290,20 @@ export default async function HowItWorksPage() {
           </div>
 
           {/* Results table */}
-          <div className="border border-border overflow-hidden">
+          <div className="overflow-hidden border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-surface/50">
-                  <th className="text-left px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                <tr className="bg-wash">
+                  <th className="eyebrow px-5 py-3 text-left text-muted-foreground">
                     Model
                   </th>
-                  <th className="text-right px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
                     NDCG@10
                   </th>
-                  <th className="text-right px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
                     MRR
                   </th>
-                  <th className="text-right px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
                     Hit Rate
                   </th>
                 </tr>
@@ -321,14 +314,14 @@ export default async function HowItWorksPage() {
                     key={r.model}
                     className={
                       i === EVAL_RESULTS.length - 1
-                        ? "bg-gold/5"
-                        : "border-t border-border/30"
+                        ? "bg-accent"
+                        : "border-t border-border"
                     }
                   >
                     <td className="px-5 py-3.5 font-medium text-foreground">
                       {r.model}
                       {i === EVAL_RESULTS.length - 1 && (
-                        <span className="ml-2 text-[10px] text-gold uppercase tracking-wider">
+                        <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-primary">
                           Current
                         </span>
                       )}
@@ -366,14 +359,14 @@ export default async function HowItWorksPage() {
       </SectionReveal>
 
       {/* ── Section 5: Cold Start ────────────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-3xl mx-auto">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-3xl">
           <SectionHeading
             number="05"
             title="Cold start"
             subtitle="What happens for new users"
           />
-          <div className="space-y-6 text-muted-foreground leading-relaxed">
+          <div className="space-y-6 leading-relaxed text-muted-foreground">
             <p>
               A new user has no interaction history, which means no user
               embedding and no signal for the ranking model. Rather than
@@ -406,21 +399,17 @@ export default async function HowItWorksPage() {
       </SectionReveal>
 
       {/* ── Section 6: Tech Stack ────────────────────────────────── */}
-      <SectionReveal className="py-20 px-4 border-t border-border/30">
-        <div className="max-w-4xl mx-auto">
-          <SectionHeading
-            number="06"
-            title="Tech stack"
-            subtitle="Built with"
-          />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <SectionHeading number="06" title="Tech stack" subtitle="Built with" />
+          <div className="mb-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {TECH_STACK.map((t) => (
               <div
                 key={t.name}
-                className="border border-border bg-surface/30 p-5 transition-colors duration-200 hover:border-border/80"
+                className="border border-border bg-card p-5 transition-colors duration-200 hover:border-primary"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <t.icon className="w-4 h-4 text-gold" strokeWidth={1.5} />
+                <div className="mb-3 flex items-center gap-3">
+                  <t.icon className="size-4 text-primary" strokeWidth={1.5} />
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       {t.name}
@@ -430,7 +419,7 @@ export default async function HowItWorksPage() {
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   {t.reason}
                 </p>
               </div>
@@ -442,9 +431,9 @@ export default async function HowItWorksPage() {
               href="https://github.com/QHarshil/CineMatch"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 border border-border px-6 py-3 text-sm text-foreground hover:border-gold hover:text-gold transition-colors duration-200"
+              className="eyebrow inline-flex items-center gap-2 border border-border px-6 py-3 text-foreground transition-colors duration-200 hover:border-primary hover:text-primary"
             >
-              <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
+              <ExternalLink className="size-4" strokeWidth={1.5} />
               View source on GitHub
             </Link>
           </div>
@@ -484,13 +473,11 @@ function SectionHeading({
 }) {
   return (
     <div className="mb-10">
-      <p className="text-xs font-mono text-gold/60 mb-3">{number}</p>
-      <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-2">
+      <p className="mb-3 font-mono text-xs text-primary/50">{number}</p>
+      <h2 className="mb-2 font-heading text-3xl font-semibold uppercase tracking-tight sm:text-4xl">
         {title}
       </h2>
-      <p className="text-sm text-muted-foreground uppercase tracking-widest">
-        {subtitle}
-      </p>
+      <p className="eyebrow text-muted-foreground">{subtitle}</p>
     </div>
   );
 }
@@ -503,9 +490,9 @@ function MetricCard({
   definition: string;
 }) {
   return (
-    <div className="border border-border bg-surface/30 p-5">
-      <p className="font-mono text-sm text-gold mb-2">{name}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">
+    <div className="border border-border bg-card p-5">
+      <p className="mb-2 font-mono text-sm text-primary">{name}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
         {definition}
       </p>
     </div>
@@ -514,7 +501,7 @@ function MetricCard({
 
 function ScoreCell({ value, best }: { value: number; best: boolean }) {
   return (
-    <span className={best ? "text-gold font-medium" : "text-muted-foreground"}>
+    <span className={best ? "font-medium text-primary" : "text-muted-foreground"}>
       {value.toFixed(2)}
     </span>
   );
@@ -533,17 +520,17 @@ function ColdStartTier({
 }) {
   return (
     <div className="flex gap-5">
-      <div className="flex flex-col items-center shrink-0">
-        <div className="w-3 h-3 border border-gold bg-gold/20" />
-        <div className="w-px flex-1 bg-border/30" />
+      <div className="flex shrink-0 flex-col items-center">
+        <div className="size-3 border border-primary bg-primary/15" />
+        <div className="w-px flex-1 bg-border" />
       </div>
       <div className="pb-8">
-        <p className="text-xs text-gold font-mono mb-1">{stage}</p>
-        <p className="font-heading text-lg font-semibold mb-2">{label}</p>
-        <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+        <p className="mb-1 font-mono text-xs text-primary">{stage}</p>
+        <p className="mb-2 font-heading text-lg font-semibold">{label}</p>
+        <p className="mb-2 text-sm leading-relaxed text-muted-foreground">
           {description}
         </p>
-        <p className="text-xs text-muted-foreground/60 font-mono">{blend}</p>
+        <p className="font-mono text-xs text-muted-foreground/70">{blend}</p>
       </div>
     </div>
   );

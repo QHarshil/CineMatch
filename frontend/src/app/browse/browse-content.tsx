@@ -132,21 +132,16 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 lg:px-8 pt-20 pb-12">
+    <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 lg:px-8">
       {/* Page heading */}
-      <h1 className="font-heading text-2xl font-bold mb-6">
-        {isSearchMode ? (
-          <>
-            Results for &lsquo;{searchQuery}&rsquo;
-          </>
-        ) : (
-          "Browse"
-        )}
+      <p className="eyebrow text-primary">{isSearchMode ? "Search" : "Catalog"}</p>
+      <h1 className="mb-6 mt-2 font-heading text-3xl font-semibold uppercase tracking-tight">
+        {isSearchMode ? <>Results for &lsquo;{searchQuery}&rsquo;</> : "Browse"}
       </h1>
 
       {/* Filter/sort bar — hidden in search mode */}
       {!isSearchMode && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 border-y border-border py-3 sm:flex-row sm:items-center">
           {/* Genre chips */}
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 pb-1">
@@ -156,8 +151,8 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
                   onClick={() => handleGenreChange(genre)}
                   className={`shrink-0 px-3.5 py-1.5 text-xs transition-colors duration-200 ${
                     activeGenre === genre
-                      ? "bg-gold text-background font-medium"
-                      : "border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                      ? "bg-primary font-medium text-primary-foreground"
+                      : "border border-border text-muted-foreground hover:border-primary hover:text-primary"
                   }`}
                 >
                   {genre}
@@ -170,22 +165,22 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
           <div ref={sortRef} className="relative shrink-0">
             <button
               onClick={() => setSortOpen(!sortOpen)}
-              className="flex items-center gap-2 px-4 py-1.5 text-xs border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors duration-200"
+              className="flex items-center gap-2 border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors duration-200 hover:border-primary hover:text-primary"
             >
               {SORT_LABELS[sort]}
-              <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
             {sortOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-surface border border-border z-50 min-w-[140px]">
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] border border-border bg-popover shadow-sm">
                 {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(
                   ([key, label]) => (
                     <button
                       key={key}
                       onClick={() => handleSortChange(key)}
-                      className={`block w-full text-left px-4 py-2 text-xs transition-colors duration-150 ${
+                      className={`block w-full px-4 py-2 text-left text-xs transition-colors duration-150 ${
                         sort === key
-                          ? "text-gold bg-gold/5"
-                          : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+                          ? "bg-accent text-primary"
+                          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
                       }`}
                     >
                       {label}
@@ -200,12 +195,12 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
-              <div className="aspect-[2/3] bg-surface animate-pulse" />
-              <div className="h-4 w-3/4 bg-surface animate-pulse" />
-              <div className="h-3 w-1/3 bg-surface animate-pulse" />
+              <div className="aspect-[2/3] animate-pulse bg-muted" />
+              <div className="h-4 w-3/4 animate-pulse bg-muted" />
+              <div className="h-3 w-1/3 animate-pulse bg-muted" />
             </div>
           ))}
         </div>
@@ -214,7 +209,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
       {/* Movie grid */}
       {!loading && movies.length > 0 && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {movies.map((movie) => (
               <MovieCard key={movie.id} movie={movie} />
             ))}
@@ -222,11 +217,11 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
           {/* Load more */}
           {hasMore && !isSearchMode && (
-            <div className="flex justify-center mt-12">
+            <div className="mt-12 flex justify-center">
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="px-8 py-3 border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors duration-200 disabled:opacity-50"
+                className="eyebrow border border-border px-8 py-3 text-muted-foreground transition-colors duration-200 hover:border-primary hover:text-primary disabled:opacity-50"
               >
                 {loadingMore ? "Loading..." : "Load more"}
               </button>
@@ -237,21 +232,23 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
       {/* Empty state */}
       {!loading && movies.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-16 h-16 border border-border flex items-center justify-center">
-            <Film className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="flex size-16 items-center justify-center border border-border text-primary">
+            <Film className="size-7" strokeWidth={1.5} />
           </div>
-          <h2 className="font-heading text-xl font-semibold">No movies found</h2>
-          <p className="text-sm text-muted-foreground text-center max-w-xs">
+          <h2 className="font-heading text-xl font-semibold uppercase tracking-tight">
+            No titles found
+          </h2>
+          <p className="max-w-xs text-center font-serif text-muted-foreground">
             {isSearchMode
               ? "Try a different search term or browse by genre instead."
               : "Try a different genre or search term."}
           </p>
           <button
             onClick={clearFilters}
-            className="mt-2 px-5 py-2 border border-gold text-gold text-sm hover:bg-gold hover:text-background transition-colors duration-200"
+            className="eyebrow mt-2 border border-primary px-5 py-2.5 text-primary transition-colors duration-200 hover:bg-primary hover:text-primary-foreground"
           >
-            {isSearchMode ? "Browse all movies" : "Clear filters"}
+            {isSearchMode ? "Browse all titles" : "Clear filters"}
           </button>
         </div>
       )}

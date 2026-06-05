@@ -7,6 +7,7 @@ import { ScrollRow } from "@/components/scroll-row";
 import type { Movie } from "@/types/movie";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const TMDB_IMAGE = "https://image.tmdb.org/t/p/w342";
@@ -198,17 +199,17 @@ export default function ForYouPage() {
   // ── Loading skeleton ──────────────────────────────────────────
   if (isAuthLoading || isDataLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 lg:px-8 pt-20 pb-12">
-        <div className="h-7 w-24 bg-surface animate-pulse mb-10" />
+      <div className="mx-auto max-w-7xl px-4 pb-12 pt-24 lg:px-8">
+        <div className="mb-10 h-7 w-24 animate-pulse bg-muted" />
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="mb-12">
-            <div className="h-5 w-48 bg-surface animate-pulse mb-4" />
+            <div className="mb-4 h-5 w-48 animate-pulse bg-muted" />
             <div className="flex gap-4 overflow-hidden">
               {Array.from({ length: 6 }).map((_, j) => (
                 <div key={j} className="w-[160px] shrink-0">
-                  <div className="aspect-[2/3] bg-surface animate-pulse" />
-                  <div className="h-4 w-3/4 bg-surface animate-pulse mt-2" />
-                  <div className="h-3 w-1/3 bg-surface animate-pulse mt-1" />
+                  <div className="aspect-[2/3] animate-pulse bg-muted" />
+                  <div className="mt-2 h-4 w-3/4 animate-pulse bg-muted" />
+                  <div className="mt-1 h-3 w-1/3 animate-pulse bg-muted" />
                 </div>
               ))}
             </div>
@@ -223,9 +224,9 @@ export default function ForYouPage() {
     return (
       <div className="relative min-h-screen overflow-hidden">
         {/* Blurred poster grid background */}
-        <div className="absolute inset-0 grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 opacity-[0.08] blur-sm pointer-events-none">
+        <div className="pointer-events-none absolute inset-0 grid grid-cols-4 gap-2 p-4 opacity-[0.10] blur-sm sm:grid-cols-6">
           {backdropMovies.map((m) => (
-            <div key={m.id} className="aspect-[2/3] relative">
+            <div key={m.id} className="relative aspect-[2/3]">
               {m.poster_path && (
                 <Image
                   src={`${TMDB_IMAGE}${m.poster_path}`}
@@ -239,43 +240,47 @@ export default function ForYouPage() {
           ))}
         </div>
 
-        <div className="relative flex flex-col items-center justify-center pt-32 pb-20 px-4 text-center">
-          <h1 className="font-heading text-3xl sm:text-4xl font-bold mb-3">
-            Your personalized picks
+        <div className="relative flex flex-col items-center justify-center px-4 pb-20 pt-32 text-center">
+          <p className="eyebrow text-primary">Personalized for you</p>
+          <h1 className="mb-3 mt-3 font-heading text-3xl font-semibold uppercase tracking-tight sm:text-4xl">
+            Your picks, your taste
           </h1>
-          <p className="text-muted-foreground max-w-md mb-8">
-            Sign in to get movie recommendations based on your taste,
-            or try a demo profile below.
+          <p className="mb-8 max-w-md font-serif text-lg text-muted-foreground">
+            Sign in to get recommendations ranked to your taste, or try a demo
+            profile to see the engine in action right now.
           </p>
 
           <Link
             href="/login"
-            className="px-8 py-3 bg-gold text-background text-sm font-medium hover:bg-gold-dim transition-colors duration-200 mb-12"
+            className="eyebrow mb-12 bg-primary px-8 py-3 text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
           >
             Sign in
           </Link>
 
           {/* Demo profiles */}
           <div className="w-full max-w-lg">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
+            <p className="eyebrow mb-4 text-muted-foreground">
               Or try a demo profile
             </p>
-            <div className="grid gap-3">
+            <div className="grid gap-px bg-border">
               {DEMO_PROFILES.map((profile) => (
                 <button
                   key={profile.id}
                   onClick={() => handleDemoProfile(profile)}
-                  className="flex items-center justify-between px-5 py-4 border border-border bg-surface/50 hover:border-gold/50 hover:bg-surface transition-colors duration-200 text-left"
+                  className="group flex items-center justify-between bg-background px-5 py-4 text-left transition-colors duration-200 hover:bg-surface-hover"
                 >
                   <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="font-heading text-sm font-semibold text-foreground">
                       {profile.label}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="mt-0.5 font-serif text-sm text-muted-foreground">
                       {profile.description}
                     </p>
                   </div>
-                  <span className="text-gold text-sm shrink-0 ml-4">&rarr;</span>
+                  <ArrowRight
+                    className="ml-4 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+                    strokeWidth={2}
+                  />
                 </button>
               ))}
             </div>
@@ -288,13 +293,13 @@ export default function ForYouPage() {
   // ── Error ─────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center pt-32 pb-16 gap-4">
-        <p className="text-destructive text-sm">
+      <div className="flex flex-col items-center justify-center gap-4 pb-16 pt-32">
+        <p className="font-serif text-muted-foreground">
           Failed to load recommendations.
         </p>
         <button
           onClick={() => window.location.reload()}
-          className="px-5 py-2 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="eyebrow border border-border px-5 py-2.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
         >
           Try again
         </button>
@@ -307,19 +312,20 @@ export default function ForYouPage() {
   const isDemoMode = demoProfile !== null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 lg:px-8 pt-20 pb-12">
-      <h1 className="font-heading text-2xl font-bold mb-2">
-        {isDemoMode ? "Demo Recommendations" : "For You"}
+    <div className="mx-auto max-w-7xl px-4 pb-12 pt-24 lg:px-8">
+      <p className="eyebrow text-primary">{isDemoMode ? "Demo" : "For you"}</p>
+      <h1 className="mb-2 mt-2 font-heading text-3xl font-semibold uppercase tracking-tight">
+        {isDemoMode ? "Demo recommendations" : "For you"}
       </h1>
 
       {isDemoMode && (
-        <p className="text-sm text-muted-foreground mb-8">
+        <p className="mb-8 font-serif text-muted-foreground">
           Showing recommendations for the{" "}
-          <span className="text-gold">
+          <span className="text-primary">
             {DEMO_PROFILES.find((p) => p.id === demoProfile)?.label}
           </span>{" "}
           profile.{" "}
-          <Link href="/login" className="text-gold hover:text-gold-dim transition-colors">
+          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
             Sign in
           </Link>{" "}
           to get your own.
@@ -328,15 +334,16 @@ export default function ForYouPage() {
 
       {/* Cold-start banner */}
       {!hasPersonalized && !isDemoMode && (
-        <div className="mb-10 px-5 py-4 border border-border bg-surface/50">
-          <p className="text-sm text-foreground">
-            Rate some movies to unlock personalized recommendations.
+        <div className="mb-10 border border-border bg-wash px-5 py-4">
+          <p className="font-serif text-foreground">
+            Like a few titles and your recommendations start tuning to you.
           </p>
           <Link
             href="/browse"
-            className="inline-block mt-2 text-sm text-gold hover:text-gold-dim transition-colors"
+            className="eyebrow mt-2 inline-flex items-center gap-1.5 text-primary transition-colors hover:text-primary/80"
           >
-            Browse movies &rarr;
+            Browse the catalog
+            <ArrowRight className="size-3.5" strokeWidth={2} />
           </Link>
         </div>
       )}

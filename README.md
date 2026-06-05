@@ -27,7 +27,7 @@ Next.js Frontend (Vercel)
   |
   |  REST
   v
-Go API (Railway)
+Go API (Cloud Run)
   |  - Chi router, 9-layer middleware stack
   |  - Per-endpoint rate limiting (10-30 req/min by route)
   |  - JWT auth via Supabase secret
@@ -37,7 +37,7 @@ Go API (Railway)
   |           - RLS on all tables, service key server-side only
   |           - match_movies() RPC for kNN retrieval
   |
-  +-------> Python Ranker (Railway, internal only)
+  +-------> Python Ranker (Cloud Run)
               - FastAPI, POST /rank
               - feature-linear-v1: explicit weighted formula
               - lambdamart-v1: LightGBM learned model
@@ -53,7 +53,7 @@ Go API (Railway)
 | Embeddings | OpenAI text-embedding-3-small (1536-dim) | Good quality-to-cost ratio, single API call per movie |
 | Ranker | Python 3.12, FastAPI, LightGBM | Python for ML flexibility, FastAPI for async, LightGBM for LambdaMART |
 | Auth | Supabase magic link | Passwordless, no credential storage |
-| Hosting | Vercel + Railway | Vercel for frontend CDN, Railway for backend containers |
+| Hosting | Vercel + Google Cloud Run | Vercel for the frontend CDN; Cloud Run for the Go API and ranker containers (scale-to-zero, request-billed) |
 
 ## Getting started
 

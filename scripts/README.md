@@ -48,7 +48,7 @@ node scripts/backfill_backdrop.mjs
 3. Updates the row in Supabase via REST PATCH
 4. Prints a summary: updated count, skipped count (movies with no TMDB backdrop)
 
-**Expected runtime:** 1-2 minutes for 494 movies (300ms delay between TMDB requests).
+**Expected runtime:** a few minutes for the full catalog (300ms delay between TMDB requests).
 
 **Required env vars:**
 - `TMDB_READ_ACCESS_TOKEN`

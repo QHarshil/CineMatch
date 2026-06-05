@@ -1,176 +1,136 @@
-"""Offline evaluation comparing feature-linear-v1 vs lambdamart-v1.
+"""Offline evaluation of the recommendation stack on held-out synthetic users.
 
-For each test user, both rankers score the user's candidate movies. We then
-compute MRR, NDCG@10, and Hit Rate@10 against the held-out relevance labels.
+Compares four rankers on the same held-out (user, movie) rows:
 
-Output: eval/results/eval_report.json + console summary
+  - popularity      : rank by TMDB popularity only (no personalization)
+  - vector_only     : rank by retrieval similarity only (Stage-1 with no re-rank)
+  - feature-linear-v1: the explicit weighted scorer (Stage-2 linear)
+  - lambdamart-v1   : the trained LightGBM model (Stage-2 learned)
+
+Features for the learned model are engineered identically to training
+(build_training_data.FEATURE_COLUMNS) so the comparison is apples-to-apples and
+free of train/serve skew. Relevance is graded: like=3, watch=2, skip=1,
+dislike=0; an item is "relevant" for MRR / Hit Rate when relevance >= 2.
+
+Output: eval/results/eval_report.json + a console table.
 """
 
 import json
-import sys
+import math
 from pathlib import Path
 
-import httpx
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
-RANKER_URL = "http://localhost:8000"
-RESULTS_DIR = Path(__file__).resolve().parent / "results"
+from build_training_data import FEATURE_COLUMNS
+
+K = 10
+MIN_GROUP = 3  # users need at least this many rated candidates to be scored
 DATA_DIR = Path(__file__).resolve().parent / "data"
+RESULTS_DIR = Path(__file__).resolve().parent / "results"
+MODEL_DIR = Path(__file__).resolve().parent / "models"
 
-MODELS = ["feature-linear-v1", "lambdamart-v1"]
-K = 10  # evaluation cutoff
-
-
-def load_test_data() -> pd.DataFrame:
-    """Load the held-out test split."""
-    return pd.read_parquet(DATA_DIR / "test.parquet")
+# Linear scorer weights — kept in sync with ranker/ranker.py.
+_W_SIM, _W_QUALITY, _W_POP, _W_GENRE = 0.50, 0.25, 0.15, 0.10
+_POP_LOG_CEIL = math.log1p(3000.0)
 
 
-def build_rank_payload(user_group: pd.DataFrame, model: str) -> dict:
-    """Build a /rank request payload from a user's interaction rows."""
-    candidates = []
-    for _, row in user_group.iterrows():
-        candidates.append({
-            "movie_id": row["movie_id"],
-            "title": row["movie_title"],
-            "genres": row["movie_genres"] if isinstance(row["movie_genres"], list) else [],
-            "release_year": int(row["release_year"]),
-            "vote_average": float(row["vote_average"]),
-            "popularity": float(row["popularity"]),
-            "runtime": int(row["runtime"]) if pd.notna(row["runtime"]) else 120,
-            "similarity": max(0.0, min(1.0, float(row["affinity_score"] + 1.0) / 2.0)),
-        })
-
-    return {
-        "candidates": candidates,
-        "user_features": {"preferred_genres": [], "min_vote_preference": 0.0},
-        "top_n": min(K, len(candidates)),
-        "model": model,
-    }
+def score_popularity(group: pd.DataFrame) -> np.ndarray:
+    return group["popularity"].to_numpy(dtype=float)
 
 
-def call_ranker(payload: dict) -> list[str]:
-    """Call the ranker service and return ranked movie_ids."""
-    resp = httpx.post(f"{RANKER_URL}/rank", json=payload, timeout=10.0)
-    resp.raise_for_status()
-    return [r["movie_id"] for r in resp.json()["ranked"]]
+def score_vector_only(group: pd.DataFrame) -> np.ndarray:
+    """Stage-1 only: rank by retrieval similarity (the genre affinity signal)."""
+    return group["affinity_score"].to_numpy(dtype=float)
 
 
-def compute_ndcg_at_k(ranked_ids: list[str], relevance_map: dict[str, int], k: int) -> float:
-    """Compute NDCG@k given ranked movie_ids and true relevance labels."""
-    gains = [relevance_map.get(mid, 0) for mid in ranked_ids[:k]]
-    dcg = sum(g / np.log2(i + 2) for i, g in enumerate(gains))
-
-    ideal_gains = sorted(relevance_map.values(), reverse=True)[:k]
-    idcg = sum(g / np.log2(i + 2) for i, g in enumerate(ideal_gains))
-
-    return dcg / idcg if idcg > 0 else 0.0
-
-
-def compute_mrr(ranked_ids: list[str], relevant_ids: set[str]) -> float:
-    """Mean Reciprocal Rank: 1/rank of first relevant item."""
-    for i, mid in enumerate(ranked_ids):
-        if mid in relevant_ids:
-            return 1.0 / (i + 1)
-    return 0.0
+def score_linear(group: pd.DataFrame) -> np.ndarray:
+    """The feature-linear-v1 formula, evaluated row-wise on the test frame."""
+    similarity = np.clip((group["affinity_score"].to_numpy(dtype=float) + 1.0) / 2.0, 0.0, 1.0)
+    quality = group["vote_average"].to_numpy(dtype=float) / 10.0
+    pop = group["popularity"].to_numpy(dtype=float)
+    log_pop = np.minimum(np.log1p(np.clip(pop, 0, None)) / _POP_LOG_CEIL, 1.0)
+    # No stated genre preferences in the offline payload, so genre overlap is
+    # the neutral 0.5 the live ranker also uses in that case.
+    return _W_SIM * similarity + _W_QUALITY * quality + _W_POP * log_pop + _W_GENRE * 0.5
 
 
-def compute_hit_rate(ranked_ids: list[str], relevant_ids: set[str], k: int) -> float:
-    """Hit Rate@k: 1 if any of the top-k results are relevant, else 0."""
-    return 1.0 if any(mid in relevant_ids for mid in ranked_ids[:k]) else 0.0
+def make_lambdamart_scorer(booster: lgb.Booster):
+    def score(group: pd.DataFrame) -> np.ndarray:
+        return booster.predict(group[FEATURE_COLUMNS].to_numpy(dtype=float))
+    return score
 
 
-def evaluate_offline(test_df: pd.DataFrame) -> dict:
-    """Run offline eval without calling the ranker service.
+def ndcg_at_k(order_relevance: np.ndarray, k: int) -> float:
+    gains = order_relevance[:k]
+    dcg = np.sum(gains / np.log2(np.arange(2, len(gains) + 2)))
+    ideal = np.sort(order_relevance)[::-1][:k]
+    idcg = np.sum(ideal / np.log2(np.arange(2, len(ideal) + 2)))
+    return float(dcg / idcg) if idcg > 0 else 0.0
 
-    Scores candidates locally using both models, avoiding the need for
-    a running ranker service during eval.
-    """
-    # Import rankers directly
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "ranker"))
-    import ranker as linear_ranker
-    import lambdamart_ranker
-    from models import RankRequest
 
-    results = {}
+def mrr(order_relevance: np.ndarray) -> float:
+    relevant = np.where(order_relevance >= 2)[0]
+    return float(1.0 / (relevant[0] + 1)) if relevant.size else 0.0
 
-    for model_name in MODELS:
-        ndcg_scores = []
-        mrr_scores = []
-        hit_rates = []
 
-        for user_id, group in test_df.groupby("user_id"):
-            if len(group) < 3:
-                continue
+def hit_rate_at_k(order_relevance: np.ndarray, k: int) -> float:
+    return 1.0 if np.any(order_relevance[:k] >= 2) else 0.0
 
-            # Build relevance map from ground truth
-            relevance_map = dict(zip(group["movie_id"], group["relevance"]))
-            # Relevant = liked or watched (relevance >= 2)
-            relevant_ids = {mid for mid, rel in relevance_map.items() if rel >= 2}
 
-            if not relevant_ids:
-                continue
+def evaluate(test_df: pd.DataFrame, scorers: dict) -> dict:
+    results = {name: {"ndcg": [], "mrr": [], "hit": []} for name in scorers}
+    n_users = 0
+    for _, group in test_df.groupby("user_id"):
+        relevance = group["relevance"].to_numpy(dtype=float)
+        if len(group) < MIN_GROUP or not np.any(relevance >= 2):
+            continue
+        n_users += 1
+        for name, scorer in scorers.items():
+            order = np.argsort(-scorer(group), kind="stable")
+            ordered_rel = relevance[order]
+            results[name]["ndcg"].append(ndcg_at_k(ordered_rel, K))
+            results[name]["mrr"].append(mrr(ordered_rel))
+            results[name]["hit"].append(hit_rate_at_k(ordered_rel, K))
 
-            # Build request
-            payload = build_rank_payload(group, model_name)
-            request = RankRequest(**payload)
-
-            # Score with appropriate ranker
-            if model_name == "lambdamart-v1":
-                response = lambdamart_ranker.rank(request)
-            else:
-                response = linear_ranker.rank(request)
-
-            ranked_ids = [r.movie_id for r in response.ranked]
-
-            ndcg_scores.append(compute_ndcg_at_k(ranked_ids, relevance_map, K))
-            mrr_scores.append(compute_mrr(ranked_ids, relevant_ids))
-            hit_rates.append(compute_hit_rate(ranked_ids, relevant_ids, K))
-
-        results[model_name] = {
-            "ndcg@10": float(np.mean(ndcg_scores)),
-            "mrr": float(np.mean(mrr_scores)),
-            "hit_rate@10": float(np.mean(hit_rates)),
-            "num_users": len(ndcg_scores),
+    report = {}
+    for name, m in results.items():
+        report[name] = {
+            "ndcg@10": round(float(np.mean(m["ndcg"])), 4),
+            "mrr": round(float(np.mean(m["mrr"])), 4),
+            "hit_rate@10": round(float(np.mean(m["hit"])), 4),
+            "num_users": n_users,
         }
-
-    return results
+    return report
 
 
 def main():
-    print("Loading test data...")
-    test_df = load_test_data()
-    print(f"  {len(test_df)} interactions, {test_df['user_id'].nunique()} users")
+    test_df = pd.read_parquet(DATA_DIR / "test.parquet")
+    booster = lgb.Booster(model_file=str(MODEL_DIR / "lambdamart-v1.txt"))
 
-    print("\nRunning offline evaluation...")
-    results = evaluate_offline(test_df)
+    scorers = {
+        "popularity": score_popularity,
+        "vector_only": score_vector_only,
+        "feature-linear-v1": score_linear,
+        "lambdamart-v1": make_lambdamart_scorer(booster),
+    }
+    report = evaluate(test_df, scorers)
 
-    # Print comparison table
-    print(f"\n{'Model':<25} {'NDCG@10':>10} {'MRR':>10} {'Hit Rate@10':>12} {'Users':>8}")
-    print("-" * 68)
-    for model_name, metrics in results.items():
-        print(
-            f"{model_name:<25} "
-            f"{metrics['ndcg@10']:>10.4f} "
-            f"{metrics['mrr']:>10.4f} "
-            f"{metrics['hit_rate@10']:>12.4f} "
-            f"{metrics['num_users']:>8}"
-        )
+    print(f"\n{'Model':<20} {'NDCG@10':>9} {'MRR':>8} {'Hit@10':>8}")
+    print("-" * 47)
+    for name in scorers:
+        r = report[name]
+        print(f"{name:<20} {r['ndcg@10']:>9.4f} {r['mrr']:>8.4f} {r['hit_rate@10']:>8.4f}")
 
-    # Delta
-    if len(results) == 2:
-        m1, m2 = list(results.values())
-        print(f"\n{'Delta (LM - Linear)':<25} "
-              f"{m2['ndcg@10'] - m1['ndcg@10']:>+10.4f} "
-              f"{m2['mrr'] - m1['mrr']:>+10.4f} "
-              f"{m2['hit_rate@10'] - m1['hit_rate@10']:>+12.4f}")
+    base = report["popularity"]["ndcg@10"]
+    best = report["lambdamart-v1"]["ndcg@10"]
+    lift = 100 * (best - base) / base if base else 0.0
+    print(f"\nlambdamart-v1 vs popularity: NDCG@10 {base:.4f} -> {best:.4f} (+{lift:.0f}%)")
 
-    # Save
     RESULTS_DIR.mkdir(exist_ok=True)
-    report_path = RESULTS_DIR / "eval_report.json"
-    report_path.write_text(json.dumps(results, indent=2))
-    print(f"\nReport saved to {report_path}")
+    (RESULTS_DIR / "eval_report.json").write_text(json.dumps(report, indent=2))
+    print(f"Saved {RESULTS_DIR / 'eval_report.json'}")
 
 
 if __name__ == "__main__":

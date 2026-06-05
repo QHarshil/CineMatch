@@ -18,6 +18,7 @@ Required env vars (set in `../.env` or export directly):
 | `SUPABASE_SECRET_KEY` | yes | - |
 | `JWT_SECRET` | yes | - |
 | `RANKER_URL` | no | `http://localhost:8000` |
+| `PORT` | no | injected by Cloud Run/Render; falls back to `APP_PORT` then `8080` |
 | `APP_PORT` | no | `8080` |
 | `ALLOWED_ORIGINS` | no | `http://localhost:3000` |
 | `RATE_LIMIT_RPM` | no | `60` |
@@ -43,7 +44,7 @@ Returns service status and database row counts for free-tier monitoring.
   "uptime_seconds": 3421.5,
   "database": "ok",
   "stats": {
-    "movie_count": 494,
+    "movie_count": 1510,
     "user_count": 12,
     "interaction_count": 847
   }
@@ -64,6 +65,7 @@ Single movie by UUID. Returns 404 if not found.
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "tmdb_id": 27205,
+  "media_type": "movie",
   "title": "Inception",
   "overview": "...",
   "genres": ["Action", "Science Fiction", "Adventure"],
@@ -98,13 +100,13 @@ The response includes a `source` field so the frontend knows what it got:
 {
   "movies": [ ... ],
   "source": "personalized",
-  "model_version": "feature-linear-v1"
+  "model_version": "lambdamart-v1"
 }
 ```
 
 **POST /interactions**
 
-Records a user signal. Rate limited to 20 req/min per user. Capped at 500 total interactions per user and 5 per movie.
+Toggles a user signal. Rate limited to 20 req/min per user, capped at 500 total interactions per user. Sending a signal that already exists removes it; `like` and `dislike` are mutually exclusive (setting one clears the other). After any change the user's taste embedding is rebuilt so `/recommend` reflects it.
 
 Request:
 ```json
@@ -116,7 +118,24 @@ Request:
 
 Valid types: `like`, `dislike`, `watch`, `skip`. Unknown JSON fields are rejected. All string inputs are sanitized to strip HTML tags.
 
-Returns `201 Created` on success, `429 Too Many Requests` when caps are hit.
+Returns `200 OK` with the resulting action, or `429 Too Many Requests` when the cap is hit:
+```json
+{ "action": "added", "type": "like" }
+```
+
+**GET /interactions?movie_id={uuid}**
+
+Returns the user's active interactions and rating for one movie.
+```json
+{ "interactions": ["like", "watch"], "rating": 8 }
+```
+
+**PUT /ratings**
+
+Upserts a 1-10 star rating for a movie (send `score: 0` to clear it). Rate limited to 20 req/min per user.
+```json
+{ "movie_id": "550e8400-e29b-41d4-a716-446655440000", "score": 8 }
+```
 
 ## Architecture decisions
 
@@ -128,7 +147,7 @@ Returns `201 Created` on success, `429 Too Many Requests` when caps are hit.
 2. `RealIP` - extracts the real client IP from proxy headers (must run before rate limiting)
 3. `StructuredLogger` - JSON log per request: method, path, status, latency_ms, bytes, request_id, remote_addr
 4. `Recoverer` - catches panics so one bad request doesn't crash the server
-5. `CORSHandler` - reads `ALLOWED_ORIGINS`, allows GET/POST/OPTIONS only
+5. `CORSHandler` - reads `ALLOWED_ORIGINS`, allows GET/POST/PUT/DELETE/OPTIONS
 6. `RateLimiter` - global 60 req/min per IP
 7. `SecurityHeaders` - X-Content-Type-Options nosniff, X-Frame-Options DENY, Cache-Control no-store
 8. `RequireJSONContentType` - rejects POST/PUT/PATCH without `application/json` (415)
@@ -140,7 +159,7 @@ RequestID and RealIP come first because the logger and rate limiter need accurat
 
 **Graceful degradation.** A `PopularMoviesCache` holds the top 50 movies in memory, refreshed hourly. When Supabase is unreachable, `/movies`, `/search`, and `/recommend` all fall back to this cache instead of returning 500s. Search does a basic title substring match against cached movies. This keeps the site functional during database maintenance or outages.
 
-**Interaction caps.** Each user can record at most 500 interactions total and 5 per movie. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
+**Interaction caps.** Each user can record at most 500 interactions total. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
 
 ## Docker
 

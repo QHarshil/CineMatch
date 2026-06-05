@@ -23,7 +23,7 @@ Environment variables:
 | `HOST` | no | `127.0.0.1` |
 | `PORT` | no | `8000` |
 | `APP_ENV` | no | `development` |
-| `LAMBDAMART_MODEL_PATH` | no | `../eval/models/lambdamart-v1.txt` |
+| `LAMBDAMART_MODEL_PATH` | no | bundled `model/lambdamart-v1.txt`, falls back to `../eval/models/` |
 
 In production, `APP_ENV=production` disables the `/docs` endpoint.
 
@@ -50,10 +50,12 @@ Request:
   ],
   "user_features": {
     "preferred_genres": ["Science Fiction", "Thriller"],
-    "min_vote_preference": 7.0
+    "min_vote_preference": 7.0,
+    "user_like_ratio": 0.62,
+    "user_interaction_count": 40
   },
   "top_n": 20,
-  "model": "feature-linear-v1"
+  "model": "lambdamart-v1"
 }
 ```
 
@@ -63,11 +65,11 @@ Response:
   "ranked": [
     {"movie_id": "uuid", "score": 0.847, "rank": 1}
   ],
-  "model_version": "feature-linear-v1"
+  "model_version": "lambdamart-v1"
 }
 ```
 
-The `model` field selects which ranker to use. Two are available:
+The `model` field selects which ranker to use: `lambdamart-v1` (the production default) or `feature-linear-v1` (the transparent fallback). Both are described under Scoring models below.
 
 ### GET /health
 
@@ -101,22 +103,19 @@ I chose these weights by intuition and manual testing. Similarity gets the most 
 
 ### lambdamart-v1
 
-A LightGBM model trained with the `lambdarank` objective on 10 features:
+The production re-ranker: a LightGBM model trained with the `lambdarank` objective. Every feature is computed identically in training (`eval/build_training_data.py`) and at serve time (`lambdamart_ranker.py`), so there is no train/serve skew:
 
 | Feature | Description |
 |---------|-------------|
-| affinity_score | Genre affinity between movie and user profile |
+| similarity | Retrieval score: pgvector cosine similarity at serve time (the synthetic genre affinity during training) |
 | vote_average | TMDB rating [0, 10] |
 | log_popularity | log1p of TMDB popularity |
-| runtime_hours | Runtime in hours |
 | decade | Release decade as ordinal (1970=0, 1980=1, ...) |
-| genre_count | Number of genres on the movie |
 | is_recent | 1 if released >= 2021 |
-| user_avg_affinity | Mean affinity across the user's interaction history |
-| user_like_ratio | Fraction of the user's interactions that are "like" |
-| user_interaction_count | Total interactions for this user |
+| user_like_ratio | Fraction of the user's interactions that are "like" (sent by the Go backend) |
+| user_interaction_count | Total interactions for this user (sent by the Go backend) |
 
-The feature vector construction in `lambdamart_ranker.py` must exactly match `build_training_data.py` in `eval/`. If you add or reorder features in training, you have to update the ranker too.
+The feature vector in `lambdamart_ranker.py` must exactly match `FEATURE_COLUMNS` in `eval/build_training_data.py`. If you add or reorder features in training, update the ranker too. On synthetic eval this model leads on NDCG@10 (0.814, +14% over a popularity baseline).
 
 Training details: 200 boost rounds, 31 leaves, learning rate 0.05, lambdarank truncation at 10. See `eval/train_lambdamart.py` for the full config.
 
@@ -139,4 +138,4 @@ docker build -t cinematch-ranker .
 docker run -p 8000:8000 cinematch-ranker
 ```
 
-Base image: `python:3.12-slim`. Railway injects the `PORT` env var at runtime.
+Base image: `python:3.12-slim`. Cloud Run (or Render) injects the `PORT` env var at runtime, and the trained model is bundled at `model/lambdamart-v1.txt`.

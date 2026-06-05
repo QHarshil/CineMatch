@@ -78,6 +78,6 @@ class RankResponse(BaseModel):
     """POST /rank response body."""
 
     ranked: list[RankedMovie]
-    # Included so the Go backend can log which ranker version produced this result.
-    # Useful when comparing ranker versions in offline eval (Task 11).
+    # Included so the Go backend can log which ranker version produced this
+    # result, and so offline eval can compare ranker versions.
     model_version: str

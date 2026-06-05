@@ -57,24 +57,24 @@ export function SimilarMoviesDemo({
   const selected = seedMovies.find((m) => m.id === selectedId);
 
   return (
-    <div className="border border-border bg-surface/50 p-6 sm:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-8">
+    <div className="border border-border bg-wash p-6 sm:p-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label
             htmlFor="seed-movie"
-            className="block text-sm text-muted-foreground mb-2"
+            className="mb-2 block text-sm text-muted-foreground"
           >
-            Choose a movie to find its nearest neighbors
+            Choose a title to find its nearest neighbors
           </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
               id="seed-movie"
               value={selectedId}
               onChange={(e) => handleSelect(e.target.value)}
-              className="w-full bg-background border border-border pl-10 pr-4 py-2.5 text-sm text-foreground appearance-none cursor-pointer focus:outline-none focus:border-gold transition-colors"
+              className="w-full cursor-pointer appearance-none border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground transition-colors focus:border-primary focus:outline-none"
             >
-              <option value="">Select a movie...</option>
+              <option value="">Select a title...</option>
               {seedMovies.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.title}
@@ -87,7 +87,7 @@ export function SimilarMoviesDemo({
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-5 h-5 text-gold animate-spin" />
+          <Loader2 className="size-5 animate-spin text-primary" />
           <span className="ml-3 text-sm text-muted-foreground">
             Searching embedding space...
           </span>
@@ -98,20 +98,18 @@ export function SimilarMoviesDemo({
         <div className="space-y-6">
           {/* Seed movie label */}
           {selected && (
-            <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+            <div className="flex items-center gap-3 border-b border-border pb-4">
               {selected.poster_path && (
                 <Image
                   src={`https://image.tmdb.org/t/p/w92${selected.poster_path}`}
                   alt={selected.title}
                   width={36}
                   height={54}
-                  className="object-cover bg-surface"
+                  className="border border-border object-cover"
                 />
               )}
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                  Seed movie
-                </p>
+                <p className="eyebrow text-muted-foreground">Seed title</p>
                 <p className="font-heading text-lg font-semibold">
                   {selected.title}
                 </p>
@@ -124,13 +122,13 @@ export function SimilarMoviesDemo({
             {neighbors.map((n, i) => (
               <div
                 key={n.id}
-                className="flex items-center gap-4 py-3 px-4 bg-background/50 border border-border/30 transition-all duration-300 ease-out"
+                className="flex items-center gap-4 border border-border bg-card px-4 py-3 transition-all duration-300 ease-out"
                 style={{
                   animationDelay: `${i * 80}ms`,
                   animation: "fadeSlideIn 0.4s ease-out both",
                 }}
               >
-                <span className="text-xs text-muted-foreground font-mono w-5 shrink-0">
+                <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">
                   #{i + 1}
                 </span>
                 {n.poster_path && (
@@ -139,24 +137,22 @@ export function SimilarMoviesDemo({
                     alt={n.title}
                     width={32}
                     height={48}
-                    className="object-cover bg-surface shrink-0"
+                    className="shrink-0 border border-border object-cover"
                   />
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-heading text-base font-medium truncate">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-heading text-base font-medium">
                     {n.title}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="truncate text-xs text-muted-foreground">
                     {n.genres?.slice(0, 3).join(", ")}
                   </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-mono text-gold">
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-sm text-primary">
                     {(n.similarity * 100).toFixed(1)}%
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    similarity
-                  </p>
+                  <p className="text-[10px] text-muted-foreground">similarity</p>
                 </div>
               </div>
             ))}
@@ -165,9 +161,9 @@ export function SimilarMoviesDemo({
       )}
 
       {!loading && !searched && (
-        <div className="text-center py-12">
+        <div className="py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Select a movie above to see real-time vector similarity search in
+            Select a title above to see real-time vector similarity search in
             action
           </p>
         </div>

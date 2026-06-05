@@ -81,7 +81,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
   const widthClass = isHero
     ? "w-full max-w-lg"
     : isHeader
-      ? `transition-all duration-300 ease-out ${focused ? "w-96" : "w-64"}`
+      ? `transition-all duration-300 ease-out ${focused ? "w-80" : "w-56"}`
       : "w-full max-w-sm";
 
   const inputHeight = isHero ? "h-12 text-base" : "h-9 text-sm";
@@ -92,14 +92,14 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             {searching ? (
-              <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
             ) : (
-              <Search className="w-4 h-4" strokeWidth={1.5} />
+              <Search className="h-4 w-4" strokeWidth={1.5} />
             )}
           </div>
           <Input
             type="search"
-            placeholder="Search movies..."
+            placeholder="Search titles..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => {
@@ -110,14 +110,14 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
               // Delay blur so click on dropdown registers
               setTimeout(() => setFocused(false), 200);
             }}
-            className={`pl-10 bg-surface border-border text-foreground placeholder:text-muted-foreground ${inputHeight}`}
+            className={`rounded-none border-border bg-surface pl-10 text-foreground placeholder:text-muted-foreground ${inputHeight}`}
           />
         </div>
       </form>
 
       {/* Live results dropdown */}
       {showDropdown && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border z-50 overflow-hidden">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-border bg-popover shadow-sm">
           {results.map((movie) => (
             <Link
               key={movie.id}
@@ -126,7 +126,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
                 setOpen(false);
                 setFocused(false);
               }}
-              className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-hover transition-colors duration-150"
+              className="flex items-center gap-3 px-3 py-2.5 transition-colors duration-150 hover:bg-surface-hover"
             >
               {movie.poster_path ? (
                 <Image
@@ -134,19 +134,19 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
                   alt=""
                   width={32}
                   height={48}
-                  className="object-cover shrink-0"
+                  className="shrink-0 border border-border object-cover"
                 />
               ) : (
-                <div className="w-8 h-12 bg-muted shrink-0" />
+                <div className="h-12 w-8 shrink-0 bg-muted" />
               )}
-              <div className="flex flex-col min-w-0">
-                <span className="font-heading text-sm font-semibold line-clamp-1">
+              <div className="flex min-w-0 flex-col">
+                <span className="line-clamp-1 font-heading text-sm font-medium">
                   {movie.title}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   {movie.release_year}
                   {movie.vote_average > 0 && (
-                    <span className="text-gold ml-2">
+                    <span className="ml-2 text-gold">
                       {movie.vote_average.toFixed(1)}
                     </span>
                   )}
@@ -160,7 +160,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
               setOpen(false);
               setFocused(false);
             }}
-            className="block px-3 py-2.5 text-xs text-gold hover:bg-surface-hover transition-colors duration-150 border-t border-border"
+            className="eyebrow block border-t border-border px-3 py-2.5 text-primary transition-colors duration-150 hover:bg-surface-hover"
           >
             View all results
           </Link>

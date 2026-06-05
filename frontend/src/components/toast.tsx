@@ -40,14 +40,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="pointer-events-none fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto px-4 py-3 text-sm border animate-in slide-in-from-right-5 fade-in duration-200 ${
+            className={`pointer-events-auto border px-4 py-3 font-mono text-sm shadow-lg duration-200 animate-in fade-in slide-in-from-right-5 ${
               toast.variant === "error"
-                ? "bg-surface border-destructive/50 text-destructive"
-                : "bg-surface border-border text-foreground"
+                ? "border-destructive/50 bg-popover text-destructive"
+                : "border-border bg-popover text-foreground"
             }`}
           >
             {toast.message}

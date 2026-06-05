@@ -107,7 +107,7 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Interaction buttons */}
       <div className="flex items-center gap-6">
         {INTERACTIONS.map(({ type, label, icon: Icon }) => {
@@ -117,24 +117,24 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
               key={type}
               disabled={submitting || cooldown}
               onClick={() => handleToggle(type)}
-              className={`flex flex-col items-center gap-1.5 transition-colors duration-200 disabled:opacity-50 group ${
-                isActive ? "text-gold" : "text-muted-foreground"
+              className={`group flex flex-col items-center gap-1.5 transition-colors duration-200 disabled:opacity-50 ${
+                isActive ? "text-primary" : "text-muted-foreground"
               }`}
             >
               <div
-                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors duration-200 ${
+                className={`flex size-10 items-center justify-center border transition-colors duration-200 ${
                   isActive
-                    ? "bg-gold/15"
-                    : "bg-surface group-hover:bg-surface-hover"
+                    ? "border-primary bg-accent"
+                    : "border-border bg-background group-hover:bg-surface-hover"
                 }`}
               >
                 <Icon
-                  className="w-4.5 h-4.5"
+                  className="size-[18px]"
                   strokeWidth={1.5}
                   fill={isActive && (type === "like" || type === "skip") ? "currentColor" : "none"}
                 />
               </div>
-              <span className="text-[11px]">{label}</span>
+              <span className="eyebrow">{label}</span>
             </button>
           );
         })}
@@ -143,7 +143,7 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
       {/* Star rating */}
       {session && loaded && (
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground mr-2">Your rating</span>
+          <span className="eyebrow mr-2 text-muted-foreground">Your rating</span>
           {Array.from({ length: 10 }, (_, i) => i + 1).map((star) => {
             const filled = star <= (hoverStar || rating);
             return (
@@ -155,9 +155,9 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
                 className="transition-colors duration-150"
               >
                 <Star
-                  className={`w-5 h-5 ${
+                  className={`size-5 ${
                     filled
-                      ? "text-gold fill-gold"
+                      ? "fill-gold text-gold"
                       : "text-muted-foreground/40 hover:text-gold/60"
                   }`}
                   strokeWidth={1.5}
@@ -166,14 +166,16 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
             );
           })}
           {rating > 0 && (
-            <span className="text-xs text-gold ml-2 font-medium">{rating}/10</span>
+            <span className="ml-2 font-mono text-xs font-medium text-foreground">
+              {rating}/10
+            </span>
           )}
         </div>
       )}
 
       {showAuthHint && !session && (
-        <p className="text-xs text-muted-foreground">
-          <Link href="/login" className="text-gold hover:text-gold-dim transition-colors">
+        <p className="font-serif text-sm text-muted-foreground">
+          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
             Sign in
           </Link>{" "}
           to save your preferences and get personalized recommendations.

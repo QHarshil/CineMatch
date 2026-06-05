@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/harshilc/cinematch-backend/db"
@@ -86,6 +88,7 @@ func ToggleInteraction(querier DBQuerier) http.HandlerFunc {
 				writeError(w, http.StatusInternalServerError, "failed to remove interaction")
 				return
 			}
+			refreshTaste(r.Context(), querier, userID)
 			writeJSON(w, http.StatusOK, map[string]string{"action": "removed", "type": body.Type})
 			return
 		}
@@ -119,7 +122,17 @@ func ToggleInteraction(querier DBQuerier) http.HandlerFunc {
 			return
 		}
 
+		refreshTaste(r.Context(), querier, userID)
 		writeJSON(w, http.StatusOK, map[string]string{"action": "added", "type": body.Type})
+	}
+}
+
+// refreshTaste recomputes the user's taste vector after their like/watch set may
+// have changed. It is idempotent and best-effort: a failure is logged but never
+// fails the interaction the user just made.
+func refreshTaste(ctx context.Context, querier DBQuerier, userID string) {
+	if err := querier.RefreshUserEmbedding(ctx, userID); err != nil {
+		slog.Warn("failed to refresh user embedding", "user_id", userID, "error", err)
 	}
 }
 

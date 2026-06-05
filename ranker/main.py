@@ -75,7 +75,14 @@ def rank_candidates(request: RankRequest) -> RankResponse:
         },
     )
     if request.model == "lambdamart-v1":
-        return lambdamart_ranker.rank(request)
+        try:
+            return lambdamart_ranker.rank(request)
+        except Exception:
+            # Model file missing or scoring failed — degrade to the explicit
+            # linear scorer instead of failing the request. Keeps Stage-2 alive
+            # even if the learned model can't load.
+            logger.warning("lambdamart-v1 scoring failed, falling back to feature-linear-v1")
+            return linear_ranker.rank(request)
     return linear_ranker.rank(request)
 
 

@@ -79,7 +79,12 @@ func main() {
 		r.With(custommw.WriteRateLimiter()).Put("/ratings", handlers.RecordRating(supabase))
 	})
 
-	port := os.Getenv("APP_PORT")
+	// Container platforms (Cloud Run, Render) inject PORT. Fall back to
+	// APP_PORT (local convention) and then 8080.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("APP_PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}

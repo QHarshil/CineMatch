@@ -34,7 +34,7 @@ const DEMO_PROFILES = [
 ];
 
 const MOVIE_FIELDS =
-  "id,tmdb_id,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
+  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
 
 interface BecauseYouLikedSection {
   likedMovie: Movie;

@@ -11,6 +11,8 @@ export interface Movie {
   vote_average: number;
   popularity: number;
   runtime: number;
+  /** "movie" or "tv". Absent on responses from a backend deploy predating TV support. */
+  media_type?: "movie" | "tv";
 }
 
 /** GET /recommend response from the Go backend. */

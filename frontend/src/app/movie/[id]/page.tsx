@@ -12,7 +12,7 @@ const TMDB_POSTER = "https://image.tmdb.org/t/p/w500";
 const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
 
 const MOVIE_FIELDS =
-  "id,tmdb_id,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
+  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
 
 async function fetchSimilarMovies(movie: Movie): Promise<Movie[]> {
   try {
@@ -118,6 +118,14 @@ export default async function MovieDetailPage({
                   <>
                     <span className="text-border">|</span>
                     <span>{formatRuntime(movie.runtime)}</span>
+                  </>
+                )}
+                {movie.media_type && (
+                  <>
+                    <span className="text-border">|</span>
+                    <span className="uppercase tracking-wider text-primary">
+                      {movie.media_type === "tv" ? "Series" : "Film"}
+                    </span>
                   </>
                 )}
               </div>

@@ -41,6 +41,15 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
             {Math.round(matchScore * 100)}% match
           </span>
         )}
+        {movie.media_type && (
+          <span
+            className={`absolute left-0 top-0 bg-background/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider backdrop-blur ${
+              movie.media_type === "tv" ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            {movie.media_type === "tv" ? "TV" : "Film"}
+          </span>
+        )}
       </div>
 
       {/* Always-visible metadata */}

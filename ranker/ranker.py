@@ -1,15 +1,8 @@
 """Feature-weighted linear ranker for CineMatch Stage-2 re-ranking.
 
-This replaces the Go backend's stub passthrough with a principled scoring
-function that combines pgvector cosine similarity with movie quality signals
-and user preference features.
-
-Architecture note:
-    This is an explicit feature model, not a learned one — we don't have
-    enough interaction data yet to train LambdaMART. Once Task 11 (eval
-    pipeline) produces sufficient labelled data, swap rank() for a
-    lightgbm.LGBMRanker fitted on (query, candidate, label) triples.
-    The interface (RankRequest → RankResponse) stays the same.
+A transparent, explicit scorer used as the baseline and as the fallback when
+the learned lambdamart-v1 model is unavailable. It combines the Stage-1
+retrieval similarity with movie quality, popularity, and genre-overlap signals.
 
 Scoring formula:
     score = 0.50 * similarity          # dominant: pgvector cosine sim

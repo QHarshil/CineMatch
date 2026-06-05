@@ -4,6 +4,7 @@ import { fetchMovieById } from "@/lib/api";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { InteractionButtons } from "./interaction-buttons";
 import { SimilarMoviesRow } from "./similar-movies-row";
+import { MovieRatings } from "@/components/movie-ratings";
 import type { Movie } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
@@ -141,6 +142,9 @@ export default async function MovieDetailPage({
                 <span className="ml-1 text-sm text-muted-foreground">/ 10</span>
               </div>
             )}
+
+            {/* IMDb / Rotten Tomatoes from OMDb, loaded client-side */}
+            <MovieRatings movieId={movie.id} />
 
             {/* Genre chips */}
             {movie.genres.length > 0 && (

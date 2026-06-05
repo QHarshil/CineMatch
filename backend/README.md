@@ -22,6 +22,7 @@ Required env vars (set in `../.env` or export directly):
 | `APP_PORT` | no | `8080` |
 | `ALLOWED_ORIGINS` | no | `http://localhost:3000` |
 | `RATE_LIMIT_RPM` | no | `60` |
+| `OMDB_API_KEY` | no | - (IMDb/Rotten Tomatoes ratings are hidden if unset) |
 
 Run tests:
 
@@ -76,6 +77,14 @@ Single movie by UUID. Returns 404 if not found.
   "popularity": 99.9,
   "runtime": 148
 }
+```
+
+**GET /movies/{id}/ratings**
+
+Aggregate IMDb and Rotten Tomatoes scores from OMDb, looked up by title, year, and type, then cached in memory (24h TTL). Either score may be `null` when OMDb has no value for it; the body is empty (both `null`) when `OMDB_API_KEY` is unset or OMDb is unreachable, so the detail page degrades gracefully.
+
+```json
+{ "imdb_rating": 8.4, "rt_rating": 87 }
 ```
 
 **GET /search?q=inception&limit=20**

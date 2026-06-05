@@ -1,8 +1,15 @@
-// seed_movies populates the Supabase movies table with TMDB data and OpenAI embeddings.
+// seed_movies populates the Supabase movies catalog with TMDB data and OpenAI
+// embeddings. It seeds movies and/or TV shows, in popularity order (initial
+// seed) or by most recent release (the freshness cron).
 //
 // Usage:
 //
-//	go run seed_movies.go [--dry-run]
+//	go run seed_movies.go [--dry-run] [--media movie|tv|both] [--mode popular|recent] [--count N]
+//
+// Examples:
+//
+//	go run seed_movies.go --media both --count 600          # large initial catalog
+//	go run seed_movies.go --media both --mode recent --count 100   # weekly refresh
 //
 // Required env vars: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY
 // Reads ../.env relative to the scripts/ directory, then falls back to process environment.
@@ -19,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,15 +39,13 @@ const (
 	openAIBaseURL  = "https://api.openai.com/v1"
 	embeddingModel = "text-embedding-3-small"
 
-	targetMovieCount = 500
-	tmdbPageSize     = 20
-	tmdbPages        = targetMovieCount / tmdbPageSize // 25
+	tmdbPageSize = 20
 
 	// 5 concurrent workers; actual request rate is throttled to openAIRPM below.
 	embedWorkers = 5
 	// Stay at 80 RPM — safely under Tier-1's 100 RPM hard limit, with headroom
 	// for occasional retries and other API activity on the same key.
-	openAIRPM = 80
+	openAIRPM       = 80
 	upsertBatchSize = 50
 
 	// 260ms between TMDB page requests keeps us under the 40 req/10s limit
@@ -54,16 +60,38 @@ type tmdbGenre struct {
 	Name string `json:"name"`
 }
 
-type tmdbMovie struct {
+// tmdbItem holds the fields shared by TMDB movie and TV results. Movies use
+// title/release_date; TV shows use name/first_air_date. mediaType is set by the
+// seeder, not decoded from the API.
+type tmdbItem struct {
+	mediaType    string
 	ID           int     `json:"id"`
 	Title        string  `json:"title"`
+	Name         string  `json:"name"`
 	Overview     string  `json:"overview"`
 	GenreIDs     []int   `json:"genre_ids"`
-	ReleaseDate  string  `json:"release_date"` // "YYYY-MM-DD" or ""
+	ReleaseDate  string  `json:"release_date"`
+	FirstAirDate string  `json:"first_air_date"`
 	PosterPath   string  `json:"poster_path"`
 	BackdropPath string  `json:"backdrop_path"`
 	VoteAverage  float64 `json:"vote_average"`
 	Popularity   float64 `json:"popularity"`
+}
+
+// displayTitle returns the movie title or TV show name, whichever is present.
+func (t tmdbItem) displayTitle() string {
+	if t.Title != "" {
+		return t.Title
+	}
+	return t.Name
+}
+
+// dateString returns the release date (movie) or first air date (TV).
+func (t tmdbItem) dateString() string {
+	if t.ReleaseDate != "" {
+		return t.ReleaseDate
+	}
+	return t.FirstAirDate
 }
 
 // — Supabase row type ————————————————————————————————————————————————————————
@@ -73,6 +101,7 @@ type tmdbMovie struct {
 // pgvector accepts a JSON array for vector columns over the PostgREST API.
 type movieRow struct {
 	TmdbID       int       `json:"tmdb_id"`
+	MediaType    string    `json:"media_type"`
 	Title        string    `json:"title"`
 	Overview     string    `json:"overview"`
 	Genres       []string  `json:"genres"`
@@ -84,8 +113,6 @@ type movieRow struct {
 	Embedding    []float64 `json:"embedding"`
 }
 
-// — Worker pipeline ——————————————————————————————————————————————————————————
-
 type embedResult struct {
 	row movieRow
 	err error
@@ -95,7 +122,20 @@ type embedResult struct {
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "fetch and embed without writing to the database")
+	media := flag.String("media", "movie", "which catalog to seed: movie | tv | both")
+	mode := flag.String("mode", "popular", "ordering: popular (most popular) | recent (newest releases)")
+	count := flag.Int("count", 500, "number of titles to fetch per media type")
 	flag.Parse()
+
+	mediaTypes, err := parseMediaTypes(*media)
+	if err != nil {
+		slog.Error("invalid --media", "error", err)
+		os.Exit(1)
+	}
+	if *mode != "popular" && *mode != "recent" {
+		slog.Error("invalid --mode, want popular or recent", "got", *mode)
+		os.Exit(1)
+	}
 
 	// The seeder is run from scripts/ so secrets are one level up.
 	if err := godotenv.Load("../.env"); err != nil {
@@ -103,17 +143,13 @@ func main() {
 	}
 
 	cfg := struct {
-		tmdbToken   string
-		openAIKey   string
-		supabaseURL string
-		supabaseKey string
+		tmdbToken, openAIKey, supabaseURL, supabaseKey string
 	}{
 		tmdbToken:   os.Getenv("TMDB_READ_ACCESS_TOKEN"),
 		openAIKey:   os.Getenv("OPENAI_API_KEY"),
 		supabaseURL: os.Getenv("SUPABASE_URL"),
 		supabaseKey: os.Getenv("SUPABASE_SECRET_KEY"),
 	}
-
 	if cfg.tmdbToken == "" || cfg.openAIKey == "" || cfg.supabaseURL == "" || cfg.supabaseKey == "" {
 		slog.Error("missing required env vars",
 			"required", "TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY")
@@ -122,28 +158,30 @@ func main() {
 
 	client := &http.Client{Timeout: 30 * time.Second}
 
-	slog.Info("fetching TMDB genre list")
-	genreMap, err := fetchGenreMap(client, cfg.tmdbToken)
+	slog.Info("fetching TMDB genre lists")
+	genreMap, err := fetchGenreMap(client, cfg.tmdbToken, mediaTypes)
 	if err != nil {
 		slog.Error("genre fetch failed", "error", err)
 		os.Exit(1)
 	}
 	slog.Info("genre map loaded", "genres", len(genreMap))
 
-	slog.Info("fetching movies from TMDB discover", "pages", tmdbPages, "target", targetMovieCount)
-	tmdbMovies, err := fetchAllMovies(client, cfg.tmdbToken)
-	if err != nil {
-		slog.Error("movie fetch failed", "error", err)
-		os.Exit(1)
+	var items []tmdbItem
+	for _, mt := range mediaTypes {
+		slog.Info("fetching from TMDB", "media", mt, "mode", *mode, "target", *count)
+		fetched, err := fetchItems(client, cfg.tmdbToken, mt, *mode, *count)
+		if err != nil {
+			slog.Error("fetch failed", "media", mt, "error", err)
+			os.Exit(1)
+		}
+		items = append(items, fetched...)
 	}
-	tmdbMovies = deduplicateByTmdbID(tmdbMovies)
-	slog.Info("movies after deduplication", "count", len(tmdbMovies))
+	items = deduplicate(items)
+	slog.Info("items after deduplication", "count", len(items))
 
-	// Rate-limit embedding calls to openAIRPM to avoid Tier-1 429s.
 	embeddingLimiter := rate.NewLimiter(rate.Limit(openAIRPM)/60, 1)
-
-	slog.Info("generating embeddings", "workers", embedWorkers, "rpm_limit", openAIRPM, "movies", len(tmdbMovies))
-	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, tmdbMovies, genreMap, embeddingLimiter)
+	slog.Info("generating embeddings", "workers", embedWorkers, "rpm_limit", openAIRPM, "items", len(items))
+	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, items, genreMap, embeddingLimiter)
 	if embedErrors > 0 {
 		slog.Warn("some embeddings failed", "failed", embedErrors, "succeeded", len(rows))
 	}
@@ -165,64 +203,95 @@ func main() {
 
 // — TMDB helpers —————————————————————————————————————————————————————————————
 
-// fetchGenreMap returns a map of TMDB genre ID -> genre name.
-func fetchGenreMap(client *http.Client, tmdbToken string) (map[int]string, error) {
-	resp, err := tmdbGET(client, tmdbToken, "/genre/movie/list", map[string]string{"language": "en"})
-	if err != nil {
-		return nil, fmt.Errorf("fetching genre list: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var body struct {
-		Genres []tmdbGenre `json:"genres"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("decoding genre list: %w", err)
-	}
-
-	genreMap := make(map[int]string, len(body.Genres))
-	for _, g := range body.Genres {
-		genreMap[g.ID] = g.Name
+// fetchGenreMap returns a merged map of TMDB genre ID -> name across the
+// requested media types. Movie and TV genre lists overlap but each has a few
+// unique entries; merging keeps a single lookup table.
+func fetchGenreMap(client *http.Client, token string, mediaTypes []string) (map[int]string, error) {
+	genreMap := make(map[int]string)
+	for _, mt := range mediaTypes {
+		resp, err := tmdbGET(client, token, "/genre/"+mt+"/list", map[string]string{"language": "en"})
+		if err != nil {
+			return nil, fmt.Errorf("fetching %s genre list: %w", mt, err)
+		}
+		var body struct {
+			Genres []tmdbGenre `json:"genres"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("decoding %s genre list: %w", mt, err)
+		}
+		for _, g := range body.Genres {
+			genreMap[g.ID] = g.Name
+		}
 	}
 	return genreMap, nil
 }
 
-// fetchAllMovies pages through TMDB discover sorted by popularity, returning up to targetMovieCount movies.
-// A 260ms delay between pages keeps request rate under the 40/10s TMDB limit.
-func fetchAllMovies(client *http.Client, tmdbToken string) ([]tmdbMovie, error) {
-	movies := make([]tmdbMovie, 0, targetMovieCount)
+// fetchItems pages through TMDB discover for one media type, returning up to
+// count items with mediaType stamped on each.
+func fetchItems(client *http.Client, token, mediaType, mode string, count int) ([]tmdbItem, error) {
+	pages := (count + tmdbPageSize - 1) / tmdbPageSize
+	items := make([]tmdbItem, 0, count)
 
-	for page := 1; page <= tmdbPages; page++ {
+	for page := 1; page <= pages; page++ {
 		if page > 1 {
 			time.Sleep(tmdbRequestDelay)
 		}
 
-		resp, err := tmdbGET(client, tmdbToken, "/discover/movie", map[string]string{
-			"sort_by":        "popularity.desc",
-			"include_adult":  "false",
-			"include_video":  "false",
-			"language":       "en-US",
-			"page":           strconv.Itoa(page),
-			"vote_count.gte": "50", // exclude obscure titles with too few votes to trust ratings
-		})
+		resp, err := tmdbGET(client, token, "/discover/"+mediaType, discoverParams(mediaType, mode, page))
 		if err != nil {
-			return nil, fmt.Errorf("discover page %d: %w", page, err)
+			return nil, fmt.Errorf("discover %s page %d: %w", mediaType, page, err)
 		}
-
 		var body struct {
-			Results []tmdbMovie `json:"results"`
+			Results []tmdbItem `json:"results"`
 		}
-		if jsonErr := json.NewDecoder(resp.Body).Decode(&body); jsonErr != nil {
-			resp.Body.Close()
-			return nil, fmt.Errorf("decoding discover page %d: %w", page, jsonErr)
-		}
+		jsonErr := json.NewDecoder(resp.Body).Decode(&body)
 		resp.Body.Close()
+		if jsonErr != nil {
+			return nil, fmt.Errorf("decoding %s page %d: %w", mediaType, page, jsonErr)
+		}
 
-		movies = append(movies, body.Results...)
-		slog.Info("tmdb page fetched", "page", page, "running_total", len(movies))
+		for i := range body.Results {
+			body.Results[i].mediaType = mediaType
+			items = append(items, body.Results[i])
+		}
+		slog.Info("tmdb page fetched", "media", mediaType, "page", page, "running_total", len(items))
 	}
 
-	return movies, nil
+	if len(items) > count {
+		items = items[:count]
+	}
+	return items, nil
+}
+
+// discoverParams builds the /discover query for a media type and ordering mode.
+// "recent" sorts by release date and loosens the vote-count floor so brand-new
+// titles (which have few votes) still appear; "popular" sorts by popularity.
+func discoverParams(mediaType, mode string, page int) map[string]string {
+	params := map[string]string{
+		"include_adult": "false",
+		"language":      "en-US",
+		"page":          strconv.Itoa(page),
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+
+	dateField := "primary_release_date"
+	if mediaType == "tv" {
+		dateField = "first_air_date"
+	} else {
+		params["include_video"] = "false"
+	}
+	params[dateField+".lte"] = today // never seed unreleased titles
+
+	if mode == "recent" {
+		params["sort_by"] = dateField + ".desc"
+		params["vote_count.gte"] = "10"
+	} else {
+		params["sort_by"] = "popularity.desc"
+		params["vote_count.gte"] = "50" // exclude obscure titles with too few votes to trust ratings
+	}
+	return params
 }
 
 // tmdbGET performs an authenticated GET request to the TMDB API.
@@ -258,46 +327,45 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
 // The shared limiter enforces openAIRPM so we never exceed Tier-1 rate limits.
-// Returns completed rows and the count of movies that failed embedding (logged as warnings).
-func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
-	results := make(chan embedResult, len(movies))
+// Returns completed rows and the count of items that failed embedding.
+func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
+	results := make(chan embedResult, len(items))
 	sem := make(chan struct{}, embedWorkers)
 	var wg sync.WaitGroup
 
-	for _, m := range movies {
+	for _, it := range items {
 		wg.Add(1)
-		go func(movie tmdbMovie) {
+		go func(item tmdbItem) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			// Wait for a rate-limit token before calling OpenAI.
-			// This serialises bursts across all workers to stay under 80 RPM.
+			// Wait for a rate-limit token before calling OpenAI to stay under 80 RPM.
 			if err := limiter.Wait(context.Background()); err != nil {
-				results <- embedResult{err: fmt.Errorf("rate limiter cancelled for movie %d: %w", movie.ID, err)}
+				results <- embedResult{err: fmt.Errorf("rate limiter cancelled for %s %d: %w", item.mediaType, item.ID, err)}
 				return
 			}
 
-			text := buildEmbeddingText(movie.Title, movie.Overview)
-			embedding, err := callOpenAIEmbedding(client, apiKey, text)
+			embedding, err := callOpenAIEmbedding(client, apiKey, buildEmbeddingText(item.displayTitle(), item.Overview))
 			if err != nil {
-				results <- embedResult{err: fmt.Errorf("movie %d %q: %w", movie.ID, movie.Title, err)}
+				results <- embedResult{err: fmt.Errorf("%s %d %q: %w", item.mediaType, item.ID, item.displayTitle(), err)}
 				return
 			}
 
 			results <- embedResult{row: movieRow{
-				TmdbID:      movie.ID,
-				Title:       movie.Title,
-				Overview:    movie.Overview,
-				Genres:      genreNamesFromIDs(movie.GenreIDs, genreMap),
-				ReleaseYear: extractReleaseYear(movie.ReleaseDate),
-				PosterPath:   movie.PosterPath,
-				BackdropPath: movie.BackdropPath,
-				VoteAverage:  movie.VoteAverage,
-				Popularity:  movie.Popularity,
-				Embedding:   embedding,
+				TmdbID:       item.ID,
+				MediaType:    item.mediaType,
+				Title:        item.displayTitle(),
+				Overview:     item.Overview,
+				Genres:       genreNamesFromIDs(item.GenreIDs, genreMap),
+				ReleaseYear:  extractReleaseYear(item.dateString()),
+				PosterPath:   item.PosterPath,
+				BackdropPath: item.BackdropPath,
+				VoteAverage:  item.VoteAverage,
+				Popularity:   item.Popularity,
+				Embedding:    embedding,
 			}}
-		}(m)
+		}(it)
 	}
 
 	go func() {
@@ -320,10 +388,7 @@ func generateEmbeddings(client *http.Client, apiKey string, movies []tmdbMovie, 
 
 // callOpenAIEmbedding sends one embedding request to the OpenAI API.
 func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, error) {
-	body, err := json.Marshal(map[string]string{
-		"model": embeddingModel,
-		"input": text,
-	})
+	body, err := json.Marshal(map[string]string{"model": embeddingModel, "input": text})
 	if err != nil {
 		return nil, fmt.Errorf("marshalling embedding request: %w", err)
 	}
@@ -362,8 +427,9 @@ func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, e
 
 // — Supabase upsert ——————————————————————————————————————————————————————————
 
-// upsertMovies sends rows to Supabase in batches, using tmdb_id as the conflict target
-// so re-running the seeder updates existing rows rather than duplicating them.
+// upsertMovies sends rows to Supabase in batches, using (tmdb_id, media_type) as
+// the conflict target so re-running the seeder updates existing rows rather than
+// duplicating them. Requires the composite unique index from the media_type migration.
 func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []movieRow) (int, error) {
 	total := 0
 	for i := 0; i < len(rows); i += upsertBatchSize {
@@ -378,10 +444,9 @@ func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []mo
 			return total, fmt.Errorf("marshalling batch starting at index %d: %w", i, err)
 		}
 
-		// on_conflict=tmdb_id + resolution=merge-duplicates performs an upsert.
 		req, err := http.NewRequest(
 			http.MethodPost,
-			supabaseURL+"/rest/v1/movies?on_conflict=tmdb_id",
+			supabaseURL+"/rest/v1/movies?on_conflict=tmdb_id,media_type",
 			bytes.NewReader(body),
 		)
 		if err != nil {
@@ -411,16 +476,31 @@ func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []mo
 
 // — Pure helpers (also tested) ———————————————————————————————————————————————
 
-// deduplicateByTmdbID removes movies with duplicate tmdb_id values, keeping the first
-// occurrence. TMDB's discover pagination occasionally returns the same movie on multiple
-// pages (e.g. when a movie's popularity score changes between requests).
-func deduplicateByTmdbID(movies []tmdbMovie) []tmdbMovie {
-	seen := make(map[int]bool, len(movies))
-	unique := make([]tmdbMovie, 0, len(movies))
-	for _, m := range movies {
-		if !seen[m.ID] {
-			seen[m.ID] = true
-			unique = append(unique, m)
+// parseMediaTypes expands the --media flag into the list of TMDB media types to seed.
+func parseMediaTypes(media string) ([]string, error) {
+	switch strings.ToLower(strings.TrimSpace(media)) {
+	case "movie":
+		return []string{"movie"}, nil
+	case "tv":
+		return []string{"tv"}, nil
+	case "both", "all":
+		return []string{"movie", "tv"}, nil
+	default:
+		return nil, fmt.Errorf("want movie, tv, or both; got %q", media)
+	}
+}
+
+// deduplicate removes items sharing the same (media_type, tmdb_id). TMDB's
+// pagination occasionally repeats a title across pages when its popularity
+// shifts between requests, and movie/TV IDs are separate namespaces.
+func deduplicate(items []tmdbItem) []tmdbItem {
+	seen := make(map[string]bool, len(items))
+	unique := make([]tmdbItem, 0, len(items))
+	for _, it := range items {
+		key := it.mediaType + ":" + strconv.Itoa(it.ID)
+		if !seen[key] {
+			seen[key] = true
+			unique = append(unique, it)
 		}
 	}
 	return unique
@@ -428,7 +508,7 @@ func deduplicateByTmdbID(movies []tmdbMovie) []tmdbMovie {
 
 // buildEmbeddingText constructs the string that gets embedded.
 // Combining title and overview gives the model enough semantic signal to distinguish
-// similarly-named movies and capture genre/tone from the description.
+// similarly-named titles and capture genre/tone from the description.
 func buildEmbeddingText(title, overview string) string {
 	if overview == "" {
 		return title
@@ -448,7 +528,7 @@ func genreNamesFromIDs(ids []int, genreMap map[int]string) []string {
 	return names
 }
 
-// extractReleaseYear parses the 4-digit year from a TMDB release_date string ("YYYY-MM-DD").
+// extractReleaseYear parses the 4-digit year from a TMDB date string ("YYYY-MM-DD").
 // Returns 0 if the string is absent or malformed.
 func extractReleaseYear(releaseDate string) int {
 	if len(releaseDate) < 4 {

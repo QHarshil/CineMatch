@@ -46,9 +46,10 @@ const FEATURE_WEIGHTS = [
 ];
 
 const EVAL_RESULTS = [
-  { model: "Popularity Baseline", ndcg: 0.62, mrr: 0.71, hitRate: 0.85 },
-  { model: "Vector Retrieval Only", ndcg: 0.76, mrr: 0.89, hitRate: 0.95 },
-  { model: "Two-Stage Pipeline", ndcg: 0.86, mrr: 1.00, hitRate: 1.00 },
+  { model: "Popularity Baseline", ndcg: 0.72, mrr: 0.88, hitRate: 1.0 },
+  { model: "Vector Retrieval Only", ndcg: 0.80, mrr: 0.94, hitRate: 1.0 },
+  { model: "Linear Re-ranker", ndcg: 0.80, mrr: 0.95, hitRate: 1.0 },
+  { model: "LambdaMART Re-ranker", ndcg: 0.81, mrr: 1.0, hitRate: 1.0 },
 ];
 
 const TECH_STACK = [
@@ -257,15 +258,14 @@ export default async function HowItWorksPage() {
           <div className="border-l-2 border-gold/30 pl-6">
             <p className="text-sm text-muted-foreground leading-relaxed">
               <span className="text-foreground font-medium">
-                Upgrade path:
+                Learned re-ranker:
               </span>{" "}
-              When sufficient real interaction data accumulates, the linear
-              scorer is replaced by a LambdaMART model (LightGBM) that
-              directly optimizes NDCG. The model learns non-linear
-              feature interactions that handcrafted weights cannot capture,
-              such as the relationship between genre preferences and
-              popularity thresholds. The ranker service supports both
-              models and routes between them per-request.
+              The weights above are the transparent linear baseline.
+              Production serves a LambdaMART model (LightGBM) that directly
+              optimizes NDCG and learns non-linear preferences the handcrafted
+              weights cannot capture, such as a vote-average sweet spot or an
+              era preference. It leads the offline eval below. The ranker
+              service supports both models and routes between them per request.
             </p>
           </div>
         </div>
@@ -357,9 +357,10 @@ export default async function HowItWorksPage() {
             </table>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Evaluated on 40 held-out synthetic users with 1,811 interactions
-            across 494 movies. Synthetic users have genre-weighted taste
-            profiles with Gaussian noise to simulate realistic behavior.
+            Evaluated on 40 held-out synthetic users with 1,695 interactions
+            across 494 movies. Synthetic users have non-linear taste profiles
+            (favourite era, vote-average sweet spot, genre-dependent recency)
+            with Gaussian noise to simulate realistic behavior.
           </p>
         </div>
       </SectionReveal>

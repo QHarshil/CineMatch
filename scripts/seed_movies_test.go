@@ -184,3 +184,20 @@ func TestDiscoverParams(t *testing.T) {
 		t.Errorf("page = %q, want 2", tvPopular["page"])
 	}
 }
+
+func TestParseLanguages(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{"en,ko", []string{"en", "ko"}},
+		{"EN, KO ", []string{"en", "ko"}},
+		{"en", []string{"en"}},
+		{"", []string{"en"}}, // empty falls back to English
+	}
+	for _, tc := range tests {
+		if got := parseLanguages(tc.in); strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("parseLanguages(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}

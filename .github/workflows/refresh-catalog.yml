@@ -1,13 +1,13 @@
 name: Refresh catalog
 
-# Weekly ingest of newly released movies and TV shows so the catalog stays
-# current. Runs the seeder in "recent" mode, which upserts (no duplicates).
-# Requires repo secrets: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL,
-# SUPABASE_SECRET_KEY. The media_type migration must be applied first.
+# Monthly ingest of newly released English + Korean movies and TV shows so the
+# catalog stays current. Runs the seeder in "recent" mode, which upserts (no
+# duplicates). Requires repo secrets: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY,
+# SUPABASE_URL, SUPABASE_SECRET_KEY. The media_type migration must be applied first.
 
 on:
   schedule:
-    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+    - cron: "0 6 1 * *" # 1st of each month, 06:00 UTC
   workflow_dispatch: {} # allow manual runs from the Actions tab
 
 jobs:
@@ -27,4 +27,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: go run . --media both --mode recent --count 100
+        run: go run . --media both --mode recent --count 100 --languages en,ko

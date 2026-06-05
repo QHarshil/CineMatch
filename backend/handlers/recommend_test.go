@@ -16,17 +16,17 @@ import (
 
 // stubRanker implements handlers.MovieRanker for tests.
 type stubRanker struct {
-	rankFunc func(ctx context.Context, candidates []db.MovieCandidate, topN int, genres []string, minVote float64) (*ranker.RankResponse, error)
+	rankFunc func(ctx context.Context, candidates []db.MovieCandidate, topN int, user ranker.UserContext) (*ranker.RankResponse, error)
 }
 
-func (s *stubRanker) Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, genres []string, minVote float64) (*ranker.RankResponse, error) {
-	return s.rankFunc(ctx, candidates, topN, genres, minVote)
+func (s *stubRanker) Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, user ranker.UserContext) (*ranker.RankResponse, error) {
+	return s.rankFunc(ctx, candidates, topN, user)
 }
 
 // successRanker returns the first topN candidates in order with dummy scores.
 func successRanker() *stubRanker {
 	return &stubRanker{
-		rankFunc: func(_ context.Context, candidates []db.MovieCandidate, topN int, _ []string, _ float64) (*ranker.RankResponse, error) {
+		rankFunc: func(_ context.Context, candidates []db.MovieCandidate, topN int, _ ranker.UserContext) (*ranker.RankResponse, error) {
 			n := topN
 			if len(candidates) < n {
 				n = len(candidates)
@@ -42,7 +42,7 @@ func successRanker() *stubRanker {
 
 func failingRanker() *stubRanker {
 	return &stubRanker{
-		rankFunc: func(_ context.Context, _ []db.MovieCandidate, _ int, _ []string, _ float64) (*ranker.RankResponse, error) {
+		rankFunc: func(_ context.Context, _ []db.MovieCandidate, _ int, _ ranker.UserContext) (*ranker.RankResponse, error) {
 			return nil, errors.New("ranker connection refused")
 		},
 	}

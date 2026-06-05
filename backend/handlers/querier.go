@@ -22,4 +22,5 @@ type DBQuerier interface {
 	GetUserEmbedding(ctx context.Context, userID string) ([]float32, error)
 	MatchMovies(ctx context.Context, queryEmbedding []float32, limit int) ([]db.MovieCandidate, error)
 	RefreshUserEmbedding(ctx context.Context, userID string) error
+	UserInteractionStats(ctx context.Context, userID string) (db.UserStats, error)
 }

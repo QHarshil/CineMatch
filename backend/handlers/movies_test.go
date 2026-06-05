@@ -29,6 +29,7 @@ type stubQuerier struct {
 	getUserEmbedding         func(ctx context.Context, userID string) ([]float32, error)
 	matchMovies              func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
 	refreshUserEmbedding     func(ctx context.Context, userID string) error
+	userInteractionStats     func(ctx context.Context, userID string) (db.UserStats, error)
 }
 
 func (s *stubQuerier) ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error) {
@@ -72,6 +73,12 @@ func (s *stubQuerier) RefreshUserEmbedding(ctx context.Context, userID string) e
 		return nil // best-effort in production; default to no-op in tests
 	}
 	return s.refreshUserEmbedding(ctx, userID)
+}
+func (s *stubQuerier) UserInteractionStats(ctx context.Context, userID string) (db.UserStats, error) {
+	if s.userInteractionStats == nil {
+		return db.UserStats{LikeRatio: 0.5}, nil
+	}
+	return s.userInteractionStats(ctx, userID)
 }
 
 // stubCache implements handlers.PopularCache for tests.

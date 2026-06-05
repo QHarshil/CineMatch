@@ -34,54 +34,45 @@ def load_interactions() -> pd.DataFrame:
 
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Create feature columns for ranking model.
+    """Engineer ranking features computed identically here and in the live
+    ranker (ranker/lambdamart_ranker.py).
 
-    Features:
-      - affinity_score: pre-computed genre affinity (from generation)
-      - vote_average: TMDB average rating
-      - log_popularity: log1p of TMDB popularity score
-      - runtime_hours: runtime in hours (normalized scale)
-      - decade: release decade as ordinal (1970=0, 1980=1, ...)
-      - genre_count: number of genres on the movie
-      - is_recent: 1 if released in last 5 years, else 0
-      - user_avg_affinity: mean affinity of all this user's interactions
-      - user_like_ratio: fraction of user's interactions that are "like"
-      - user_interaction_count: total interactions for this user
+    Every feature must be derivable at serve time from a retrieved candidate plus
+    the per-user signals the Go backend sends, so the model sees the same inputs
+    in production as in training (no train/serve skew). "similarity" is the
+    retrieval score: the synthetic genre affinity here, the pgvector cosine
+    similarity in production. Runtime is excluded because the catalog has no
+    runtime data, and raw genre affinity is folded into "similarity".
     """
     out = df.copy()
 
-    # Basic movie features
-    out["log_popularity"] = np.log1p(out["popularity"].fillna(0))
-    out["runtime_hours"] = out["runtime"].fillna(120) / 60.0
-    min_decade = 1970
-    out["decade"] = ((out["release_year"].fillna(2000) - min_decade) / 10).clip(lower=0).astype(int)
-    out["genre_count"] = out["movie_genres"].apply(lambda g: len(g) if isinstance(g, list) else 0)
-    out["is_recent"] = (out["release_year"].fillna(0) >= 2021).astype(int)
+    out["similarity"] = (
+        (pd.to_numeric(out["affinity_score"], errors="coerce").fillna(0.0) + 1.0) / 2.0
+    ).clip(0.0, 1.0)
+    out["vote_average"] = pd.to_numeric(out["vote_average"], errors="coerce").fillna(6.5)
+    out["log_popularity"] = np.log1p(pd.to_numeric(out["popularity"], errors="coerce").fillna(0.0))
+    out["decade"] = (
+        (pd.to_numeric(out["release_year"], errors="coerce").fillna(2000) - 1970) / 10
+    ).clip(lower=0).astype(int)
+    out["is_recent"] = (pd.to_numeric(out["release_year"], errors="coerce").fillna(0) >= 2021).astype(int)
 
-    # User-level aggregate features (computed per user, then joined back)
+    # Per-user behavioural signals the Go backend can compute from interactions.
     user_stats = out.groupby("user_id").agg(
-        user_avg_affinity=("affinity_score", "mean"),
         user_like_ratio=("type", lambda x: (x == "like").mean()),
         user_interaction_count=("type", "count"),
     ).reset_index()
-
     out = out.merge(user_stats, on="user_id", how="left")
 
-    # Relevance label
     out["relevance"] = out["type"].map(RELEVANCE_MAP)
-
     return out
 
 
 FEATURE_COLUMNS = [
-    "affinity_score",
+    "similarity",
     "vote_average",
     "log_popularity",
-    "runtime_hours",
     "decade",
-    "genre_count",
     "is_recent",
-    "user_avg_affinity",
     "user_like_ratio",
     "user_interaction_count",
 ]

@@ -96,6 +96,7 @@ Copy `.env.example` to `.env` and fill in:
 | `ALLOWED_ORIGINS` | backend | Comma-separated CORS origins |
 | `APP_PORT` | backend | HTTP listen port (default `8080`) |
 | `RANKER_URL` | backend | Python ranker URL (default `http://localhost:8000`) |
+| `OMDB_API_KEY` | backend | OMDb key for IMDb/Rotten Tomatoes ratings (optional; ratings hidden if unset) |
 
 ## Repo structure
 

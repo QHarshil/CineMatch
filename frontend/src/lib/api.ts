@@ -59,6 +59,16 @@ export function fetchMovieById(id: string): Promise<Movie> {
   return apiFetch<Movie>(`/movies/${id}`);
 }
 
+/** Aggregate IMDb / Rotten Tomatoes scores from OMDb (via the Go backend). Either may be null. */
+export interface MovieRatings {
+  imdb_rating: number | null;
+  rt_rating: number | null;
+}
+
+export function fetchMovieRatings(id: string): Promise<MovieRatings> {
+  return apiFetch<MovieRatings>(`/movies/${id}/ratings`);
+}
+
 export function searchMovies(query: string, limit = 20): Promise<Movie[]> {
   return apiFetch<Movie[]>(
     `/search?q=${encodeURIComponent(query)}&limit=${limit}`

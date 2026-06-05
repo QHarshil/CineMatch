@@ -35,6 +35,7 @@ get() {
 JWT_SECRET="$(get JWT_SECRET)"
 SUPABASE_URL="$(get SUPABASE_URL)"
 SUPABASE_SECRET_KEY="$(get SUPABASE_SECRET_KEY)"
+OMDB_API_KEY="$(get OMDB_API_KEY)" # optional; enables IMDb/Rotten Tomatoes ratings
 
 for name in JWT_SECRET SUPABASE_URL SUPABASE_SECRET_KEY; do
   if [[ -z "${!name}" ]]; then
@@ -52,6 +53,10 @@ RANKER_URL: "$RANKER_URL"
 ALLOWED_ORIGINS: "$ALLOWED_ORIGINS"
 RATE_LIMIT_RPM: "60"
 EOF
+# OMDB_API_KEY is optional; only include it when set so ratings stay disabled otherwise.
+if [[ -n "$OMDB_API_KEY" ]]; then
+  echo "OMDB_API_KEY: \"$OMDB_API_KEY\"" >> "$ENV_FILE"
+fi
 echo "Wrote $ENV_FILE"
 
 gcloud run deploy cinematch-backend \

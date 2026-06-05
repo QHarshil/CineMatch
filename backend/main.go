@@ -14,6 +14,7 @@ import (
 	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/handlers"
 	custommw "github.com/harshilc/cinematch-backend/middleware"
+	"github.com/harshilc/cinematch-backend/omdb"
 	"github.com/harshilc/cinematch-backend/ranker"
 	"github.com/joho/godotenv"
 )
@@ -46,6 +47,16 @@ func main() {
 	// Serves as fallback when Supabase is temporarily unreachable.
 	popularCache := db.NewPopularMoviesCache(supabase, 1*time.Hour)
 
+	// OMDb supplies IMDb / Rotten Tomatoes scores that TMDB lacks. The key is
+	// optional: without it the ratings endpoint returns empty bodies.
+	var ratingsFetcher handlers.RatingsFetcher
+	if omdbKey := os.Getenv("OMDB_API_KEY"); omdbKey != "" {
+		ratingsFetcher = omdb.NewClient(omdbKey)
+	} else {
+		slog.Info("OMDB_API_KEY not set, movie ratings disabled")
+	}
+	ratingsCache := omdb.NewCache(24 * time.Hour)
+
 	r := chi.NewRouter()
 
 	// Middleware order matters: RequestID and RealIP must come before logging
@@ -67,6 +78,7 @@ func main() {
 	// Public endpoints — no auth required.
 	r.Get("/movies", handlers.ListMovies(supabase, popularCache))
 	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
+	r.Get("/movies/{id}/ratings", handlers.GetMovieRatings(supabase, ratingsFetcher, ratingsCache))
 	r.With(custommw.SearchRateLimiter()).Get("/search", handlers.SearchMovies(supabase, popularCache))
 
 	// Authenticated endpoints — require a valid Supabase JWT.

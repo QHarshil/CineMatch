@@ -4,8 +4,9 @@ import { BrowseContent } from "./browse-content";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Browse | CineMatch",
-  description: "Browse movies by genre, sort by popularity, rating, or release date.",
+  title: "Browse",
+  description:
+    "Browse movies and shows by genre, sorted by popularity, rating, or release date.",
 };
 
 async function fetchGenres(): Promise<string[]> {

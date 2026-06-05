@@ -99,7 +99,7 @@ export default async function HowItWorksPage() {
       <header className="px-4 pb-20 pt-32">
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow mb-6 text-primary">Engineering deep dive</p>
-          <h1 className="mb-6 font-heading text-4xl font-semibold uppercase leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 className="mb-6 font-heading text-3xl font-semibold uppercase leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
             How CineMatch builds recommendations
           </h1>
           <p className="mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground">
@@ -290,8 +290,8 @@ export default async function HowItWorksPage() {
           </div>
 
           {/* Results table */}
-          <div className="overflow-hidden border border-border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto border border-border">
+            <table className="w-full min-w-[28rem] text-sm">
               <thead>
                 <tr className="bg-wash">
                   <th className="eyebrow px-5 py-3 text-left text-muted-foreground">

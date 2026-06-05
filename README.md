@@ -112,13 +112,13 @@ Each subdirectory has its own README with setup instructions and API contracts.
 
 ## Evaluation results
 
-Offline eval on synthetic data (200 users, 8 taste profiles, 9607 interactions):
+Offline eval on synthetic data (200 users across 8 taste profiles, 8,871 interactions; 40 users / 1,695 interactions held out for test). Every number is produced by `eval/eval_rankers.py`:
 
 | Model | NDCG@10 | MRR | Hit Rate@10 |
 |-------|---------|-----|-------------|
-| Popularity baseline | 0.62 | 0.71 | 0.85 |
-| Vector retrieval only | 0.76 | 0.89 | 0.95 |
-| Two-stage (linear ranker) | 0.86 | 1.00 | 1.00 |
-| Two-stage (LambdaMART) | 0.71 | 0.86 | 1.00 |
+| Popularity baseline | 0.716 | 0.875 | 1.00 |
+| Vector retrieval only | 0.798 | 0.938 | 1.00 |
+| Two-stage (linear ranker) | 0.795 | 0.950 | 1.00 |
+| Two-stage (LambdaMART) | 0.814 | 1.000 | 1.00 |
 
-The linear ranker outperforms LambdaMART on synthetic data because the synthetic generation process mirrors the linear formula. On real user data with messier preferences, the learned model should close that gap. See [eval/README.md](eval/README.md) for details.
+The synthetic users have non-linear preferences (a favourite release era, a vote-average sweet spot, recency that depends on genre) that a fixed-weight linear formula cannot represent. LambdaMART captures them and leads on NDCG@10: +14% over the popularity baseline, and ahead of both retrieval-only and the linear re-ranker. Stage-2 re-ranking runs in ~0.9 ms p95 (`eval/benchmark_latency.py`). See [eval/README.md](eval/README.md) for the methodology.

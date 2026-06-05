@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Sign in to CineMatch</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f6f8ff; font-family: Georgia, 'Times New Roman', serif; color: #1b2440;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f6f8ff;">
+      <tr>
+        <td align="center" style="padding: 40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border: 1px solid #d2ddf2;">
+            <!-- Wordmark -->
+            <tr>
+              <td style="padding: 24px 32px; border-bottom: 1px solid #d2ddf2;">
+                <span style="font-family: Georgia, serif; font-size: 20px; font-weight: bold; letter-spacing: -0.01em; color: #2f54ff; text-transform: uppercase;">CineMatch</span>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding: 36px 32px 8px;">
+                <p style="margin: 0 0 6px; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #2f54ff;">Passwordless sign in</p>
+                <h1 style="margin: 0 0 16px; font-family: Georgia, serif; font-size: 26px; font-weight: bold; color: #1b2440;">Here is your magic link</h1>
+                <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #5b6a8f;">
+                  Tap the button below to sign in to CineMatch. No password needed. This link expires shortly and can be used once.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Button -->
+            <tr>
+              <td style="padding: 0 32px 28px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td bgcolor="#2f54ff" style="background-color: #2f54ff;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 14px 28px; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #ffffff; text-decoration: none;">Sign in to CineMatch</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Fallback link -->
+            <tr>
+              <td style="padding: 0 32px 32px;">
+                <p style="margin: 0 0 6px; font-size: 13px; line-height: 1.6; color: #5b6a8f;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; word-break: break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color: #2f54ff;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 20px 32px; border-top: 1px solid #d2ddf2; background-color: #f6f8ff;">
+                <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6; color: #8a97c9;">
+                  You received this because someone requested a sign-in link for CineMatch with this address. If that was not you, you can safely ignore this email. We store your address only as a SHA-256 hash.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin: 16px 0 0; font-family: 'Courier New', monospace; font-size: 11px; color: #aebfe6;">CineMatch · two-stage movie recommendations</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

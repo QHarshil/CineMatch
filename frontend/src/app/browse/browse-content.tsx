@@ -50,26 +50,23 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
   const isSearchMode = searchQuery.length > 0;
 
-  const fetchFromSupabase = useCallback(
-    async (genre: string, sortKey: SortOption, offset: number) => {
-      const { column, ascending } = SORT_CONFIG[sortKey];
-      let query = supabase.current
-        .from("movies")
-        .select(
-          "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime"
-        )
-        .order(column, { ascending })
-        .range(offset, offset + PAGE_SIZE - 1);
+  const fetchFromSupabase = useCallback(async (genre: string, sortKey: SortOption, offset: number) => {
+    const { column, ascending } = SORT_CONFIG[sortKey];
+    let query = supabase.current
+      .from("movies")
+      .select(
+        "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime",
+      )
+      .order(column, { ascending })
+      .range(offset, offset + PAGE_SIZE - 1);
 
-      if (genre !== "All") {
-        query = query.contains("genres", [genre]);
-      }
+    if (genre !== "All") {
+      query = query.contains("genres", [genre]);
+    }
 
-      const { data } = await query;
-      return (data ?? []) as Movie[];
-    },
-    []
-  );
+    const { data } = await query;
+    return (data ?? []) as Movie[];
+  }, []);
 
   const loadInitial = useCallback(
     async (genre: string, sortKey: SortOption) => {
@@ -93,7 +90,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         setLoading(false);
       }
     },
-    [isSearchMode, searchQuery, fetchFromSupabase]
+    [isSearchMode, searchQuery, fetchFromSupabase],
   );
 
   // Reload when the search query changes; filter and sort changes load directly.
@@ -115,11 +112,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
   async function loadMore() {
     setLoadingMore(true);
     try {
-      const results = await fetchFromSupabase(
-        activeGenre,
-        sort,
-        movies.length
-      );
+      const results = await fetchFromSupabase(activeGenre, sort, movies.length);
       setMovies((prev) => [...prev, ...results]);
       setHasMore(results.length === PAGE_SIZE);
     } catch {
@@ -175,21 +168,19 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
             </button>
             {sortOpen && (
               <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] border border-border bg-popover shadow-sm">
-                {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(
-                  ([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => handleSortChange(key)}
-                      className={`block w-full px-4 py-2 text-left text-xs transition-colors duration-150 ${
-                        sort === key
-                          ? "bg-accent text-primary"
-                          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  )
-                )}
+                {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => handleSortChange(key)}
+                    className={`block w-full px-4 py-2 text-left text-xs transition-colors duration-150 ${
+                      sort === key
+                        ? "bg-accent text-primary"
+                        : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -235,9 +226,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
           <div className="flex size-16 items-center justify-center border border-border text-primary">
             <Film className="size-7" strokeWidth={1.5} />
           </div>
-          <h2 className="font-heading text-xl font-semibold uppercase tracking-tight">
-            No titles found
-          </h2>
+          <h2 className="font-heading text-xl font-semibold uppercase tracking-tight">No titles found</h2>
           <p className="max-w-xs text-center font-serif text-muted-foreground">
             {isSearchMode
               ? "Try a different search term or browse by genre instead."

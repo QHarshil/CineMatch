@@ -62,9 +62,13 @@ def main():
     latencies_ms.sort()
 
     def pct(p: float) -> float:
-        return latencies_ms[min(len(latencies_ms) - 1, int(p / 100.0 * len(latencies_ms)))]
+        return latencies_ms[
+            min(len(latencies_ms) - 1, int(p / 100.0 * len(latencies_ms)))
+        ]
 
-    print(f"POST /rank  ({CANDIDATE_COUNT} candidates -> top 20, {NUM_REQUESTS} requests, model=lambdamart-v1)")
+    print(
+        f"POST /rank  ({CANDIDATE_COUNT} candidates -> top 20, {NUM_REQUESTS} requests, model=lambdamart-v1)"
+    )
     print(f"  mean {statistics.mean(latencies_ms):.2f} ms")
     print(f"  p50  {pct(50):.2f} ms")
     print(f"  p95  {pct(95):.2f} ms")

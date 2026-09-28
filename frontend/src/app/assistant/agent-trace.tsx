@@ -42,7 +42,8 @@ export function AgentTrace({ exchange }: { exchange?: Exchange }) {
     return (
       <div className="px-5 py-6">
         <p className="font-serif text-sm leading-relaxed text-muted-foreground">
-          Each request runs a tool-calling loop. The trace for your latest request appears here: what the agent searched, what came back, and what it cost.
+          Each request runs a tool-calling loop. The trace for your latest request appears here: what the agent
+          searched, what came back, and what it cost.
         </p>
         <ul className="mt-6 space-y-4">
           {TOOLS.map((tool) => (

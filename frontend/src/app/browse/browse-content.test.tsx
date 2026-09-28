@@ -12,9 +12,7 @@ vi.mock("@/lib/supabase-browser", () => ({
 vi.mock("@/lib/api", () => ({
   discoverTitles: vi.fn(async () => ({
     retrieval: "hybrid",
-    results: [
-      { ...arrival, similarity: 0.52, semantic_rank: 1, keyword_rank: null, title_rank: null, score: 0.016 },
-    ],
+    results: [{ ...arrival, similarity: 0.52, semantic_rank: 1, keyword_rank: null, title_rank: null, score: 0.016 }],
   })),
 }));
 

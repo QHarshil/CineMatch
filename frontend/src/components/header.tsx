@@ -65,11 +65,7 @@ export function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
-            {mobileOpen ? (
-              <X className="h-5 w-5" strokeWidth={1.5} />
-            ) : (
-              <Menu className="h-5 w-5" strokeWidth={1.5} />
-            )}
+            {mobileOpen ? <X className="h-5 w-5" strokeWidth={1.5} /> : <Menu className="h-5 w-5" strokeWidth={1.5} />}
           </button>
         </div>
       </div>
@@ -101,11 +97,7 @@ export function Header() {
                 Sign out
               </button>
             ) : (
-              <Link
-                href="/login"
-                className="eyebrow block py-2.5 text-primary"
-                onClick={() => setMobileOpen(false)}
-              >
+              <Link href="/login" className="eyebrow block py-2.5 text-primary" onClick={() => setMobileOpen(false)}>
                 Sign in
               </Link>
             ))}

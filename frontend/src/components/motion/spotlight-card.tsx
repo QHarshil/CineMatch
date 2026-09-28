@@ -20,7 +20,10 @@ export function SpotlightCard({ children, className = "" }: { children: ReactNod
 
   return (
     <div ref={ref} onPointerMove={track} className={`spotlight-card group relative overflow-hidden ${className}`}>
-      <div aria-hidden="true" className="spotlight-card__glow pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+      <div
+        aria-hidden="true"
+        className="spotlight-card__glow pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+      />
       <div className="relative">{children}</div>
     </div>
   );

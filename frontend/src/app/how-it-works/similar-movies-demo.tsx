@@ -19,11 +19,7 @@ interface Neighbor {
   similarity: number;
 }
 
-export function SimilarMoviesDemo({
-  seedMovies,
-}: {
-  seedMovies: SeedMovie[];
-}) {
+export function SimilarMoviesDemo({ seedMovies }: { seedMovies: SeedMovie[] }) {
   const [selectedId, setSelectedId] = useState("");
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,10 +56,7 @@ export function SimilarMoviesDemo({
     <div className="border border-border bg-wash p-6 sm:p-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label
-            htmlFor="seed-movie"
-            className="mb-2 block text-sm text-muted-foreground"
-          >
+          <label htmlFor="seed-movie" className="mb-2 block text-sm text-muted-foreground">
             Choose a title to find its nearest neighbors
           </label>
           <div className="relative">
@@ -88,9 +81,7 @@ export function SimilarMoviesDemo({
       {loading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-5 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">
-            Searching embedding space...
-          </span>
+          <span className="ml-3 text-sm text-muted-foreground">Searching embedding space...</span>
         </div>
       )}
 
@@ -109,9 +100,7 @@ export function SimilarMoviesDemo({
               )}
               <div>
                 <p className="eyebrow text-muted-foreground">Seed title</p>
-                <p className="font-heading text-lg font-semibold">
-                  {selected.title}
-                </p>
+                <p className="font-heading text-lg font-semibold">{selected.title}</p>
               </div>
             </div>
           )}
@@ -126,9 +115,7 @@ export function SimilarMoviesDemo({
                   animation: "fadeSlideIn 0.4s ease-out both",
                 }}
               >
-                <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">
-                  #{i + 1}
-                </span>
+                <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">#{i + 1}</span>
                 {n.poster_path && (
                   <Image
                     src={`https://image.tmdb.org/t/p/w92${n.poster_path}`}
@@ -139,17 +126,11 @@ export function SimilarMoviesDemo({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-heading text-base font-medium">
-                    {n.title}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {n.genres?.slice(0, 3).join(", ")}
-                  </p>
+                  <p className="truncate font-heading text-base font-medium">{n.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{n.genres?.slice(0, 3).join(", ")}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-mono text-sm text-primary">
-                    {(n.similarity * 100).toFixed(1)}%
-                  </p>
+                  <p className="font-mono text-sm text-primary">{(n.similarity * 100).toFixed(1)}%</p>
                   <p className="text-[10px] text-muted-foreground">similarity</p>
                 </div>
               </div>
@@ -161,8 +142,7 @@ export function SimilarMoviesDemo({
       {!loading && !searched && (
         <div className="py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Select a title above to see real-time vector similarity search in
-            action
+            Select a title above to see real-time vector similarity search in action
           </p>
         </div>
       )}

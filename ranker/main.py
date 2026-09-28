@@ -79,7 +79,9 @@ def rank_candidates(request: RankRequest) -> RankResponse:
             return lambdamart_ranker.rank(request)
         except Exception:
             # Model missing or scoring failed: fall back to the linear scorer.
-            logger.warning("lambdamart-v1 scoring failed, falling back to feature-linear-v1")
+            logger.warning(
+                "lambdamart-v1 scoring failed, falling back to feature-linear-v1"
+            )
             return linear_ranker.rank(request)
     return linear_ranker.rank(request)
 

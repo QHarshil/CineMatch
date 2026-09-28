@@ -18,7 +18,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(
-    callbackError ? "Magic link expired or invalid. Please try again." : null
+    callbackError ? "Magic link expired or invalid. Please try again." : null,
   );
   const [submitting, setSubmitting] = useState(false);
   const [cooldownLeft, setCooldownLeft] = useState(0);
@@ -66,13 +66,10 @@ export function LoginForm() {
             <MailCheck className="size-6" strokeWidth={1.5} />
           </span>
           <p className="eyebrow text-primary">Magic link sent</p>
-          <h1 className="mt-3 font-heading text-3xl font-semibold uppercase tracking-tight">
-            Check your inbox
-          </h1>
+          <h1 className="mt-3 font-heading text-3xl font-semibold uppercase tracking-tight">Check your inbox</h1>
           <p className="mt-3 font-serif leading-relaxed text-muted-foreground">
-            If an account exists for{" "}
-            <strong className="text-foreground">{email}</strong>, a one-tap
-            sign-in link is on its way. It expires in a few minutes.
+            If an account exists for <strong className="text-foreground">{email}</strong>, a one-tap sign-in link is on
+            its way. It expires in a few minutes.
           </p>
           {cooldownLeft > 0 ? (
             <p className="mt-6 font-mono text-xs text-muted-foreground">
@@ -95,12 +92,9 @@ export function LoginForm() {
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 py-20">
       <div className="w-full max-w-md border border-border bg-background p-8 sm:p-10">
         <p className="eyebrow text-primary">Passwordless sign in</p>
-        <h1 className="mt-3 font-heading text-3xl font-semibold uppercase tracking-tight">
-          Welcome to CineMatch
-        </h1>
+        <h1 className="mt-3 font-heading text-3xl font-semibold uppercase tracking-tight">Welcome to CineMatch</h1>
         <p className="mt-3 font-serif leading-relaxed text-muted-foreground">
-          Enter your email and we will send a one-tap magic link. No passwords to
-          remember, ever.
+          Enter your email and we will send a one-tap magic link. No passwords to remember, ever.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3">
@@ -117,15 +111,9 @@ export function LoginForm() {
             disabled={submitting || cooldownLeft > 0}
             className="eyebrow h-12 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting
-              ? "Sending..."
-              : cooldownLeft > 0
-                ? `Wait ${cooldownLeft}s`
-                : "Send magic link"}
+            {submitting ? "Sending..." : cooldownLeft > 0 ? `Wait ${cooldownLeft}s` : "Send magic link"}
           </button>
-          {error && (
-            <p className="font-serif text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="font-serif text-sm text-destructive">{error}</p>}
         </form>
 
         <p className="mt-6 border-t border-border pt-4 font-mono text-[11px] leading-relaxed text-muted-foreground">

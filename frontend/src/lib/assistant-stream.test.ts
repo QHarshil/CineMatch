@@ -37,7 +37,11 @@ describe("toAssistantEvent", () => {
   });
 
   it("accepts a valid picks event", () => {
-    const data = JSON.stringify({ message: "Two picks", dropped: 1, picks: [{ movie, reason: "r", source: "search_catalog" }] });
+    const data = JSON.stringify({
+      message: "Two picks",
+      dropped: 1,
+      picks: [{ movie, reason: "r", source: "search_catalog" }],
+    });
     const event = toAssistantEvent({ event: "picks", data });
     expect(event?.type).toBe("picks");
   });

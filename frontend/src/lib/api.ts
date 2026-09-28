@@ -17,10 +17,7 @@ export class RateLimitError extends Error {
   }
 }
 
-async function apiFetch<T>(
-  path: string,
-  options?: RequestInit
-): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
@@ -52,7 +49,6 @@ function authHeaders(token: string): HeadersInit {
   };
 }
 
-
 export function fetchMovieById(id: string): Promise<Movie> {
   return apiFetch<Movie>(`/movies/${id}`);
 }
@@ -68,9 +64,7 @@ export function fetchMovieRatings(id: string): Promise<MovieRatings> {
 }
 
 export function searchMovies(query: string, limit = 20): Promise<Movie[]> {
-  return apiFetch<Movie[]>(
-    `/search?q=${encodeURIComponent(query)}&limit=${limit}`
-  );
+  return apiFetch<Movie[]>(`/search?q=${encodeURIComponent(query)}&limit=${limit}`);
 }
 
 export interface DiscoverFilters {
@@ -100,20 +94,13 @@ export function discoverTitles(
   return apiFetch<DiscoverResponse>(`/discover?${params}`, init);
 }
 
-
-export function fetchRecommendations(
-  token: string
-): Promise<RecommendResponse> {
+export function fetchRecommendations(token: string): Promise<RecommendResponse> {
   return apiFetch<RecommendResponse>("/recommend", {
     headers: authHeaders(token),
   });
 }
 
-export function toggleInteraction(
-  token: string,
-  movieId: string,
-  type: InteractionType
-): Promise<ToggleResponse> {
+export function toggleInteraction(token: string, movieId: string, type: InteractionType): Promise<ToggleResponse> {
   return apiFetch<ToggleResponse>("/interactions", {
     method: "POST",
     headers: authHeaders(token),
@@ -121,21 +108,11 @@ export function toggleInteraction(
   });
 }
 
-export function fetchInteractionState(
-  token: string,
-  movieId: string
-): Promise<InteractionState> {
-  return apiFetch<InteractionState>(
-    `/interactions?movie_id=${movieId}`,
-    { headers: authHeaders(token) }
-  );
+export function fetchInteractionState(token: string, movieId: string): Promise<InteractionState> {
+  return apiFetch<InteractionState>(`/interactions?movie_id=${movieId}`, { headers: authHeaders(token) });
 }
 
-export function submitRating(
-  token: string,
-  movieId: string,
-  score: number
-): Promise<void> {
+export function submitRating(token: string, movieId: string, score: number): Promise<void> {
   return apiFetch("/ratings", {
     method: "PUT",
     headers: authHeaders(token),

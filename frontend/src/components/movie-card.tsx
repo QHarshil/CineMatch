@@ -13,9 +13,7 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ movie, matchScore }: MovieCardProps) {
-  const posterUrl = movie.poster_path
-    ? `${TMDB_IMAGE_BASE}${movie.poster_path}`
-    : null;
+  const posterUrl = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
 
   const primaryGenre = movie.genres[0] ?? null;
 
@@ -31,9 +29,7 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            No poster
-          </div>
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No poster</div>
         )}
         {matchScore != null && matchScore > 0.7 && (
           <span className="absolute right-0 top-0 bg-primary px-2 py-0.5 font-mono text-[10px] font-medium text-primary-foreground">
@@ -61,9 +57,7 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
             <>
               <span aria-hidden="true">·</span>
               <Star className="size-3 fill-gold text-gold" strokeWidth={0} />
-              <span className="text-foreground/75">
-                {movie.vote_average.toFixed(1)}
-              </span>
+              <span className="text-foreground/75">{movie.vote_average.toFixed(1)}</span>
             </>
           )}
         </div>

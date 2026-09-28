@@ -41,9 +41,7 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
   function scroll(direction: "left" | "right") {
     const el = scrollRef.current;
     if (!el) return;
-    const cardWidth = el.firstElementChild
-      ? (el.firstElementChild as HTMLElement).offsetWidth + 16
-      : 200;
+    const cardWidth = el.firstElementChild ? (el.firstElementChild as HTMLElement).offsetWidth + 16 : 200;
     const distance = cardWidth * 3;
     el.scrollBy({
       left: direction === "left" ? -distance : distance,
@@ -56,9 +54,7 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
   return (
     <section className="relative">
       <div className="mb-4 flex items-center justify-between border-b border-border pb-2.5">
-        <h3 className="font-heading text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
-          {title}
-        </h3>
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-[0.12em] text-foreground">{title}</h3>
         {seeAllHref && (
           <Link
             href={seeAllHref}
@@ -88,10 +84,7 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
           className="flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide"
         >
           {movies.map((movie) => (
-            <div
-              key={movie.id}
-              className="w-[140px] shrink-0 snap-start sm:w-[160px] lg:w-[180px]"
-            >
+            <div key={movie.id} className="w-[140px] shrink-0 snap-start sm:w-[160px] lg:w-[180px]">
               <MovieCard movie={movie} />
               {renderBelow?.(movie)}
             </div>

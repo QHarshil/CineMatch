@@ -5,16 +5,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Browse",
-  description:
-    "Browse movies and shows by genre, sorted by popularity, rating, or release date.",
+  description: "Browse movies and shows by genre, sorted by popularity, rating, or release date.",
 };
 
 async function fetchGenres(): Promise<string[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("movies")
-      .select("genres");
+    const { data } = await supabase.from("movies").select("genres");
     if (!data) return [];
 
     const genreSet = new Set<string>();
@@ -29,11 +26,7 @@ async function fetchGenres(): Promise<string[]> {
   }
 }
 
-export default async function BrowsePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
+export default async function BrowsePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const genres = await fetchGenres();
 

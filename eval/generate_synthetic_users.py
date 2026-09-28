@@ -35,56 +35,72 @@ TASTE_PROFILES: dict[str, dict] = {
         "loved_genres": ["Action", "Adventure", "Science Fiction"],
         "liked_genres": ["Thriller", "Fantasy"],
         "disliked_genres": ["Romance", "Drama", "Documentary"],
-        "preferred_decade": 5, "quality_style": "acclaimed", "recency_pref": 0.8,
+        "preferred_decade": 5,
+        "quality_style": "acclaimed",
+        "recency_pref": 0.8,
         "weight": 0.15,
     },
     "arthouse": {
         "loved_genres": ["Drama", "History", "Documentary"],
         "liked_genres": ["Mystery", "War", "Music"],
         "disliked_genres": ["Action", "Animation", "Family"],
-        "preferred_decade": 2, "quality_style": "sweet_spot", "recency_pref": -0.9,
+        "preferred_decade": 2,
+        "quality_style": "sweet_spot",
+        "recency_pref": -0.9,
         "weight": 0.12,
     },
     "comedy_lover": {
         "loved_genres": ["Comedy", "Animation", "Family"],
         "liked_genres": ["Romance", "Adventure"],
         "disliked_genres": ["Horror", "War", "Documentary"],
-        "preferred_decade": 4, "quality_style": "sweet_spot", "recency_pref": 0.3,
+        "preferred_decade": 4,
+        "quality_style": "sweet_spot",
+        "recency_pref": 0.3,
         "weight": 0.14,
     },
     "horror_buff": {
         "loved_genres": ["Horror", "Thriller", "Mystery"],
         "liked_genres": ["Crime", "Science Fiction"],
         "disliked_genres": ["Comedy", "Family", "Animation", "Romance"],
-        "preferred_decade": 3, "quality_style": "contrarian", "recency_pref": 0.2,
+        "preferred_decade": 3,
+        "quality_style": "contrarian",
+        "recency_pref": 0.2,
         "weight": 0.10,
     },
     "scifi_nerd": {
         "loved_genres": ["Science Fiction", "Fantasy", "Adventure"],
         "liked_genres": ["Action", "Animation", "Mystery"],
         "disliked_genres": ["Romance", "History", "Documentary", "Western"],
-        "preferred_decade": 5, "quality_style": "acclaimed", "recency_pref": 0.6,
+        "preferred_decade": 5,
+        "quality_style": "acclaimed",
+        "recency_pref": 0.6,
         "weight": 0.12,
     },
     "drama_enthusiast": {
         "loved_genres": ["Drama", "Romance", "Crime"],
         "liked_genres": ["Mystery", "Thriller", "History"],
         "disliked_genres": ["Horror", "Animation", "Science Fiction"],
-        "preferred_decade": 2, "quality_style": "sweet_spot", "recency_pref": -0.6,
+        "preferred_decade": 2,
+        "quality_style": "sweet_spot",
+        "recency_pref": -0.6,
         "weight": 0.13,
     },
     "thriller_junkie": {
         "loved_genres": ["Thriller", "Crime", "Mystery"],
         "liked_genres": ["Action", "Horror", "Drama"],
         "disliked_genres": ["Comedy", "Family", "Animation", "Romance"],
-        "preferred_decade": 4, "quality_style": "sweet_spot", "recency_pref": 0.1,
+        "preferred_decade": 4,
+        "quality_style": "sweet_spot",
+        "recency_pref": 0.1,
         "weight": 0.10,
     },
     "generalist": {
         "loved_genres": [],
         "liked_genres": ["Action", "Comedy", "Drama", "Thriller", "Adventure"],
         "disliked_genres": [],
-        "preferred_decade": 4, "quality_style": "acclaimed", "recency_pref": 0.0,
+        "preferred_decade": 4,
+        "quality_style": "acclaimed",
+        "recency_pref": 0.0,
         "weight": 0.14,
     },
 }
@@ -127,7 +143,7 @@ def _era_affinity(release_year: float, preferred_decade: int) -> float:
     decades) returns ~1 at the favourite decade and decays for others. The
     linear ranker has no era feature, so it cannot represent this at all."""
     d = _decade_ordinal(release_year)
-    return float(np.exp(-((d - preferred_decade) ** 2) / (2 * 1.2 ** 2)))
+    return float(np.exp(-((d - preferred_decade) ** 2) / (2 * 1.2**2)))
 
 
 def _quality_term(vote_average: float, style: str) -> float:
@@ -146,7 +162,9 @@ def _quality_term(vote_average: float, style: str) -> float:
     return 1.0 - ((vote_average - 7.2) / 1.5) ** 2
 
 
-def _recency_term(release_year: float, genre_affinity: float, recency_pref: float) -> float:
+def _recency_term(
+    release_year: float, genre_affinity: float, recency_pref: float
+) -> float:
     """Recency bias applied only inside loved genres (genre_affinity > 0).
 
     Encodes interactions like "I want recent sci-fi but classic drama" that
@@ -162,8 +180,15 @@ def _true_utility(genre_aff: float, movie_row: pd.Series, profile: dict) -> floa
     """Combined preference that drives which movies a user likes/watches/skips."""
     era = _era_affinity(movie_row["release_year"], profile["preferred_decade"])
     quality = _quality_term(movie_row["vote_average"], profile["quality_style"])
-    recency = _recency_term(movie_row["release_year"], genre_aff, profile["recency_pref"])
-    return W_GENRE * genre_aff + W_ERA * (era - 0.4) + W_QUALITY * quality + W_RECENCY * recency
+    recency = _recency_term(
+        movie_row["release_year"], genre_aff, profile["recency_pref"]
+    )
+    return (
+        W_GENRE * genre_aff
+        + W_ERA * (era - 0.4)
+        + W_QUALITY * quality
+        + W_RECENCY * recency
+    )
 
 
 def _interaction_type(utility: float, rng: np.random.Generator) -> str:
@@ -212,9 +237,14 @@ def _fetch_movies_from_supabase() -> pd.DataFrame:
     client = create_client(url, key)
     rows, offset, batch = [], 0, 1000
     while True:
-        resp = client.table("movies").select(
-            "id,tmdb_id,title,genres,release_year,vote_average,popularity,runtime"
-        ).range(offset, offset + batch - 1).execute()
+        resp = (
+            client.table("movies")
+            .select(
+                "id,tmdb_id,title,genres,release_year,vote_average,popularity,runtime"
+            )
+            .range(offset, offset + batch - 1)
+            .execute()
+        )
         rows.extend(resp.data)
         if len(resp.data) < batch:
             break
@@ -235,25 +265,33 @@ def generate_interactions(movies_df: pd.DataFrame) -> pd.DataFrame:
     interactions = []
 
     for user_idx in range(NUM_USERS):
-        user_id = str(uuid.UUID(bytes=bytes(rng.integers(0, 256, size=16, dtype=np.uint8))))
+        user_id = str(
+            uuid.UUID(bytes=bytes(rng.integers(0, 256, size=16, dtype=np.uint8)))
+        )
         profile = TASTE_PROFILES[user_profiles[user_idx]]
         num_interactions = int(rng.integers(MIN_INTERACTIONS, MAX_INTERACTIONS + 1))
 
-        genre_aff = np.array([
-            _genre_affinity(g if isinstance(g, (list, np.ndarray)) else [], profile)
-            for g in genres_list
-        ])
-        utility = np.array([
-            _true_utility(genre_aff[i], movies_df.iloc[i], profile)
-            for i in range(len(movies_df))
-        ])
+        genre_aff = np.array(
+            [
+                _genre_affinity(g if isinstance(g, (list, np.ndarray)) else [], profile)
+                for g in genres_list
+            ]
+        )
+        utility = np.array(
+            [
+                _true_utility(genre_aff[i], movies_df.iloc[i], profile)
+                for i in range(len(movies_df))
+            ]
+        )
 
         # Sample movies the user feels something about: probability rises with
         # utility but keeps a floor so disliked films still appear (and get
         # labelled as skips/dislikes), producing a realistic label mix.
         shifted = utility - utility.min() + 0.15
         probs = shifted / shifted.sum()
-        chosen = rng.choice(len(movies_df), size=num_interactions, p=probs, replace=True)
+        chosen = rng.choice(
+            len(movies_df), size=num_interactions, p=probs, replace=True
+        )
 
         seen: set = set()
         for idx in chosen:
@@ -261,20 +299,22 @@ def generate_interactions(movies_df: pd.DataFrame) -> pd.DataFrame:
             if row["id"] in seen:
                 continue
             seen.add(row["id"])
-            interactions.append({
-                "user_id": user_id,
-                "movie_id": row["id"],
-                "type": _interaction_type(utility[idx], rng),
-                "profile": user_profiles[user_idx],
-                # Genre signal only -> this is the Stage-2 `similarity` input.
-                "affinity_score": round(float(genre_aff[idx]), 4),
-                "movie_title": row["title"],
-                "movie_genres": row["genres"],
-                "vote_average": row["vote_average"],
-                "popularity": row["popularity"],
-                "release_year": row["release_year"],
-                "runtime": row["runtime"],
-            })
+            interactions.append(
+                {
+                    "user_id": user_id,
+                    "movie_id": row["id"],
+                    "type": _interaction_type(utility[idx], rng),
+                    "profile": user_profiles[user_idx],
+                    # Genre signal only -> this is the Stage-2 `similarity` input.
+                    "affinity_score": round(float(genre_aff[idx]), 4),
+                    "movie_title": row["title"],
+                    "movie_genres": row["genres"],
+                    "vote_average": row["vote_average"],
+                    "popularity": row["popularity"],
+                    "release_year": row["release_year"],
+                    "runtime": row["runtime"],
+                }
+            )
 
     return pd.DataFrame(interactions)
 
@@ -286,7 +326,9 @@ def main():
 
     print("Generating synthetic interactions...")
     interactions_df = generate_interactions(movies_df)
-    print(f"  {len(interactions_df)} interactions for {interactions_df['user_id'].nunique()} users")
+    print(
+        f"  {len(interactions_df)} interactions for {interactions_df['user_id'].nunique()} users"
+    )
     print("\nInteraction type distribution:")
     print(interactions_df["type"].value_counts().to_string())
 

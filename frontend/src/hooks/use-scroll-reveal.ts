@@ -17,7 +17,7 @@ export function useScrollReveal(threshold = 0.15) {
           observer.unobserve(el);
         }
       },
-      { threshold }
+      { threshold },
     );
 
     observer.observe(el);

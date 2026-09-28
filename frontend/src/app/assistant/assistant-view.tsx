@@ -12,9 +12,15 @@ import { Composer } from "./composer";
 import { ExchangeView } from "./exchange-view";
 
 const SUGGESTIONS = [
-  { group: "A mood", prompts: ["A slow-burn sci-fi that makes me think", "Something cozy and funny for a rainy night"] },
+  {
+    group: "A mood",
+    prompts: ["A slow-burn sci-fi that makes me think", "Something cozy and funny for a rainy night"],
+  },
   { group: "Like a title", prompts: ["Something like Parasite, but a series", "Movies like Prisoners"] },
-  { group: "From your taste", prompts: ["Recommend something based on what I like", "A series that matches the movies I've liked"] },
+  {
+    group: "From your taste",
+    prompts: ["Recommend something based on what I like", "A series that matches the movies I've liked"],
+  },
 ];
 
 function Suggestions({ onPick }: { onPick: (prompt: string) => void }) {
@@ -32,7 +38,10 @@ function Suggestions({ onPick }: { onPick: (prompt: string) => void }) {
                   className="group flex w-full items-start justify-between gap-2 text-left font-serif text-sm leading-snug text-foreground transition-colors hover:text-primary"
                 >
                   {prompt}
-                  <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
+                  <ArrowUpRight
+                    className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+                    aria-hidden="true"
+                  />
                 </button>
               </li>
             ))}
@@ -69,8 +78,8 @@ function SignedOut() {
         className="mt-5 font-heading text-4xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-5xl"
       />
       <p className="mt-6 font-serif text-lg leading-relaxed text-muted-foreground">
-        An agent that searches the catalog with hybrid retrieval, reads your taste, and calls the recommender. It can only
-        recommend titles its tools returned, and you can watch every step it takes.
+        An agent that searches the catalog with hybrid retrieval, reads your taste, and calls the recommender. It can
+        only recommend titles its tools returned, and you can watch every step it takes.
       </p>
       <div className="mt-10 flex flex-wrap justify-center gap-3">
         <button
@@ -115,10 +124,7 @@ export function AssistantView() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [exchanges.length, latest?.picks.length, latest?.message]);
 
-  const traced = useMemo(
-    () => exchanges.find((ex) => ex.id === selectedId) ?? latest,
-    [exchanges, selectedId, latest],
-  );
+  const traced = useMemo(() => exchanges.find((ex) => ex.id === selectedId) ?? latest, [exchanges, selectedId, latest]);
 
   if (loading) {
     return <div className="mx-auto min-h-[calc(100dvh-4rem)] max-w-6xl border-x border-border" aria-busy="true" />;
@@ -133,7 +139,9 @@ export function AssistantView() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4 lg:px-8">
           <div>
             <p className="eyebrow text-primary">Assistant</p>
-            <h1 className="mt-1 font-heading text-2xl font-semibold uppercase tracking-tight text-foreground">Ask CineMatch</h1>
+            <h1 className="mt-1 font-heading text-2xl font-semibold uppercase tracking-tight text-foreground">
+              Ask CineMatch
+            </h1>
           </div>
           {session && (
             <div className="flex items-center gap-4 font-mono text-[11px] text-muted-foreground">
@@ -149,7 +157,11 @@ export function AssistantView() {
                 </>
               )}
               {exchanges.length > 0 && (
-                <button type="button" onClick={reset} className="flex items-center gap-1 transition-colors hover:text-primary">
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="flex items-center gap-1 transition-colors hover:text-primary"
+                >
                   <RotateCcw className="size-3" aria-hidden="true" /> New chat
                 </button>
               )}
@@ -171,8 +183,8 @@ export function AssistantView() {
                     className="max-w-xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
                   />
                   <p className="mt-4 max-w-xl font-serif text-lg leading-relaxed text-muted-foreground">
-                    Describe a mood, name a title you loved, or ask from your own taste. Every pick comes from the catalog, and
-                    the trace shows each step the agent takes.
+                    Describe a mood, name a title you loved, or ask from your own taste. Every pick comes from the
+                    catalog, and the trace shows each step the agent takes.
                   </p>
                   <Suggestions onPick={(prompt) => void send(prompt)} />
                 </div>

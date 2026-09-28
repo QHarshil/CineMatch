@@ -12,9 +12,7 @@ describe("HowItWorksPage", () => {
   it("renders the deep dive with the eval table", async () => {
     render(await HowItWorksPage());
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      /how cinematch builds recommendations/i,
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/how cinematch builds recommendations/i);
     expect(screen.getAllByText(/LambdaMART/i).length).toBeGreaterThan(0);
   });
 });

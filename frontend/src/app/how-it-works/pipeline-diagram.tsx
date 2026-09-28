@@ -25,14 +25,10 @@ function Stage({
       }}
     >
       <div className="w-44 border border-border bg-card px-5 py-5 text-center sm:w-52">
-        <p className="font-heading text-lg font-semibold text-foreground sm:text-xl">
-          {label}
-        </p>
+        <p className="font-heading text-lg font-semibold text-foreground sm:text-xl">{label}</p>
         <p className="eyebrow mt-1 text-primary">{sublabel}</p>
       </div>
-      <p className="max-w-[11rem] text-center text-xs leading-relaxed text-muted-foreground">
-        {detail}
-      </p>
+      <p className="max-w-[11rem] text-center text-xs leading-relaxed text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -54,15 +50,7 @@ function Arrow({ delay, revealed }: { delay: string; revealed: boolean }) {
   );
 }
 
-function DataLabel({
-  text,
-  delay,
-  revealed,
-}: {
-  text: string;
-  delay: string;
-  revealed: boolean;
-}) {
+function DataLabel({ text, delay, revealed }: { text: string; delay: string; revealed: boolean }) {
   return (
     <div
       className="mt-5 flex items-center self-start transition-all duration-500 ease-out"
@@ -71,9 +59,7 @@ function DataLabel({
         transitionDelay: delay,
       }}
     >
-      <span className="whitespace-nowrap font-mono text-[11px] tracking-wide text-muted-foreground">
-        {text}
-      </span>
+      <span className="whitespace-nowrap font-mono text-[11px] tracking-wide text-muted-foreground">{text}</span>
     </div>
   );
 }

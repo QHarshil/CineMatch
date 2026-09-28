@@ -65,18 +65,15 @@ export default function ForYouPage() {
     return (data ?? []) as Movie[];
   }, []);
 
-  const fetchDemoRecommendations = useCallback(
-    async (genres: string[]) => {
-      const { data } = await supabase.current
-        .from("movies")
-        .select(MOVIE_FIELDS)
-        .overlaps("genres", genres)
-        .order("vote_average", { ascending: false })
-        .limit(20);
-      return (data ?? []) as Movie[];
-    },
-    []
-  );
+  const fetchDemoRecommendations = useCallback(async (genres: string[]) => {
+    const { data } = await supabase.current
+      .from("movies")
+      .select(MOVIE_FIELDS)
+      .overlaps("genres", genres)
+      .order("vote_average", { ascending: false })
+      .limit(20);
+    return (data ?? []) as Movie[];
+  }, []);
 
   /** Fetch the user's recent liked movies and find similar titles for each. */
   const fetchBecauseYouLiked = useCallback(async (userId: string): Promise<BecauseYouLikedSection[]> => {
@@ -92,10 +89,7 @@ export default function ForYouPage() {
 
     const likedMovieIds = interactions.map((i) => i.movie_id as string);
 
-    const { data: likedMovies } = await supabase.current
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .in("id", likedMovieIds);
+    const { data: likedMovies } = await supabase.current.from("movies").select(MOVIE_FIELDS).in("id", likedMovieIds);
 
     if (!likedMovies || likedMovies.length === 0) return [];
 
@@ -172,7 +166,7 @@ export default function ForYouPage() {
     };
   }, [session, authLoading]);
 
-  async function handleDemoProfile(profile: typeof DEMO_PROFILES[number]) {
+  async function handleDemoProfile(profile: (typeof DEMO_PROFILES)[number]) {
     setDemoProfile(profile.id);
     setLoading(true);
     setBecauseYouLiked([]);
@@ -225,13 +219,7 @@ export default function ForYouPage() {
           {backdropMovies.map((m) => (
             <div key={m.id} className="relative aspect-[2/3]">
               {m.poster_path && (
-                <Image
-                  src={`${TMDB_IMAGE}${m.poster_path}`}
-                  alt=""
-                  fill
-                  sizes="120px"
-                  className="object-cover"
-                />
+                <Image src={`${TMDB_IMAGE}${m.poster_path}`} alt="" fill sizes="120px" className="object-cover" />
               )}
             </div>
           ))}
@@ -243,8 +231,8 @@ export default function ForYouPage() {
             Your picks, your taste
           </h1>
           <p className="mb-8 max-w-md font-serif text-lg text-muted-foreground">
-            Sign in to get recommendations ranked to your taste, or try a demo
-            profile to see the engine in action right now.
+            Sign in to get recommendations ranked to your taste, or try a demo profile to see the engine in action right
+            now.
           </p>
 
           <Link
@@ -255,9 +243,7 @@ export default function ForYouPage() {
           </Link>
 
           <div className="w-full max-w-lg">
-            <p className="eyebrow mb-4 text-muted-foreground">
-              Or try a demo profile
-            </p>
+            <p className="eyebrow mb-4 text-muted-foreground">Or try a demo profile</p>
             <div className="grid gap-px bg-border">
               {DEMO_PROFILES.map((profile) => (
                 <button
@@ -266,12 +252,8 @@ export default function ForYouPage() {
                   className="group flex items-center justify-between bg-background px-5 py-4 text-left transition-colors duration-200 hover:bg-surface-hover"
                 >
                   <div>
-                    <p className="font-heading text-sm font-semibold text-foreground">
-                      {profile.label}
-                    </p>
-                    <p className="mt-0.5 font-serif text-sm text-muted-foreground">
-                      {profile.description}
-                    </p>
+                    <p className="font-heading text-sm font-semibold text-foreground">{profile.label}</p>
+                    <p className="mt-0.5 font-serif text-sm text-muted-foreground">{profile.description}</p>
                   </div>
                   <ArrowRight
                     className="ml-4 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
@@ -290,9 +272,7 @@ export default function ForYouPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 pb-16 pt-32">
-        <p className="font-serif text-muted-foreground">
-          Failed to load recommendations.
-        </p>
+        <p className="font-serif text-muted-foreground">Failed to load recommendations.</p>
         <button
           onClick={() => window.location.reload()}
           className="eyebrow border border-border px-5 py-2.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
@@ -327,10 +307,7 @@ export default function ForYouPage() {
       {isDemoMode && (
         <p className="mb-8 font-serif text-muted-foreground">
           Showing recommendations for the{" "}
-          <span className="text-primary">
-            {DEMO_PROFILES.find((p) => p.id === demoProfile)?.label}
-          </span>{" "}
-          profile.{" "}
+          <span className="text-primary">{DEMO_PROFILES.find((p) => p.id === demoProfile)?.label}</span> profile.{" "}
           <Link href="/login" className="text-primary underline-offset-4 hover:underline">
             Sign in
           </Link>{" "}
@@ -340,9 +317,7 @@ export default function ForYouPage() {
 
       {!hasPersonalized && !isDemoMode && (
         <div className="mb-10 border border-border bg-wash px-5 py-4">
-          <p className="font-serif text-foreground">
-            Like a few titles and your recommendations start tuning to you.
-          </p>
+          <p className="font-serif text-foreground">Like a few titles and your recommendations start tuning to you.</p>
           <Link
             href="/browse"
             className="eyebrow mt-2 inline-flex items-center gap-1.5 text-primary transition-colors hover:text-primary/80"
@@ -365,20 +340,13 @@ export default function ForYouPage() {
 
       {becauseYouLiked.map((section) => (
         <div key={section.likedMovie.id} className="mb-12">
-          <ScrollRow
-            title={`Because you liked ${section.likedMovie.title}`}
-            movies={section.similarMovies}
-          />
+          <ScrollRow title={`Because you liked ${section.likedMovie.title}`} movies={section.similarMovies} />
         </div>
       ))}
 
       {popular.length > 0 && (
         <div className="mb-12">
-          <ScrollRow
-            title="Popular Right Now"
-            movies={popular}
-            seeAllHref="/browse"
-          />
+          <ScrollRow title="Popular Right Now" movies={popular} seeAllHref="/browse" />
         </div>
       )}
     </div>

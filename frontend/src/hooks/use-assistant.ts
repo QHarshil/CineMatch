@@ -56,7 +56,11 @@ export function useAssistant(token: string | undefined) {
             setUsage((u) => (u ? { ...u, remaining: event.data.remaining_today, used: u.used + 1 } : u));
           }
         }
-        update((ex) => (ex.status === "streaming" ? { ...ex, status: "failed", error: { message: "The response ended early. Try again." } } : ex));
+        update((ex) =>
+          ex.status === "streaming"
+            ? { ...ex, status: "failed", error: { message: "The response ended early. Try again." } }
+            : ex,
+        );
       } catch (err) {
         const aborted = controller.signal.aborted;
         const message = aborted

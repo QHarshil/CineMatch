@@ -11,10 +11,29 @@ const finished: Exchange = {
   status: "picks",
   model: "qwen3:8b",
   message: "Two patient first-contact films.",
-  steps: [{ id: "c1", tool: "search_catalog", label: 'Searching for "slow-burn sci-fi"', args: {}, status: "done", count: 8, latencyMs: 140 }],
-  picks: [{ movie: arrival, reason: "A linguist decodes an alien language.", similarity: 0.54, source: "search_catalog" }],
+  steps: [
+    {
+      id: "c1",
+      tool: "search_catalog",
+      label: 'Searching for "slow-burn sci-fi"',
+      args: {},
+      status: "done",
+      count: 8,
+      latencyMs: 140,
+    },
+  ],
+  picks: [
+    { movie: arrival, reason: "A linguist decodes an alien language.", similarity: 0.54, source: "search_catalog" },
+  ],
   dropped: 1,
-  run: { run_id: "r1", status: "picks", model: "qwen3:8b", usage: { input_tokens: 5000, output_tokens: 200 }, latency_ms: 9400, remaining_today: 6 },
+  run: {
+    run_id: "r1",
+    status: "picks",
+    model: "qwen3:8b",
+    usage: { input_tokens: 5000, output_tokens: 200 },
+    latency_ms: 9400,
+    remaining_today: 6,
+  },
 };
 
 describe("ExchangeView", () => {

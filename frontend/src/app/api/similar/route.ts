@@ -23,38 +23,38 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (seedError || !seedMovie?.embedding) {
-    return NextResponse.json(
-      { error: "Movie not found or has no embedding" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Movie not found or has no embedding" }, { status: 404 });
   }
 
-  const { data: matches, error: matchError } = await supabase.rpc(
-    "match_movies",
-    {
-      query_embedding: seedMovie.embedding,
-      match_count: 6, // 5 neighbors + the seed itself
-    }
-  );
+  const { data: matches, error: matchError } = await supabase.rpc("match_movies", {
+    query_embedding: seedMovie.embedding,
+    match_count: 6, // 5 neighbors + the seed itself
+  });
 
   if (matchError) {
-    return NextResponse.json(
-      { error: "Vector search failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Vector search failed" }, { status: 500 });
   }
 
   const neighbors = (matches ?? [])
     .filter((m: { id: string }) => m.id !== movieId)
     .slice(0, 5)
-    .map((m: { id: string; title: string; genres: string[]; vote_average: number; poster_path: string; similarity: number }) => ({
-      id: m.id,
-      title: m.title,
-      genres: m.genres,
-      vote_average: m.vote_average,
-      poster_path: m.poster_path,
-      similarity: m.similarity,
-    }));
+    .map(
+      (m: {
+        id: string;
+        title: string;
+        genres: string[];
+        vote_average: number;
+        poster_path: string;
+        similarity: number;
+      }) => ({
+        id: m.id,
+        title: m.title,
+        genres: m.genres,
+        vote_average: m.vote_average,
+        poster_path: m.poster_path,
+        similarity: m.similarity,
+      }),
+    );
 
   return NextResponse.json({ seed: seedMovie.title, neighbors });
 }

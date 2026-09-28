@@ -21,10 +21,7 @@ export function VantaNet({ className }: { className?: string }) {
     let visible = false;
 
     async function start(target: HTMLElement) {
-      const [{ default: NET }, THREE] = await Promise.all([
-        import("vanta/dist/vanta.net.min"),
-        import("three"),
-      ]);
+      const [{ default: NET }, THREE] = await Promise.all([import("vanta/dist/vanta.net.min"), import("three")]);
       if (!visible || effect) return;
       effect = NET({
         el: target,

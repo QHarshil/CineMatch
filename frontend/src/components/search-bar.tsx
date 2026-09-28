@@ -139,16 +139,10 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
                 <div className="h-12 w-8 shrink-0 bg-muted" />
               )}
               <div className="flex min-w-0 flex-col">
-                <span className="line-clamp-1 font-heading text-sm font-medium">
-                  {movie.title}
-                </span>
+                <span className="line-clamp-1 font-heading text-sm font-medium">{movie.title}</span>
                 <span className="font-mono text-xs text-muted-foreground">
                   {movie.release_year}
-                  {movie.vote_average > 0 && (
-                    <span className="ml-2 text-gold">
-                      {movie.vote_average.toFixed(1)}
-                    </span>
-                  )}
+                  {movie.vote_average > 0 && <span className="ml-2 text-gold">{movie.vote_average.toFixed(1)}</span>}
                 </span>
               </div>
             </Link>

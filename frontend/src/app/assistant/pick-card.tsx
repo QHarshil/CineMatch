@@ -52,9 +52,17 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
         className="relative aspect-[2/3] w-20 shrink-0 overflow-hidden border border-border bg-muted transition-colors group-hover:border-primary"
       >
         {movie.poster_path ? (
-          <Image src={`${POSTER_BASE}${movie.poster_path}`} alt={`${movie.title} poster`} fill sizes="80px" className="object-cover" />
+          <Image
+            src={`${POSTER_BASE}${movie.poster_path}`}
+            alt={`${movie.title} poster`}
+            fill
+            sizes="80px"
+            className="object-cover"
+          />
         ) : (
-          <span className="flex h-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground">No poster</span>
+          <span className="flex h-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground">
+            No poster
+          </span>
         )}
       </Link>
 
@@ -93,7 +101,9 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
                 />
               ))}
             </span>
-            <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{confidence.label}</span>
+            <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {confidence.label}
+            </span>
           </div>
 
           {token && (
@@ -105,7 +115,9 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
                 aria-pressed={feedback === "like"}
                 aria-label={`Like ${movie.title}`}
                 className={`flex size-8 items-center justify-center border transition-colors disabled:opacity-50 ${
-                  feedback === "like" ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary hover:text-primary"
+                  feedback === "like"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-muted-foreground hover:border-primary hover:text-primary"
                 }`}
               >
                 <Heart className="size-3.5" fill={feedback === "like" ? "currentColor" : "none"} />
@@ -117,7 +129,9 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
                 aria-pressed={feedback === "dislike"}
                 aria-label={`Not for me: ${movie.title}`}
                 className={`flex size-8 items-center justify-center border transition-colors disabled:opacity-50 ${
-                  feedback === "dislike" ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                  feedback === "dislike"
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                 }`}
               >
                 <ThumbsDown className="size-3.5" />

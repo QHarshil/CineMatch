@@ -109,11 +109,7 @@ async function fetchHomeData() {
   const supabase = await createSupabaseServerClient();
 
   const [trendingRes, topRatedRes, newReleasesRes, movieCountRes, seriesCountRes] = await Promise.all([
-    supabase
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .order("popularity", { ascending: false })
-      .limit(20),
+    supabase.from("movies").select(MOVIE_FIELDS).order("popularity", { ascending: false }).limit(20),
     supabase
       .from("movies")
       .select(MOVIE_FIELDS)
@@ -122,11 +118,7 @@ async function fetchHomeData() {
       .gte("vote_average", 7.5)
       .order("popularity", { ascending: false })
       .limit(20),
-    supabase
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .order("release_year", { ascending: false })
-      .limit(20),
+    supabase.from("movies").select(MOVIE_FIELDS).order("release_year", { ascending: false }).limit(20),
     supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "movie"),
     supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "tv"),
   ]);
@@ -166,12 +158,9 @@ export default async function HomePage() {
     trending[0] ??
     null;
 
-  const backdropUrl = featured?.backdrop_path
-    ? `${TMDB_BACKDROP_BASE}${featured.backdrop_path}`
-    : null;
+  const backdropUrl = featured?.backdrop_path ? `${TMDB_BACKDROP_BASE}${featured.backdrop_path}` : null;
 
-  const hasCatalog =
-    trending.length > 0 || topRated.length > 0 || newReleases.length > 0;
+  const hasCatalog = trending.length > 0 || topRated.length > 0 || newReleases.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl border-x border-border">
@@ -204,9 +193,7 @@ export default async function HomePage() {
                 className="object-cover opacity-90 mix-blend-luminosity grayscale contrast-[1.05]"
               />
             )}
-            <span className="eyebrow absolute bottom-4 right-5 z-10 text-white/90">
-              CineMatch
-            </span>
+            <span className="eyebrow absolute bottom-4 right-5 z-10 text-white/90">CineMatch</span>
           </div>
         </div>
       </section>
@@ -250,19 +237,9 @@ export default async function HomePage() {
         <section className="border-t border-border px-6 py-14 lg:px-8">
           <p className="eyebrow text-primary">The catalog</p>
           <div className="mt-8 space-y-12">
-            {trending.length > 0 && (
-              <ScrollRow title="Trending Now" movies={trending} seeAllHref="/browse" />
-            )}
-            {topRated.length > 0 && (
-              <ScrollRow title="Top Rated" movies={topRated} seeAllHref="/browse" />
-            )}
-            {newReleases.length > 0 && (
-              <ScrollRow
-                title="New Releases"
-                movies={newReleases}
-                seeAllHref="/browse"
-              />
-            )}
+            {trending.length > 0 && <ScrollRow title="Trending Now" movies={trending} seeAllHref="/browse" />}
+            {topRated.length > 0 && <ScrollRow title="Top Rated" movies={topRated} seeAllHref="/browse" />}
+            {newReleases.length > 0 && <ScrollRow title="New Releases" movies={newReleases} seeAllHref="/browse" />}
           </div>
         </section>
       )}
@@ -286,16 +263,10 @@ export default async function HomePage() {
 
       <footer className="grid border-t border-border font-mono text-xs text-muted-foreground sm:grid-cols-3 sm:divide-x sm:divide-border">
         <div className="px-6 py-5">
-          <span className="font-heading text-sm font-semibold uppercase tracking-tight text-foreground">
-            CineMatch
-          </span>
+          <span className="font-heading text-sm font-semibold uppercase tracking-tight text-foreground">CineMatch</span>
         </div>
-        <div className="flex items-center px-6 py-5">
-          NDCG@10 0.81 · ~0.9 ms re-rank
-        </div>
-        <div className="flex items-center px-6 py-5 sm:justify-end">
-          Next.js · Go · pgvector · 2026
-        </div>
+        <div className="flex items-center px-6 py-5">NDCG@10 0.81 · ~0.9 ms re-rank</div>
+        <div className="flex items-center px-6 py-5 sm:justify-end">Next.js · Go · pgvector · 2026</div>
       </footer>
     </div>
   );

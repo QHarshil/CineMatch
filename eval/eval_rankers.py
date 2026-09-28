@@ -46,18 +46,23 @@ def score_vector_only(group: pd.DataFrame) -> np.ndarray:
 
 def score_linear(group: pd.DataFrame) -> np.ndarray:
     """The feature-linear-v1 formula, evaluated row-wise on the test frame."""
-    similarity = np.clip((group["affinity_score"].to_numpy(dtype=float) + 1.0) / 2.0, 0.0, 1.0)
+    similarity = np.clip(
+        (group["affinity_score"].to_numpy(dtype=float) + 1.0) / 2.0, 0.0, 1.0
+    )
     quality = group["vote_average"].to_numpy(dtype=float) / 10.0
     pop = group["popularity"].to_numpy(dtype=float)
     log_pop = np.minimum(np.log1p(np.clip(pop, 0, None)) / _POP_LOG_CEIL, 1.0)
     # No stated genre preferences in the offline payload, so genre overlap is
     # the neutral 0.5 the live ranker also uses in that case.
-    return _W_SIM * similarity + _W_QUALITY * quality + _W_POP * log_pop + _W_GENRE * 0.5
+    return (
+        _W_SIM * similarity + _W_QUALITY * quality + _W_POP * log_pop + _W_GENRE * 0.5
+    )
 
 
 def make_lambdamart_scorer(booster: lgb.Booster):
     def score(group: pd.DataFrame) -> np.ndarray:
         return booster.predict(group[FEATURE_COLUMNS].to_numpy(dtype=float))
+
     return score
 
 
@@ -120,12 +125,16 @@ def main():
     print("-" * 47)
     for name in scorers:
         r = report[name]
-        print(f"{name:<20} {r['ndcg@10']:>9.4f} {r['mrr']:>8.4f} {r['hit_rate@10']:>8.4f}")
+        print(
+            f"{name:<20} {r['ndcg@10']:>9.4f} {r['mrr']:>8.4f} {r['hit_rate@10']:>8.4f}"
+        )
 
     base = report["popularity"]["ndcg@10"]
     best = report["lambdamart-v1"]["ndcg@10"]
     lift = 100 * (best - base) / base if base else 0.0
-    print(f"\nlambdamart-v1 vs popularity: NDCG@10 {base:.4f} -> {best:.4f} (+{lift:.0f}%)")
+    print(
+        f"\nlambdamart-v1 vs popularity: NDCG@10 {base:.4f} -> {best:.4f} (+{lift:.0f}%)"
+    )
 
     RESULTS_DIR.mkdir(exist_ok=True)
     (RESULTS_DIR / "eval_report.json").write_text(json.dumps(report, indent=2))

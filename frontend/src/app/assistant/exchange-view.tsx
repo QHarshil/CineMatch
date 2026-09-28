@@ -57,7 +57,9 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
     <section className="border-b border-border" aria-busy={streaming}>
       <div className="px-6 pb-4 pt-8 lg:px-8">
         <p className="eyebrow text-muted-foreground">You</p>
-        <p className="mt-2 font-heading text-xl font-medium leading-snug text-foreground sm:text-2xl">{exchange.prompt}</p>
+        <p className="mt-2 font-heading text-xl font-medium leading-snug text-foreground sm:text-2xl">
+          {exchange.prompt}
+        </p>
       </div>
 
       <div className="px-6 pb-8 lg:px-8">
@@ -68,7 +70,9 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
         >
           <span className={`size-1.5 ${streaming ? "animate-pulse bg-primary" : "bg-primary/60"}`} />
           CineMatch
-          {exchange.model && <span className="normal-case tracking-normal text-muted-foreground/80">· {exchange.model}</span>}
+          {exchange.model && (
+            <span className="normal-case tracking-normal text-muted-foreground/80">· {exchange.model}</span>
+          )}
         </button>
 
         <div aria-live="polite" className="space-y-4">
@@ -76,7 +80,9 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
           {exchange.steps.length > 0 && <StepList steps={exchange.steps} />}
 
           {exchange.message && (
-            <p className="max-w-2xl font-serif text-lg leading-relaxed text-foreground duration-500 animate-in fade-in">{exchange.message}</p>
+            <p className="max-w-2xl font-serif text-lg leading-relaxed text-foreground duration-500 animate-in fade-in">
+              {exchange.message}
+            </p>
           )}
 
           {exchange.status === "fallback" && (
@@ -96,7 +102,10 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
         )}
 
         {exchange.error && (exchange.status === "failed" || exchange.status === "error") && (
-          <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 border border-destructive/40 bg-destructive/5 px-4 py-3">
+          <div
+            role="alert"
+            className="mt-4 flex flex-wrap items-center gap-3 border border-destructive/40 bg-destructive/5 px-4 py-3"
+          >
             <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
             <p className="font-mono text-xs text-destructive">
               {exchange.error.message}
@@ -125,11 +134,14 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
             </span>
             <span>{(exchange.run.latency_ms / 1000).toFixed(1)} s</span>
             {exchange.run.usage.input_tokens > 0 && (
-              <span>{(exchange.run.usage.input_tokens + exchange.run.usage.output_tokens).toLocaleString()} tokens</span>
+              <span>
+                {(exchange.run.usage.input_tokens + exchange.run.usage.output_tokens).toLocaleString()} tokens
+              </span>
             )}
             <span>
               {exchange.steps.length} tool {exchange.steps.length === 1 ? "call" : "calls"}
-              {exchange.steps.length > 0 && `: ${[...new Set(exchange.steps.map((s) => TOOL_NAMES[s.tool] ?? s.tool))].join(", ")}`}
+              {exchange.steps.length > 0 &&
+                `: ${[...new Set(exchange.steps.map((s) => TOOL_NAMES[s.tool] ?? s.tool))].join(", ")}`}
             </span>
           </p>
         )}

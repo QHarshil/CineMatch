@@ -44,7 +44,13 @@ export function applyEvent(exchange: Exchange, event: AssistantEvent): Exchange 
         ...exchange,
         steps: [
           ...exchange.steps,
-          { id: event.data.id, tool: event.data.tool, label: event.data.label, args: event.data.args ?? {}, status: "running" },
+          {
+            id: event.data.id,
+            tool: event.data.tool,
+            label: event.data.label,
+            args: event.data.args ?? {},
+            status: "running",
+          },
         ],
       };
     case "tool_result":

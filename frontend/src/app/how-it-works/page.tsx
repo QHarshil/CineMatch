@@ -4,17 +4,7 @@ import { SimilarMoviesDemo } from "./similar-movies-demo";
 import { SectionReveal } from "./section-reveal";
 import { AiLayer } from "./ai-layer";
 import { RANKER_EVAL } from "@/lib/eval-results";
-import {
-  Database,
-  Cpu,
-  BarChart3,
-  Layers,
-  Zap,
-  Globe,
-  ExternalLink,
-  Bot,
-  FlaskConical,
-} from "lucide-react";
+import { Database, Cpu, BarChart3, Layers, Zap, Globe, ExternalLink, Bot, FlaskConical } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
@@ -33,19 +23,21 @@ async function fetchSeedMovies() {
       .select(MOVIE_FIELDS)
       .order("popularity", { ascending: false })
       .limit(30);
-    return (data ?? []).filter(
-      (m: { poster_path: string | null }) => m.poster_path
-    );
+    return (data ?? []).filter((m: { poster_path: string | null }) => m.poster_path);
   } catch {
     return [];
   }
 }
 
 const FEATURE_WEIGHTS = [
-  { name: "Cosine Similarity", weight: 0.50, description: "How close the movie is to the user's taste in embedding space" },
+  {
+    name: "Cosine Similarity",
+    weight: 0.5,
+    description: "How close the movie is to the user's taste in embedding space",
+  },
   { name: "Vote Quality", weight: 0.25, description: "TMDB community rating, normalized to a 0-1 scale" },
   { name: "Log Popularity", weight: 0.15, description: "Log scale keeps blockbusters from dominating" },
-  { name: "Genre Overlap", weight: 0.10, description: "Fraction of the movie's genres matching the user's preferences" },
+  { name: "Genre Overlap", weight: 0.1, description: "Fraction of the movie's genres matching the user's preferences" },
 ];
 
 const EVAL_RESULTS = RANKER_EVAL.models;
@@ -54,37 +46,43 @@ const TECH_STACK = [
   {
     name: "Go",
     role: "API Backend",
-    reason: "Small static binary on Cloud Run. The API streams assistant runs as server-sent events and calls the ranker and the model provider concurrently with request deadlines.",
+    reason:
+      "Small static binary on Cloud Run. The API streams assistant runs as server-sent events and calls the ranker and the model provider concurrently with request deadlines.",
     icon: Zap,
   },
   {
     name: "Python FastAPI",
     role: "Ranking Service",
-    reason: "LightGBM and the eval pipeline are Python, so the ranker is too. Pydantic validates every request; re-ranking 50 candidates takes about 0.9 ms at p95.",
+    reason:
+      "LightGBM and the eval pipeline are Python, so the ranker is too. Pydantic validates every request; re-ranking 50 candidates takes about 0.9 ms at p95.",
     icon: Cpu,
   },
   {
     name: "Supabase + pgvector",
     role: "Database & Vector Search",
-    reason: "Vectors, full text, trigrams, and app data in one Postgres. An HNSW kNN query over the catalog runs in about 12 ms.",
+    reason:
+      "Vectors, full text, trigrams, and app data in one Postgres. An HNSW kNN query over the catalog runs in about 12 ms.",
     icon: Database,
   },
   {
     name: "OpenAI Embeddings",
     role: "Representation Layer",
-    reason: "text-embedding-3-small embeds each title and overview once at seeding time; search queries use the same model, cached and capped per day.",
+    reason:
+      "text-embedding-3-small embeds each title and overview once at seeding time; search queries use the same model, cached and capped per day.",
     icon: Layers,
   },
   {
     name: "Next.js",
     role: "Frontend",
-    reason: "Server components render catalog pages; client components run the assistant stream, search, and motion. Deployed on Vercel.",
+    reason:
+      "Server components render catalog pages; client components run the assistant stream, search, and motion. Deployed on Vercel.",
     icon: Globe,
   },
   {
     name: "Tool-calling LLM",
     role: "Assistant",
-    reason: "Any OpenAI-compatible model plans with read-only tools. Ollama runs it locally; a hosted free tier serves production.",
+    reason:
+      "Any OpenAI-compatible model plans with read-only tools. Ollama runs it locally; a hosted free tier serves production.",
     icon: Bot,
   },
   {
@@ -113,24 +111,18 @@ export default async function HowItWorksPage() {
             How CineMatch builds recommendations
           </h1>
           <p className="mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground">
-            A two-stage pipeline pairs vector similarity search with a learned
-            ranking model, and a grounded assistant sits on top.
+            A two-stage pipeline pairs vector similarity search with a learned ranking model, and a grounded assistant
+            sits on top.
           </p>
         </div>
       </header>
 
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-5xl">
-          <SectionHeading
-            number="01"
-            title="How recommendations work"
-            subtitle="The two-stage pipeline"
-          />
+          <SectionHeading number="01" title="How recommendations work" subtitle="The two-stage pipeline" />
           <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
-            Every recommendation request runs two stages. Vector search
-            retrieves 50 candidates close to the user&apos;s taste, then a
-            ranking model re-orders them using quality, popularity, and era
-            signals.
+            Every recommendation request runs two stages. Vector search retrieves 50 candidates close to the user&apos;s
+            taste, then a ranking model re-orders them using quality, popularity, and era signals.
           </p>
           <PipelineDiagram />
         </div>
@@ -138,28 +130,21 @@ export default async function HowItWorksPage() {
 
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
-          <SectionHeading
-            number="02"
-            title="The retrieval stage"
-            subtitle="Vector search with pgvector"
-          />
+          <SectionHeading number="02" title="The retrieval stage" subtitle="Vector search with pgvector" />
           <div className="mb-12 grid gap-12 md:grid-cols-2">
             <div className="space-y-5">
               <p className="leading-relaxed text-muted-foreground">
-                Every title is embedded once with OpenAI&apos;s
-                text-embedding-3-small model, from its title and overview,
-                into a 1536-dimensional vector.
+                Every title is embedded once with OpenAI&apos;s text-embedding-3-small model, from its title and
+                overview, into a 1536-dimensional vector.
               </p>
               <p className="leading-relaxed text-muted-foreground">
-                User preferences are encoded the same way, built from the
-                embeddings of movies they have liked and watched, weighted by
-                recency.
+                User preferences are encoded the same way, built from the embeddings of movies they have liked and
+                watched, weighted by recency.
               </p>
               <p className="leading-relaxed text-muted-foreground">
-                Finding candidates is a nearest-neighbor search: we use
-                pgvector&apos;s HNSW index to find the 50 movies with the
-                highest cosine similarity to the user&apos;s embedding, in about
-                12 ms. Titles the user already rated are excluded.
+                Finding candidates is a nearest-neighbor search: we use pgvector&apos;s HNSW index to find the 50 movies
+                with the highest cosine similarity to the user&apos;s embedding, in about 12 ms. Titles the user already
+                rated are excluded.
               </p>
             </div>
             <div className="space-y-4">
@@ -173,16 +158,12 @@ export default async function HowItWorksPage() {
                   <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
                     <span>Distance metric</span>
-                    <span className="font-mono text-foreground">
-                      Cosine similarity
-                    </span>
+                    <span className="font-mono text-foreground">Cosine similarity</span>
                   </div>
                   <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
                     <span>Index type</span>
-                    <span className="font-mono text-foreground">
-                      HNSW (m=16, ef=64)
-                    </span>
+                    <span className="font-mono text-foreground">HNSW (m=16, ef=64)</span>
                   </div>
                   <div className="h-px w-full bg-border" />
                   <div className="flex justify-between text-muted-foreground">
@@ -195,13 +176,10 @@ export default async function HowItWorksPage() {
           </div>
 
           <div className="mt-16">
-            <h3 className="mb-2 font-heading text-2xl font-semibold uppercase tracking-tight">
-              Try it yourself
-            </h3>
+            <h3 className="mb-2 font-heading text-2xl font-semibold uppercase tracking-tight">Try it yourself</h3>
             <p className="mb-6 max-w-lg text-muted-foreground">
-              Pick any title below to see its 5 nearest neighbors in
-              embedding space. This calls the real pgvector index with live
-              data.
+              Pick any title below to see its 5 nearest neighbors in embedding space. This calls the real pgvector index
+              with live data.
             </p>
             <SimilarMoviesDemo seedMovies={seedMovies} />
           </div>
@@ -210,15 +188,10 @@ export default async function HowItWorksPage() {
 
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
-          <SectionHeading
-            number="03"
-            title="The ranking stage"
-            subtitle="Multi-signal re-ranking"
-          />
+          <SectionHeading number="03" title="The ranking stage" subtitle="Multi-signal re-ranking" />
           <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
-            Raw similarity is not enough. A movie can be close in embedding
-            space but poorly rated, or popular but not to the user&apos;s
-            taste. The ranking stage combines those signals into one score.
+            Raw similarity is not enough. A movie can be close in embedding space but poorly rated, or popular but not
+            to the user&apos;s taste. The ranking stage combines those signals into one score.
           </p>
 
           <div className="mb-12 border border-border bg-wash p-6 sm:p-8">
@@ -227,12 +200,8 @@ export default async function HowItWorksPage() {
               {FEATURE_WEIGHTS.map((f) => (
                 <div key={f.name}>
                   <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-sm font-medium text-foreground">
-                      {f.name}
-                    </span>
-                    <span className="font-mono text-sm text-primary">
-                      {(f.weight * 100).toFixed(0)}%
-                    </span>
+                    <span className="text-sm font-medium text-foreground">{f.name}</span>
+                    <span className="font-mono text-sm text-primary">{(f.weight * 100).toFixed(0)}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-muted">
                     <div
@@ -240,9 +209,7 @@ export default async function HowItWorksPage() {
                       style={{ width: `${f.weight * 100}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {f.description}
-                  </p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">{f.description}</p>
                 </div>
               ))}
             </div>
@@ -250,15 +217,11 @@ export default async function HowItWorksPage() {
 
           <div className="border-l-2 border-primary/40 pl-6">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">
-                Learned re-ranker:
-              </span>{" "}
-              The weights above are the transparent linear baseline.
-              Production serves a LambdaMART model (LightGBM) that directly
-              optimizes NDCG and learns non-linear preferences the handcrafted
-              weights cannot capture, such as a vote-average sweet spot or an
-              era preference. It leads the offline eval below. The ranker
-              service supports both models and routes between them per request.
+              <span className="font-medium text-foreground">Learned re-ranker:</span> The weights above are the
+              transparent linear baseline. Production serves a LambdaMART model (LightGBM) that directly optimizes NDCG
+              and learns non-linear preferences the handcrafted weights cannot capture, such as a vote-average sweet
+              spot or an era preference. It leads the offline eval below. The ranker service supports both models and
+              routes between them per request.
             </p>
           </div>
         </div>
@@ -266,11 +229,7 @@ export default async function HowItWorksPage() {
 
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
-          <SectionHeading
-            number="04"
-            title="Evaluation"
-            subtitle="Measuring recommendation quality"
-          />
+          <SectionHeading number="04" title="Evaluation" subtitle="Measuring recommendation quality" />
 
           <div className="mb-12 grid gap-6 sm:grid-cols-3">
             <MetricCard
@@ -291,30 +250,15 @@ export default async function HowItWorksPage() {
             <table className="w-full min-w-[28rem] text-sm">
               <thead>
                 <tr className="bg-wash">
-                  <th className="eyebrow px-5 py-3 text-left text-muted-foreground">
-                    Model
-                  </th>
-                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
-                    NDCG@10
-                  </th>
-                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
-                    MRR
-                  </th>
-                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">
-                    Hit Rate
-                  </th>
+                  <th className="eyebrow px-5 py-3 text-left text-muted-foreground">Model</th>
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">NDCG@10</th>
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">MRR</th>
+                  <th className="eyebrow px-5 py-3 text-right text-muted-foreground">Hit Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {EVAL_RESULTS.map((r, i) => (
-                  <tr
-                    key={r.model}
-                    className={
-                      i === EVAL_RESULTS.length - 1
-                        ? "bg-accent"
-                        : "border-t border-border"
-                    }
-                  >
+                  <tr key={r.model} className={i === EVAL_RESULTS.length - 1 ? "bg-accent" : "border-t border-border"}>
                     <td className="px-5 py-3.5 font-medium text-foreground">
                       {r.model}
                       {i === EVAL_RESULTS.length - 1 && (
@@ -324,22 +268,13 @@ export default async function HowItWorksPage() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono">
-                      <ScoreCell
-                        value={r.ndcg}
-                        best={i === EVAL_RESULTS.length - 1}
-                      />
+                      <ScoreCell value={r.ndcg} best={i === EVAL_RESULTS.length - 1} />
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono">
-                      <ScoreCell
-                        value={r.mrr}
-                        best={i === EVAL_RESULTS.length - 1}
-                      />
+                      <ScoreCell value={r.mrr} best={i === EVAL_RESULTS.length - 1} />
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono">
-                      <ScoreCell
-                        value={r.hitRate}
-                        best={i === EVAL_RESULTS.length - 1}
-                      />
+                      <ScoreCell value={r.hitRate} best={i === EVAL_RESULTS.length - 1} />
                     </td>
                   </tr>
                 ))}
@@ -347,10 +282,9 @@ export default async function HowItWorksPage() {
             </table>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Evaluated on 40 held-out synthetic users with 1,695 interactions
-            over a 494-title snapshot of the catalog. Synthetic users have non-linear taste profiles
-            (favourite era, vote-average sweet spot, genre-dependent recency)
-            with Gaussian noise to simulate realistic behavior.
+            Evaluated on 40 held-out synthetic users with 1,695 interactions over a 494-title snapshot of the catalog.
+            Synthetic users have non-linear taste profiles (favourite era, vote-average sweet spot, genre-dependent
+            recency) with Gaussian noise to simulate realistic behavior.
           </p>
         </div>
       </SectionReveal>
@@ -364,15 +298,11 @@ export default async function HowItWorksPage() {
 
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-3xl">
-          <SectionHeading
-            number="06"
-            title="Cold start"
-            subtitle="What happens for new users"
-          />
+          <SectionHeading number="06" title="Cold start" subtitle="What happens for new users" />
           <div className="space-y-6 leading-relaxed text-muted-foreground">
             <p>
-              A new user has no likes yet, so there is no taste vector to
-              search with. The feed switches over as soon as there is one:
+              A new user has no likes yet, so there is no taste vector to search with. The feed switches over as soon as
+              there is one:
             </p>
           </div>
 
@@ -405,17 +335,11 @@ export default async function HowItWorksPage() {
                 <div className="mb-3 flex items-center gap-3">
                   <t.icon className="size-4 text-primary" strokeWidth={1.5} />
                   <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {t.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {t.role}
-                    </p>
+                    <p className="text-sm font-medium text-foreground">{t.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{t.role}</p>
                   </div>
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {t.reason}
-                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t.reason}</p>
               </div>
             ))}
           </div>
@@ -452,50 +376,27 @@ export default async function HowItWorksPage() {
   );
 }
 
-
-function SectionHeading({
-  number,
-  title,
-  subtitle,
-}: {
-  number: string;
-  title: string;
-  subtitle: string;
-}) {
+function SectionHeading({ number, title, subtitle }: { number: string; title: string; subtitle: string }) {
   return (
     <div className="mb-10">
       <p className="mb-3 font-mono text-xs text-primary/50">{number}</p>
-      <h2 className="mb-2 font-heading text-3xl font-semibold uppercase tracking-tight sm:text-4xl">
-        {title}
-      </h2>
+      <h2 className="mb-2 font-heading text-3xl font-semibold uppercase tracking-tight sm:text-4xl">{title}</h2>
       <p className="eyebrow text-muted-foreground">{subtitle}</p>
     </div>
   );
 }
 
-function MetricCard({
-  name,
-  definition,
-}: {
-  name: string;
-  definition: string;
-}) {
+function MetricCard({ name, definition }: { name: string; definition: string }) {
   return (
     <div className="border border-border bg-card p-5">
       <p className="mb-2 font-mono text-sm text-primary">{name}</p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {definition}
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{definition}</p>
     </div>
   );
 }
 
 function ScoreCell({ value, best }: { value: number; best: boolean }) {
-  return (
-    <span className={best ? "font-medium text-primary" : "text-muted-foreground"}>
-      {value.toFixed(2)}
-    </span>
-  );
+  return <span className={best ? "font-medium text-primary" : "text-muted-foreground"}>{value.toFixed(2)}</span>;
 }
 
 function ColdStartTier({
@@ -518,9 +419,7 @@ function ColdStartTier({
       <div className="pb-8">
         <p className="mb-1 font-mono text-xs text-primary">{stage}</p>
         <p className="mb-2 font-heading text-lg font-semibold">{label}</p>
-        <p className="mb-2 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="mb-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
         <p className="font-mono text-xs text-muted-foreground/70">{blend}</p>
       </div>
     </div>

@@ -2,16 +2,7 @@
 
 import { useTypewriter } from "@/hooks/use-typewriter";
 
-type TokenKind =
-  | "plain"
-  | "keyword"
-  | "fn"
-  | "prop"
-  | "string"
-  | "comment"
-  | "num"
-  | "punct"
-  | "match";
+type TokenKind = "plain" | "keyword" | "fn" | "prop" | "string" | "comment" | "num" | "punct" | "match";
 
 interface Token {
   t: string;
@@ -47,13 +38,7 @@ function lineLength(line: CodeLine): number {
   return line.reduce((sum, token) => sum + token.t.length, 0);
 }
 
-export function CodeTyper({
-  filename,
-  lines,
-  result,
-  className,
-  speed = 28,
-}: CodeTyperProps) {
+export function CodeTyper({ filename, lines, result, className, speed = 28 }: CodeTyperProps) {
   // One character stream across lines, so the caret moves line to line; each
   // newline counts as one character.
   const starts: number[] = [];
@@ -63,15 +48,10 @@ export function CodeTyper({
     cursor += lineLength(line) + (index < lines.length - 1 ? 1 : 0);
   });
   const total = cursor;
-  const fullText = lines
-    .map((line) => line.map((token) => token.t).join(""))
-    .join("\n");
+  const fullText = lines.map((line) => line.map((token) => token.t).join("")).join("\n");
 
   const { ref, count, done } = useTypewriter<HTMLDivElement>(total, { speed });
-  const activeLine = starts.reduce(
-    (active, start, index) => (count >= start ? index : active),
-    0
-  );
+  const activeLine = starts.reduce((active, start, index) => (count >= start ? index : active), 0);
 
   return (
     <div
@@ -86,9 +66,7 @@ export function CodeTyper({
         <span className="size-2 rounded-full bg-primary/70" />
         <span className="size-2 rounded-full bg-primary/40" />
         <span className="size-2 rounded-full bg-primary/20" />
-        <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.18em] text-primary/70">
-          {filename}
-        </span>
+        <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.18em] text-primary/70">{filename}</span>
       </div>
 
       <div className="px-4 py-4 font-mono text-[13px] leading-6 text-foreground sm:text-sm">
@@ -96,29 +74,19 @@ export function CodeTyper({
           let offset = starts[lineIndex];
           return (
             <div key={lineIndex} className="flex min-h-6 gap-4">
-              <span className="w-4 shrink-0 select-none text-right text-primary/35">
-                {lineIndex + 1}
-              </span>
+              <span className="w-4 shrink-0 select-none text-right text-primary/35">{lineIndex + 1}</span>
               <code className="whitespace-pre-wrap break-words">
                 {line.map((token, tokenIndex) => {
                   const start = offset;
                   offset += token.t.length;
-                  const revealed = Math.max(
-                    0,
-                    Math.min(token.t.length, count - start)
-                  );
+                  const revealed = Math.max(0, Math.min(token.t.length, count - start));
                   return (
-                    <span
-                      key={tokenIndex}
-                      className={TOKEN_COLOR[token.k ?? "plain"]}
-                    >
+                    <span key={tokenIndex} className={TOKEN_COLOR[token.k ?? "plain"]}>
                       {token.t.slice(0, revealed)}
                     </span>
                   );
                 })}
-                {!done && activeLine === lineIndex && (
-                  <span className="type-caret" aria-hidden="true" />
-                )}
+                {!done && activeLine === lineIndex && <span className="type-caret" aria-hidden="true" />}
               </code>
             </div>
           );

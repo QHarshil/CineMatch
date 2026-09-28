@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
 interface Toast {
   id: number;
@@ -25,16 +19,13 @@ let nextToastId = 0;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = useCallback(
-    (message: string, variant: "error" | "info" = "error") => {
-      const id = ++nextToastId;
-      setToasts((prev) => [...prev, { id, message, variant }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4000);
-    },
-    []
-  );
+  const showToast = useCallback((message: string, variant: "error" | "info" = "error") => {
+    const id = ++nextToastId;
+    setToasts((prev) => [...prev, { id, message, variant }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>

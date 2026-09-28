@@ -1,12 +1,21 @@
 import { AGENT_EVAL, AGENT_EVAL_CATEGORIES, SEARCH_EVAL, type AgentEvalRun } from "@/lib/eval-results";
 
 const LOOP = [
-  { step: "Request", body: "Up to 12 turns, validated and length-capped. Quota and budget checked first; the check fails closed." },
+  {
+    step: "Request",
+    body: "Up to 12 turns, validated and length-capped. Quota and budget checked first; the check fails closed.",
+  },
   { step: "Plan", body: "An OpenAI-compatible model chooses read-only tools. Constraints become filters." },
-  { step: "Tools", body: "search_catalog, find_similar, get_taste_profile, get_recommendations. Each result title gets a short ref." },
+  {
+    step: "Tools",
+    body: "search_catalog, find_similar, get_taste_profile, get_recommendations. Each result title gets a short ref.",
+  },
   { step: "Ground", body: "present_picks may only cite refs a tool returned. Anything else is rejected and counted." },
   { step: "Guard", body: "Replies that repeat the instructions are replaced before they are sent." },
-  { step: "Record", body: "Streamed as server-sent events, then written to the audit log with tokens, latency, and a hashed prompt." },
+  {
+    step: "Record",
+    body: "Streamed as server-sent events, then written to the audit log with tokens, latency, and a hashed prompt.",
+  },
 ];
 
 const RUNS: AgentEvalRun[] = [AGENT_EVAL.production, AGENT_EVAL.local];
@@ -23,9 +32,15 @@ const GUARDRAILS = [
   ["Read-only tools", "The agent cannot write. Likes change only when the person clicks."],
   ["Grounding by ref", "Picks are validated against tool results on the server, not trusted from the model."],
   ["Output guard", "Tool names, headings, and any eight-word run of the instructions are blocked."],
-  ["Budgets", "Per-user and guest daily limits, a global token cap, and an embedding cap. Past the cap, answers come from search."],
+  [
+    "Budgets",
+    "Per-user and guest daily limits, a global token cap, and an embedding cap. Past the cap, answers come from search.",
+  ],
   ["Privacy", "Prompts are stored as SHA-256 hashes. Emails and phone numbers are masked in logged tool arguments."],
-  ["Degradation", "No model, a rate limit, or an outage returns hybrid search results with a notice, never an empty screen."],
+  [
+    "Degradation",
+    "No model, a rate limit, or an outage returns hybrid search results with a notice, never an empty screen.",
+  ],
 ];
 
 /**
@@ -60,9 +75,9 @@ export function AiLayer() {
       <h3 className="mb-2 font-heading text-xl font-semibold uppercase tracking-tight">Retrieval eval</h3>
       <p className="mb-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         {SEARCH_EVAL.titleQueries} title lookups (including typos) and {SEARCH_EVAL.descriptionQueries} paraphrased
-        descriptions that avoid genre words, over {SEARCH_EVAL.catalogSize.toLocaleString("en-US")} titles. A description
-        result counts as relevant when its TMDB genres match the target, a label none of the rankers read. A random
-        ranking scores {SEARCH_EVAL.randomP10.toFixed(2)} P@10.
+        descriptions that avoid genre words, over {SEARCH_EVAL.catalogSize.toLocaleString("en-US")} titles. A
+        description result counts as relevant when its TMDB genres match the target, a label none of the rankers read. A
+        random ranking scores {SEARCH_EVAL.randomP10.toFixed(2)} P@10.
       </p>
       <div className="mb-14 overflow-x-auto border border-border">
         <table className="w-full min-w-[560px] text-sm">
@@ -78,12 +93,20 @@ export function AiLayer() {
           <tbody className="font-mono">
             {SEARCH_EVAL.modes.map((m) => (
               <tr key={m.mode} className="border-b border-border last:border-b-0">
-                <td className={`px-5 py-3 font-sans ${m.mode === "Hybrid (production)" ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                <td
+                  className={`px-5 py-3 font-sans ${m.mode === "Hybrid (production)" ? "font-medium text-foreground" : "text-muted-foreground"}`}
+                >
                   {m.mode}
                 </td>
-                <td className={`px-5 py-3 text-right ${m.titleMrr === best.mrr ? "text-primary" : "text-muted-foreground"}`}>{m.titleMrr.toFixed(3)}</td>
+                <td
+                  className={`px-5 py-3 text-right ${m.titleMrr === best.mrr ? "text-primary" : "text-muted-foreground"}`}
+                >
+                  {m.titleMrr.toFixed(3)}
+                </td>
                 <td className="px-5 py-3 text-right text-muted-foreground">{m.titleHit1.toFixed(3)}</td>
-                <td className={`px-5 py-3 text-right ${m.descriptionP10 === best.p10 ? "text-primary" : "text-muted-foreground"}`}>
+                <td
+                  className={`px-5 py-3 text-right ${m.descriptionP10 === best.p10 ? "text-primary" : "text-muted-foreground"}`}
+                >
                   {m.descriptionP10.toFixed(3)}
                 </td>
                 <td className="px-5 py-3 text-right text-muted-foreground">{m.descriptionNdcg.toFixed(3)}</td>

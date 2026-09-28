@@ -48,7 +48,10 @@ export function Composer({ draft = "", busy, disabled, disabledReason, onSend, o
 
   const over = value.length > MAX_CHARS;
   return (
-    <form onSubmit={submit} className="sticky bottom-0 z-20 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:px-6">
+    <form
+      onSubmit={submit}
+      className="sticky bottom-0 z-20 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:px-6"
+    >
       <div className="flex items-end gap-2 border border-border bg-background px-3 py-2 transition-colors focus-within:border-primary">
         <label htmlFor="assistant-prompt" className="sr-only">
           Ask the assistant
@@ -86,7 +89,11 @@ export function Composer({ draft = "", busy, disabled, disabledReason, onSend, o
       </div>
       <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted-foreground">
         <span>Enter to send · Shift+Enter for a new line</span>
-        {value.length > MAX_CHARS - 150 && <span className={over ? "text-destructive" : undefined}>{value.length}/{MAX_CHARS}</span>}
+        {value.length > MAX_CHARS - 150 && (
+          <span className={over ? "text-destructive" : undefined}>
+            {value.length}/{MAX_CHARS}
+          </span>
+        )}
       </div>
     </form>
   );

@@ -48,18 +48,30 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     out["similarity"] = (
         (pd.to_numeric(out["affinity_score"], errors="coerce").fillna(0.0) + 1.0) / 2.0
     ).clip(0.0, 1.0)
-    out["vote_average"] = pd.to_numeric(out["vote_average"], errors="coerce").fillna(6.5)
-    out["log_popularity"] = np.log1p(pd.to_numeric(out["popularity"], errors="coerce").fillna(0.0))
+    out["vote_average"] = pd.to_numeric(out["vote_average"], errors="coerce").fillna(
+        6.5
+    )
+    out["log_popularity"] = np.log1p(
+        pd.to_numeric(out["popularity"], errors="coerce").fillna(0.0)
+    )
     out["decade"] = (
-        (pd.to_numeric(out["release_year"], errors="coerce").fillna(2000) - 1970) / 10
-    ).clip(lower=0).astype(int)
-    out["is_recent"] = (pd.to_numeric(out["release_year"], errors="coerce").fillna(0) >= 2021).astype(int)
+        ((pd.to_numeric(out["release_year"], errors="coerce").fillna(2000) - 1970) / 10)
+        .clip(lower=0)
+        .astype(int)
+    )
+    out["is_recent"] = (
+        pd.to_numeric(out["release_year"], errors="coerce").fillna(0) >= 2021
+    ).astype(int)
 
     # Per-user behavioural signals the Go backend can compute from interactions.
-    user_stats = out.groupby("user_id").agg(
-        user_like_ratio=("type", lambda x: (x == "like").mean()),
-        user_interaction_count=("type", "count"),
-    ).reset_index()
+    user_stats = (
+        out.groupby("user_id")
+        .agg(
+            user_like_ratio=("type", lambda x: (x == "like").mean()),
+            user_interaction_count=("type", "count"),
+        )
+        .reset_index()
+    )
     out = out.merge(user_stats, on="user_id", how="left")
 
     out["relevance"] = out["type"].map(RELEVANCE_MAP)
@@ -100,7 +112,9 @@ def main():
     featured = engineer_features(interactions)
 
     print(f"\nFeature columns: {FEATURE_COLUMNS}")
-    print(f"Relevance distribution:\n{featured['relevance'].value_counts().sort_index().to_string()}")
+    print(
+        f"Relevance distribution:\n{featured['relevance'].value_counts().sort_index().to_string()}"
+    )
 
     train_df, test_df = split_by_user(featured)
 

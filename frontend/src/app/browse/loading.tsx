@@ -5,11 +5,7 @@ export default function BrowseLoading() {
 
       <div className="mb-8 flex gap-2">
         {[56, 72, 64, 80, 60, 76, 68, 72].map((w, i) => (
-          <div
-            key={i}
-            className="h-8 shrink-0 animate-pulse bg-muted"
-            style={{ width: `${w}px` }}
-          />
+          <div key={i} className="h-8 shrink-0 animate-pulse bg-muted" style={{ width: `${w}px` }} />
         ))}
       </div>
 

@@ -36,16 +36,13 @@ vi.stubGlobal("ResizeObserver", StubObserver);
 
 // jsdom has no matchMedia; GSAP and the reduced-motion hook both read it.
 // Nothing matches, so scroll animations stay off and content renders as is.
-vi.stubGlobal(
-  "matchMedia",
-  (query: string): MediaQueryList => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  }),
-);
+vi.stubGlobal("matchMedia", (query: string): MediaQueryList => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+  dispatchEvent: () => false,
+}));

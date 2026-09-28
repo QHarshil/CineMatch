@@ -102,7 +102,9 @@ const STEPS: Step[] = [
             {row.title}
           </p>
         ))}
-        <p className="mt-3 border-t border-primary/20 pt-3 text-[11px] uppercase tracking-wider text-primary">3 grounded · 1 rejected</p>
+        <p className="mt-3 border-t border-primary/20 pt-3 text-[11px] uppercase tracking-wider text-primary">
+          3 grounded · 1 rejected
+        </p>
       </Panel>
     ),
   },
@@ -128,7 +130,9 @@ const STEPS: Step[] = [
             </div>
           </div>
         ))}
-        <p className="mt-4 border-t border-primary/20 pt-3 text-[11px] uppercase tracking-wider text-primary">because you liked Arrival</p>
+        <p className="mt-4 border-t border-primary/20 pt-3 text-[11px] uppercase tracking-wider text-primary">
+          because you liked Arrival
+        </p>
       </Panel>
     ),
   },
@@ -139,7 +143,8 @@ const STEPS: Step[] = [
     visual: (
       <Panel label="assistant_runs">
         <p>
-          status <span className="text-primary">picks</span> · prompt <span className="text-muted-foreground">sha256:8afe…</span>
+          status <span className="text-primary">picks</span> · prompt{" "}
+          <span className="text-muted-foreground">sha256:8afe…</span>
         </p>
         <p>tools search_catalog, find_similar</p>
         <p>tokens 6,213 · 11.4 s · ungrounded 0</p>
@@ -213,7 +218,9 @@ export function AssistantStory() {
               active === i ? "lg:bg-wash/60" : ""
             }`}
           >
-            <p className={`eyebrow transition-colors duration-500 ${active === i ? "text-primary" : "text-muted-foreground"}`}>
+            <p
+              className={`eyebrow transition-colors duration-500 ${active === i ? "text-primary" : "text-muted-foreground"}`}
+            >
               {step.n} · {step.title}
             </p>
             <p className="mt-4 max-w-md font-serif text-xl leading-relaxed text-foreground">{step.body}</p>
@@ -241,7 +248,10 @@ export function AssistantStory() {
           </div>
           <div className="mt-6 flex gap-1.5" aria-hidden="true">
             {STEPS.map((step, i) => (
-              <span key={step.n} className={`h-0.5 flex-1 transition-colors duration-500 ${i <= active ? "bg-primary" : "bg-border"}`} />
+              <span
+                key={step.n}
+                className={`h-0.5 flex-1 transition-colors duration-500 ${i <= active ? "bg-primary" : "bg-border"}`}
+              />
             ))}
           </div>
         </div>

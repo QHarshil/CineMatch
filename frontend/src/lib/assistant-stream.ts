@@ -134,9 +134,7 @@ export function toAssistantEvent(raw: RawEvent): AssistantEvent | null {
 }
 
 /** Reads a response body and yields validated events as they arrive. */
-export async function* readAssistantStream(
-  body: ReadableStream<Uint8Array>,
-): AsyncGenerator<AssistantEvent> {
+export async function* readAssistantStream(body: ReadableStream<Uint8Array>): AsyncGenerator<AssistantEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";

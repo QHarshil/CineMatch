@@ -2,13 +2,7 @@
 
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 
-export function SectionReveal({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+export function SectionReveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   const { ref, revealed } = useScrollReveal(0.1);
 
   return (

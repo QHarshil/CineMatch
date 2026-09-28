@@ -3,22 +3,40 @@ import { applyEvent, confidenceOf, newExchange, toTurns, type Exchange } from ".
 import type { AssistantPick } from "./assistant-stream";
 import { arrival } from "@/test/fixtures";
 
-const pick: AssistantPick = { movie: arrival, reason: "First contact, told patiently.", similarity: 0.52, source: "search_catalog" };
+const pick: AssistantPick = {
+  movie: arrival,
+  reason: "First contact, told patiently.",
+  similarity: 0.52,
+  source: "search_catalog",
+};
 
 describe("applyEvent", () => {
   it("builds an exchange from a full stream", () => {
     let ex = newExchange("e1", "slow-burn sci-fi");
     ex = applyEvent(ex, { type: "start", data: { model: "qwen3:8b", prompt_version: "assistant-v1" } });
-    ex = applyEvent(ex, { type: "tool_call", data: { id: "c1", tool: "search_catalog", label: "Searching", args: { query: "sci-fi" } } });
+    ex = applyEvent(ex, {
+      type: "tool_call",
+      data: { id: "c1", tool: "search_catalog", label: "Searching", args: { query: "sci-fi" } },
+    });
     expect(ex.steps[0].status).toBe("running");
 
-    ex = applyEvent(ex, { type: "tool_result", data: { id: "c1", tool: "search_catalog", count: 8, latency_ms: 120, retrieval: "hybrid" } });
+    ex = applyEvent(ex, {
+      type: "tool_result",
+      data: { id: "c1", tool: "search_catalog", count: 8, latency_ms: 120, retrieval: "hybrid" },
+    });
     expect(ex.steps[0]).toMatchObject({ status: "done", count: 8, latencyMs: 120, retrieval: "hybrid" });
 
     ex = applyEvent(ex, { type: "picks", data: { message: "One pick.", picks: [pick], dropped: 1 } });
     ex = applyEvent(ex, {
       type: "done",
-      data: { run_id: "r1", status: "picks", model: "qwen3:8b", usage: { input_tokens: 900, output_tokens: 90 }, latency_ms: 4000, remaining_today: 7 },
+      data: {
+        run_id: "r1",
+        status: "picks",
+        model: "qwen3:8b",
+        usage: { input_tokens: 900, output_tokens: 90 },
+        latency_ms: 4000,
+        remaining_today: 7,
+      },
     });
     expect(ex).toMatchObject({ status: "picks", model: "qwen3:8b", message: "One pick.", dropped: 1 });
     expect(ex.run?.run_id).toBe("r1");
@@ -27,14 +45,22 @@ describe("applyEvent", () => {
   it("marks a failed tool call", () => {
     let ex = newExchange("e1", "x");
     ex = applyEvent(ex, { type: "tool_call", data: { id: "c1", tool: "find_similar", label: "Finding", args: {} } });
-    ex = applyEvent(ex, { type: "tool_result", data: { id: "c1", tool: "find_similar", count: 0, latency_ms: 3, error: "unknown ref" } });
+    ex = applyEvent(ex, {
+      type: "tool_result",
+      data: { id: "c1", tool: "find_similar", count: 0, latency_ms: 3, error: "unknown ref" },
+    });
     expect(ex.steps[0]).toMatchObject({ status: "error", error: "unknown ref" });
   });
 });
 
 describe("toTurns", () => {
   it("replays finished exchanges with the titles picked, and skips failed ones", () => {
-    const done: Exchange = { ...newExchange("e1", "slow-burn sci-fi"), status: "picks", message: "Try this.", picks: [pick] };
+    const done: Exchange = {
+      ...newExchange("e1", "slow-burn sci-fi"),
+      status: "picks",
+      message: "Try this.",
+      picks: [pick],
+    };
     const failed: Exchange = { ...newExchange("e2", "broken"), status: "failed" };
     expect(toTurns([done, failed], "something darker")).toEqual([
       { role: "user", content: "slow-burn sci-fi" },

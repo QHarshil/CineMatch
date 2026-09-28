@@ -10,8 +10,7 @@ export function supabaseStub(rows: unknown[] = []) {
     {
       get(_target, prop) {
         if (prop === "then") {
-          return (resolve: (value: typeof result) => unknown) =>
-            Promise.resolve(result).then(resolve);
+          return (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve);
         }
         return () => builder;
       },

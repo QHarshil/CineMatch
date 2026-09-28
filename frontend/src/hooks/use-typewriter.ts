@@ -26,10 +26,7 @@ function prefersReducedMotion(): boolean {
  *
  * When the user prefers reduced motion the full content is revealed instantly.
  */
-export function useTypewriter<T extends HTMLElement = HTMLDivElement>(
-  total: number,
-  options: TypewriterOptions = {}
-) {
+export function useTypewriter<T extends HTMLElement = HTMLDivElement>(total: number, options: TypewriterOptions = {}) {
   const { speed = 36, startDelay = 0, startOnVisible = true } = options;
   const ref = useRef<T>(null);
   const [count, setCount] = useState(0);
@@ -47,7 +44,7 @@ export function useTypewriter<T extends HTMLElement = HTMLDivElement>(
           observer.disconnect();
         }
       },
-      { threshold: 0.25 }
+      { threshold: 0.25 },
     );
     observer.observe(el);
     return () => observer.disconnect();

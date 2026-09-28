@@ -122,9 +122,7 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
             >
               <div
                 className={`flex size-10 items-center justify-center border transition-colors duration-200 ${
-                  isActive
-                    ? "border-primary bg-accent"
-                    : "border-border bg-background group-hover:bg-surface-hover"
+                  isActive ? "border-primary bg-accent" : "border-border bg-background group-hover:bg-surface-hover"
                 }`}
               >
                 <Icon
@@ -153,21 +151,13 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
                 className="transition-colors duration-150"
               >
                 <Star
-                  className={`size-5 ${
-                    filled
-                      ? "fill-gold text-gold"
-                      : "text-muted-foreground/40 hover:text-gold/60"
-                  }`}
+                  className={`size-5 ${filled ? "fill-gold text-gold" : "text-muted-foreground/40 hover:text-gold/60"}`}
                   strokeWidth={1.5}
                 />
               </button>
             );
           })}
-          {rating > 0 && (
-            <span className="ml-2 font-mono text-xs font-medium text-foreground">
-              {rating}/10
-            </span>
-          )}
+          {rating > 0 && <span className="ml-2 font-mono text-xs font-medium text-foreground">{rating}/10</span>}
         </div>
       )}
 

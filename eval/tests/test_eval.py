@@ -20,8 +20,8 @@ from eval_rankers import (
 )
 from build_training_data import engineer_features, RELEVANCE_MAP, FEATURE_COLUMNS
 
-
 # Metric tests
+
 
 class TestNDCG:
     """Metrics take relevance values already in ranked order (graded gains)."""
@@ -70,11 +70,13 @@ class TestScorers:
     @pytest.fixture()
     def group(self):
         # First row is the stronger candidate on every signal.
-        return pd.DataFrame({
-            "affinity_score": [0.9, -0.5],
-            "vote_average": [8.0, 5.0],
-            "popularity": [500.0, 20.0],
-        })
+        return pd.DataFrame(
+            {
+                "affinity_score": [0.9, -0.5],
+                "vote_average": [8.0, 5.0],
+                "popularity": [500.0, 20.0],
+            }
+        )
 
     def test_vector_only_prefers_higher_affinity(self, group):
         scores = score_vector_only(group)
@@ -91,27 +93,41 @@ class TestScorers:
 
 # Feature engineering tests
 
+
 class TestFeatureEngineering:
     @pytest.fixture()
     def sample_interactions(self):
-        return pd.DataFrame({
-            "user_id": ["u1", "u1", "u1", "u2", "u2"],
-            "movie_id": ["m1", "m2", "m3", "m1", "m4"],
-            "type": ["like", "watch", "skip", "dislike", "like"],
-            "affinity_score": [0.8, 0.3, -0.2, -0.5, 0.6],
-            "movie_genres": [["Action"], ["Drama"], ["Comedy"], ["Horror"], ["Action"]],
-            "vote_average": [8.0, 7.0, 5.0, 4.0, 7.5],
-            "popularity": [500.0, 200.0, 50.0, 10.0, 300.0],
-            "release_year": [2022, 2015, 2000, 1995, 2023],
-            "runtime": [120, 90, 110, 85, 130],
-            "profile": ["action_fan"] * 3 + ["horror_buff"] * 2,
-            "movie_title": ["M1", "M2", "M3", "M1", "M4"],
-        })
+        return pd.DataFrame(
+            {
+                "user_id": ["u1", "u1", "u1", "u2", "u2"],
+                "movie_id": ["m1", "m2", "m3", "m1", "m4"],
+                "type": ["like", "watch", "skip", "dislike", "like"],
+                "affinity_score": [0.8, 0.3, -0.2, -0.5, 0.6],
+                "movie_genres": [
+                    ["Action"],
+                    ["Drama"],
+                    ["Comedy"],
+                    ["Horror"],
+                    ["Action"],
+                ],
+                "vote_average": [8.0, 7.0, 5.0, 4.0, 7.5],
+                "popularity": [500.0, 200.0, 50.0, 10.0, 300.0],
+                "release_year": [2022, 2015, 2000, 1995, 2023],
+                "runtime": [120, 90, 110, 85, 130],
+                "profile": ["action_fan"] * 3 + ["horror_buff"] * 2,
+                "movie_title": ["M1", "M2", "M3", "M1", "M4"],
+            }
+        )
 
     def test_relevance_labels(self, sample_interactions):
         featured = engineer_features(sample_interactions)
-        expected = [RELEVANCE_MAP["like"], RELEVANCE_MAP["watch"],
-                    RELEVANCE_MAP["skip"], RELEVANCE_MAP["dislike"], RELEVANCE_MAP["like"]]
+        expected = [
+            RELEVANCE_MAP["like"],
+            RELEVANCE_MAP["watch"],
+            RELEVANCE_MAP["skip"],
+            RELEVANCE_MAP["dislike"],
+            RELEVANCE_MAP["like"],
+        ]
         assert featured["relevance"].tolist() == expected
 
     def test_all_feature_columns_present(self, sample_interactions):
@@ -135,6 +151,7 @@ class TestFeatureEngineering:
 
 
 # Data integrity tests
+
 
 @pytest.mark.skipif(
     not (EVAL_DIR / "data" / "train.parquet").exists(),

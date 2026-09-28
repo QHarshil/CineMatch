@@ -41,11 +41,7 @@ function formatRuntime(minutes: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export default async function MovieDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function MovieDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   let movie: Movie;
@@ -55,13 +51,9 @@ export default async function MovieDetailPage({
     notFound();
   }
 
-  const posterUrl = movie.poster_path
-    ? `${TMDB_POSTER}${movie.poster_path}`
-    : null;
+  const posterUrl = movie.poster_path ? `${TMDB_POSTER}${movie.poster_path}` : null;
 
-  const backdropUrl = movie.backdrop_path
-    ? `${TMDB_BACKDROP}${movie.backdrop_path}`
-    : null;
+  const backdropUrl = movie.backdrop_path ? `${TMDB_BACKDROP}${movie.backdrop_path}` : null;
 
   const similarMovies = await fetchSimilarMovies(movie);
 
@@ -69,14 +61,7 @@ export default async function MovieDetailPage({
     <div className="-mt-16">
       <div className="relative h-[55vh] min-h-[400px] w-full overflow-hidden">
         {backdropUrl ? (
-          <Image
-            src={backdropUrl}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
+          <Image src={backdropUrl} alt="" fill sizes="100vw" className="object-cover" priority />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
         )}
@@ -98,17 +83,13 @@ export default async function MovieDetailPage({
                 priority
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                No poster
-              </div>
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No poster</div>
             )}
           </div>
 
           <div className="flex flex-col gap-4 pt-2 text-center sm:text-left">
             <div>
-              <h1 className="font-heading text-3xl font-semibold leading-tight sm:text-4xl">
-                {movie.title}
-              </h1>
+              <h1 className="font-heading text-3xl font-semibold leading-tight sm:text-4xl">{movie.title}</h1>
               <div className="mt-2 flex items-center justify-center gap-3 font-mono text-sm text-muted-foreground sm:justify-start">
                 <span>{movie.release_year}</span>
                 {movie.runtime > 0 && (
@@ -131,9 +112,7 @@ export default async function MovieDetailPage({
             {movie.vote_average > 0 && (
               <div className="flex items-center justify-center gap-1.5 sm:justify-start">
                 <span className="text-lg text-gold">&#9733;</span>
-                <span className="font-mono text-xl font-semibold text-foreground">
-                  {movie.vote_average.toFixed(1)}
-                </span>
+                <span className="font-mono text-xl font-semibold text-foreground">{movie.vote_average.toFixed(1)}</span>
                 <span className="ml-1 text-sm text-muted-foreground">/ 10</span>
               </div>
             )}
@@ -144,10 +123,7 @@ export default async function MovieDetailPage({
             {movie.genres.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                 {movie.genres.map((genre) => (
-                  <span
-                    key={genre}
-                    className="eyebrow border border-border px-3 py-1 text-muted-foreground"
-                  >
+                  <span key={genre} className="eyebrow border border-border px-3 py-1 text-muted-foreground">
                     {genre}
                   </span>
                 ))}

@@ -40,7 +40,10 @@ export function LandingHero({ catalogSize }: { catalogSize: number }) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.7)_45%,rgba(255,255,255,0)_75%)]"
       />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background"
+      />
 
       <div className="relative z-10 px-6 pb-24 pt-32 text-center lg:pt-40">
         <p className="eyebrow text-muted-foreground">

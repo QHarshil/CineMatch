@@ -11,9 +11,23 @@ from pathlib import Path
 import lightgbm as lgb
 import numpy as np
 
-from models import CandidateMovie, RankRequest, RankedMovie, RankResponse, UserFeatures
+from models import (
+    CandidateMovie,
+    RankingFactor,
+    RankRequest,
+    RankedMovie,
+    RankResponse,
+    UserFeatures,
+)
 
 MODEL_VERSION = "lambdamart-v1"
+
+# Title-level columns of the feature vector, in order. The user-level columns
+# that follow are the same for every candidate in a request, so they cannot
+# explain why one title outranks another and are left out of explanations.
+ITEM_FEATURES = ["similarity", "vote_average", "log_popularity", "decade", "is_recent"]
+MAX_FACTORS = 3
+
 
 def _build_feature_vector(candidate: CandidateMovie, user: UserFeatures) -> list[float]:
     """Build the feature vector matching FEATURE_COLUMNS in
@@ -59,8 +73,11 @@ def _resolve_model_path(model_path: str | None) -> str:
 
     here = Path(__file__).resolve().parent
     candidates = [
-        here / "model" / "lambdamart-v1.txt",                   # bundled in the container image
-        here.parent / "eval" / "models" / "lambdamart-v1.txt",  # local dev / training output
+        here / "model" / "lambdamart-v1.txt",  # bundled in the container image
+        here.parent
+        / "eval"
+        / "models"
+        / "lambdamart-v1.txt",  # local dev / training output
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -85,20 +102,40 @@ def rank(request: RankRequest) -> RankResponse:
 
     # User-level features arrive on request.user_features from the Go backend;
     # similarity comes from each candidate's Stage-1 retrieval score.
-    features = np.array([
-        _build_feature_vector(c, request.user_features)
-        for c in request.candidates
-    ])
+    features = np.array(
+        [_build_feature_vector(c, request.user_features) for c in request.candidates]
+    )
 
     scores = booster.predict(features)
+    # SHAP values per feature; the last column is the expected-value baseline.
+    contributions = booster.predict(features, pred_contrib=True)
 
-    scored = list(zip(request.candidates, scores))
+    scored = list(zip(request.candidates, scores, contributions))
     scored.sort(key=lambda x: x[1], reverse=True)
 
     top = scored[: request.top_n]
     ranked = [
-        RankedMovie(movie_id=c.movie_id, score=round(float(s), 6), rank=i + 1)
-        for i, (c, s) in enumerate(top)
+        RankedMovie(
+            movie_id=c.movie_id,
+            score=round(float(s), 6),
+            rank=i + 1,
+            factors=top_factors(contrib),
+        )
+        for i, (c, s, contrib) in enumerate(top)
     ]
 
     return RankResponse(ranked=ranked, model_version=MODEL_VERSION)
+
+
+def top_factors(contributions: np.ndarray) -> list[RankingFactor]:
+    """Return the title-level features that raised a score, largest first."""
+    item = [
+        (name, float(value))
+        for name, value in zip(ITEM_FEATURES, contributions[: len(ITEM_FEATURES)])
+        if value > 0
+    ]
+    item.sort(key=lambda pair: pair[1], reverse=True)
+    return [
+        RankingFactor(feature=name, contribution=round(value, 4))
+        for name, value in item[:MAX_FACTORS]
+    ]

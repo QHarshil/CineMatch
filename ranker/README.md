@@ -63,11 +63,21 @@ Response:
 ```json
 {
   "ranked": [
-    {"movie_id": "uuid", "score": 0.847, "rank": 1}
+    {
+      "movie_id": "uuid",
+      "score": 0.847,
+      "rank": 1,
+      "factors": [
+        {"feature": "similarity", "contribution": 0.2135},
+        {"feature": "vote_average", "contribution": 0.0412}
+      ]
+    }
   ],
   "model_version": "lambdamart-v1"
 }
 ```
+
+`factors` explains each pick. They are LightGBM's SHAP values (`pred_contrib=True`) for the title-level features that raised the score, largest first, at most three. User-level features are the same for every candidate in a request, so they are left out. `feature-linear-v1` returns no factors.
 
 The `model` field selects which ranker to use: `lambdamart-v1` (the production default) or `feature-linear-v1` (the transparent fallback). Both are described under Scoring models below.
 

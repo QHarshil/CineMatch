@@ -66,12 +66,23 @@ class RankRequest(BaseModel):
     )
 
 
+class RankingFactor(BaseModel):
+    """One feature's contribution to a title's score, used to explain a pick."""
+
+    feature: str
+    contribution: float
+
+
 class RankedMovie(BaseModel):
     """A single re-ranked result returned to the Go backend."""
 
     movie_id: str
     score: float
     rank: int
+    factors: list[RankingFactor] = Field(
+        default_factory=list,
+        description="Title-level features that raised the score, largest first (lambdamart-v1).",
+    )
 
 
 class RankResponse(BaseModel):

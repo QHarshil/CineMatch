@@ -11,7 +11,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from main import app  # noqa: E402
 from models import CandidateMovie, RankRequest, UserFeatures  # noqa: E402
-from ranker import MODEL_VERSION, _genre_overlap, _log_popularity_score, rank  # noqa: E402
+from ranker import (
+    MODEL_VERSION,
+    _genre_overlap,
+    _log_popularity_score,
+    rank,
+)  # noqa: E402
 
 client = TestClient(app)
 
@@ -42,9 +47,15 @@ def make_candidate(
     )
 
 
-CANDIDATE_A = make_candidate(movie_id="aaa-1", similarity=0.95, vote_average=8.5, genres=["Action", "Drama"])
-CANDIDATE_B = make_candidate(movie_id="bbb-2", similarity=0.70, vote_average=6.0, genres=["Comedy"])
-CANDIDATE_C = make_candidate(movie_id="ccc-3", similarity=0.85, vote_average=7.0, genres=["Drama", "Thriller"])
+CANDIDATE_A = make_candidate(
+    movie_id="aaa-1", similarity=0.95, vote_average=8.5, genres=["Action", "Drama"]
+)
+CANDIDATE_B = make_candidate(
+    movie_id="bbb-2", similarity=0.70, vote_average=6.0, genres=["Comedy"]
+)
+CANDIDATE_C = make_candidate(
+    movie_id="ccc-3", similarity=0.85, vote_average=7.0, genres=["Drama", "Thriller"]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -120,8 +131,12 @@ def test_rank_positions_are_1_indexed():
 
 def test_rank_high_similarity_beats_low_similarity():
     """Candidate A (similarity=0.95) should outscore B (similarity=0.70)."""
-    low_sim = make_candidate(movie_id="low", similarity=0.30, vote_average=9.0, popularity=500.0)
-    high_sim = make_candidate(movie_id="high", similarity=0.95, vote_average=5.0, popularity=10.0)
+    low_sim = make_candidate(
+        movie_id="low", similarity=0.30, vote_average=9.0, popularity=500.0
+    )
+    high_sim = make_candidate(
+        movie_id="high", similarity=0.95, vote_average=5.0, popularity=10.0
+    )
     request = RankRequest(candidates=[low_sim, high_sim])
     response = rank(request)
     assert response.ranked[0].movie_id == "high"
@@ -258,7 +273,9 @@ def test_post_rank_default_user_features():
         "runtime": 100,
         "similarity": 0.8,
     }
-    resp = client.post("/rank", json={"candidates": [candidate], "model": "feature-linear-v1"})
+    resp = client.post(
+        "/rank", json={"candidates": [candidate], "model": "feature-linear-v1"}
+    )
     assert resp.status_code == 200
     assert len(resp.json()["ranked"]) == 1
 
@@ -299,3 +316,58 @@ def test_post_rank_lambdamart_model():
     assert body["ranked"][1]["rank"] == 2
     # Higher quality/popularity movie should rank first
     assert body["ranked"][0]["movie_id"] == "aaaaaaaa-0000-0000-0000-000000000001"
+
+
+def test_lambdamart_explains_each_pick_with_title_level_factors():
+    """Each ranked title carries its positive SHAP contributions, largest first."""
+    candidates = [
+        {
+            "movie_id": f"bbbbbbbb-0000-0000-0000-00000000000{i}",
+            "title": f"Title {i}",
+            "genres": ["Drama"],
+            "release_year": 2000 + i * 4,
+            "vote_average": 5.0 + i,
+            "popularity": 10.0 * (i + 1),
+            "runtime": 100,
+            "similarity": 0.3 + i * 0.1,
+        }
+        for i in range(5)
+    ]
+    resp = client.post(
+        "/rank", json={"candidates": candidates, "model": "lambdamart-v1", "top_n": 5}
+    )
+    assert resp.status_code == 200
+    ranked = resp.json()["ranked"]
+
+    item_features = {
+        "similarity",
+        "vote_average",
+        "log_popularity",
+        "decade",
+        "is_recent",
+    }
+    assert any(r["factors"] for r in ranked)
+    for r in ranked:
+        contributions = [f["contribution"] for f in r["factors"]]
+        assert len(contributions) <= 3
+        assert contributions == sorted(contributions, reverse=True)
+        assert all(c > 0 for c in contributions)
+        assert {f["feature"] for f in r["factors"]} <= item_features
+
+
+def test_linear_ranker_returns_no_factors():
+    """Explanations come from the learned model only."""
+    candidate = {
+        "movie_id": "cccccccc-0000-0000-0000-000000000001",
+        "title": "Inception",
+        "genres": ["Action"],
+        "release_year": 2010,
+        "vote_average": 8.8,
+        "popularity": 850.0,
+        "runtime": 148,
+        "similarity": 0.9,
+    }
+    resp = client.post(
+        "/rank", json={"candidates": [candidate], "model": "feature-linear-v1"}
+    )
+    assert resp.json()["ranked"][0]["factors"] == []

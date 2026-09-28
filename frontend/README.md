@@ -20,11 +20,12 @@ npm run build
 npm start
 ```
 
-Lint and type-check:
+Lint, type-check, and test:
 
 ```bash
 npm run lint
 npx tsc --noEmit
+npm test          # Vitest + Testing Library render tests
 ```
 
 ## Environment variables

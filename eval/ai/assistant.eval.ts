@@ -12,8 +12,8 @@
  * Usage: node assistant.eval.ts [category ...]   (no category runs every case)
  * Needs a running backend (EVAL_API_URL, default http://localhost:8080) that
  * shares this repo's JWT_SECRET, plus SUPABASE_URL and SUPABASE_SECRET_KEY to
- * create the eval user. Raise ASSISTANT_USER_DAILY_RUNS on that backend so the
- * eval user is not rate limited.
+ * create the eval user. Raise ASSISTANT_USER_DAILY_RUNS and
+ * ASSISTANT_IP_DAILY_RUNS on that backend so the eval user is not rate limited.
  */
 
 import { streamAssistant, type AssistantPick, type RunStatus } from "../../frontend/src/lib/assistant-stream.ts";
@@ -21,8 +21,10 @@ import { mintToken, requireEnv, supabaseUrl, writeReport } from "./env.ts";
 import { mean, percentile, round } from "./metrics.ts";
 
 const API = (process.env.EVAL_API_URL ?? "http://localhost:8080").replace(/\/$/, "");
-// POST /assistant allows 6 requests a minute per user; space runs to stay under it.
-const MIN_SPACING_MS = 10_500;
+// POST /assistant allows 6 requests a minute per user, so runs start at least
+// 10.5 s apart. Providers with tighter per-minute limits (Gemini's free tier
+// allows 15 requests, and a run makes 2 to 3) need EVAL_SPACING_MS raised.
+const MIN_SPACING_MS = Math.max(10_500, Number(process.env.EVAL_SPACING_MS ?? 0));
 const EVAL_EMAIL = process.env.EVAL_USER_EMAIL ?? "eval@cinematch.harshilc.com";
 const LIKED_TITLES = ["Arrival", "Interstellar", "The Martian"];
 

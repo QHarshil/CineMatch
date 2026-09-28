@@ -26,6 +26,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{ReplaceAttr: cloudLoggingAttr})))
+
 	// Cloud Run injects env vars directly, so a missing .env is expected there.
 	if err := godotenv.Load(); err != nil {
 		slog.Info("no .env file found, reading environment variables directly")
@@ -197,4 +199,20 @@ func envInt(name string, def int) int {
 func ipHashKey(secret string) []byte {
 	sum := sha256.Sum256([]byte("assistant-ip-quota:" + secret))
 	return sum[:]
+}
+
+// cloudLoggingAttr renames slog's level and msg keys to the severity and
+// message fields Cloud Logging reads, so each line is indexed as a
+// structured entry with the right severity.
+func cloudLoggingAttr(groups []string, a slog.Attr) slog.Attr {
+	if len(groups) > 0 {
+		return a
+	}
+	switch a.Key {
+	case slog.LevelKey:
+		a.Key = "severity"
+	case slog.MessageKey:
+		a.Key = "message"
+	}
+	return a
 }

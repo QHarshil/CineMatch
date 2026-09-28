@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchRecommendations } from "@/lib/api";
 import { ScrollRow } from "@/components/scroll-row";
@@ -48,7 +48,6 @@ export default function ForYouPage() {
   const [becauseYouLiked, setBecauseYouLiked] = useState<BecauseYouLikedSection[]>([]);
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoProfile, setDemoProfile] = useState<string | null>(null);
   const [backdropMovies, setBackdropMovies] = useState<Movie[]>([]);
@@ -150,17 +149,17 @@ export default function ForYouPage() {
       setError(String(err));
     } finally {
       setLoading(false);
-      setFetched(true);
     }
   }, [session, fetchPopularMovies, fetchBecauseYouLiked]);
 
-  // Auto-fetch for authenticated users
-  if (session && !fetched && !loading && !fetchedRef.current) {
-    fetchAuthRecs();
-  }
+  useEffect(() => {
+    if (session) fetchAuthRecs();
+  }, [session, fetchAuthRecs]);
 
-  // Fetch backdrop movies for unauthenticated state
-  if (!session && !authLoading && backdropMovies.length === 0) {
+  // Poster wall behind the signed-out pitch.
+  useEffect(() => {
+    if (session || authLoading) return;
+    let cancelled = false;
     supabase.current
       .from("movies")
       .select("id,poster_path")
@@ -168,14 +167,16 @@ export default function ForYouPage() {
       .order("popularity", { ascending: false })
       .limit(12)
       .then(({ data }) => {
-        if (data) setBackdropMovies(data as Movie[]);
+        if (!cancelled && data) setBackdropMovies(data as Movie[]);
       });
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [session, authLoading]);
 
   async function handleDemoProfile(profile: typeof DEMO_PROFILES[number]) {
     setDemoProfile(profile.id);
     setLoading(true);
-    setFetched(false);
     setBecauseYouLiked([]);
     try {
       const [demoResult, popularResult] = await Promise.all([
@@ -189,7 +190,6 @@ export default function ForYouPage() {
       setError("Failed to load demo recommendations");
     } finally {
       setLoading(false);
-      setFetched(true);
     }
   }
 

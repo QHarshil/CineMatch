@@ -10,7 +10,7 @@ go run .
 # Listening on :8080
 ```
 
-Required env vars (set in `../.env` or export directly):
+Environment variables, read from the repo-root `.env` or the shell:
 
 | Variable | Required | Default |
 |----------|----------|---------|
@@ -233,7 +233,7 @@ Up to 12 turns (`user` or `assistant`), the last one from the user; each user tu
 | `error` | `{ "code", "message" }` |
 | `done` | `{ "run_id", "status", "model", "usage": { "input_tokens", "output_tokens" }, "latency_ms", "remaining_today" }` |
 
-`status` is `picks`, `answered`, `fallback` (search results served without the model's final answer), or `error`. Returns 429 with `{ "error", "resets_at" }` once the user's daily limit is reached, and 503 when usage cannot be checked (the quota fails closed).
+`status` is `picks`, `answered`, `fallback` (search results served without the model's final answer), or `error`. Returns 429 with `{ "error", "resets_at" }` once the user or network daily limit is reached, and 503 when the run cannot be reserved (the quota fails closed).
 
 **GET /assistant/usage**
 
@@ -245,9 +245,9 @@ Up to 12 turns (`user` or `assistant`), the last one from the user; each user tu
 
 ## Architecture decisions
 
-**Why Chi.** Chi's middleware composes as `func(http.Handler) http.Handler`, which is the stdlib pattern. No framework lock-in, no magic. Route groups (`r.Group`) make it clean to apply auth middleware to authenticated routes without touching public ones.
+**Why Chi.** Chi middleware is a plain `func(http.Handler) http.Handler`, and route groups (`r.Group`) apply auth to some routes without touching the public ones.
 
-**Middleware stack.** The 9-layer stack runs in this order, and the order matters:
+**Middleware stack.** Global middleware runs in this order:
 
 1. `RequestID` - assigns a unique ID for log correlation
 2. `ClientIP` - takes the client IP from the last `TRUSTED_PROXY_HOPS` entry of `X-Forwarded-For`, the one Cloud Run appends. chi's `RealIP` trusted the first entry, which clients can forge to pick their own rate-limit key
@@ -259,7 +259,7 @@ Up to 12 turns (`user` or `assistant`), the last one from the user; each user tu
 8. `RequireJSONContentType` - rejects POST/PUT/PATCH without `application/json` (415)
 9. `MaxBodySize` - rejects request bodies over 10KB (413)
 
-RequestID and RealIP come first because the logger and rate limiter need accurate data.
+RequestID and ClientIP come first so the logger and rate limiter see the request ID and the real client IP.
 
 **Two-stage pipeline wiring.** The recommend handler checks `GetUserEmbedding` first. No embedding means cold start, so it returns popular movies immediately and skips the whole pipeline. If an embedding exists, it calls `MatchMovies` (pgvector RPC, 50 candidates), then POSTs those to the Python ranker. If the ranker is down, candidates come back in similarity order. The frontend doesn't need to know about the failure.
 
@@ -274,12 +274,15 @@ The agent also guards against common small-model failures:
 - It accepts quoted numbers.
 - When a filter hides a title the person named, it returns that title separately as a seed.
 - If the model answers in prose after using tools, it asks once for `present_picks`, then falls back to the grounded titles.
+- A long text reply before any tool ran is likely titles from the model's memory. It asks once for a search, then serves search results.
+
+Each run is capped at 5 model calls, 8 tool calls (4 per model call), and 24,000 tokens.
 
 If the model is unconfigured, rate limited, down, or over the daily budget, the endpoint still answers with hybrid search results and says so.
 
-**Output guard.** In the eval, a "developer mode" prompt got qwen3:8b to repeat part of its system prompt, so wording the instructions more firmly was not enough. Before any reply or picks message is sent, it is checked for tool names, section headings, and any eight-word run copied from the instructions. A match is replaced with a plain decline and recorded as `output_blocked` in the audit log.
+**Output guard.** In the eval, a "developer mode" prompt got qwen3:8b to repeat part of its system prompt, so wording the instructions more firmly was not enough. Before a reply, picks message, pick reason, or streamed tool argument is sent, it is checked for tool names, an instruction-only sentence, and any eight-word run copied from the instructions. A match is replaced with a plain decline or a generated reason and recorded as `output_blocked` in the audit log.
 
-**Assistant audit and quotas.** Each run writes an `assistant_runs` row with the model, prompt version, tool calls, pick IDs, grounding drops, whether the output guard fired, token counts, and latency. The prompt is stored only as a SHA-256 hash and a length. Tool arguments are stored with emails and phone numbers masked. The same table backs the per-user daily limit and the global run and token caps, checked in one RPC before any model call. Guest sessions (Supabase anonymous sign-in, flagged by the token's `is_anonymous` claim) get a smaller limit. A per-network limit counts runs by a keyed HMAC of the client IP, so creating guest after guest cannot spend the shared budget; raw IPs are never stored. Guests idle for 30 days are deleted by `delete_stale_guests()` in the monthly workflow. Rows are readable by their owner under RLS and writable only by the service role.
+**Assistant audit and quotas.** Each run is an `assistant_runs` row with the model, prompt version, tool calls, pick IDs, grounding drops, whether the output guard fired, token counts, and latency. The prompt is stored only as a SHA-256 hash and a length. Tool arguments are stored with emails and phone numbers masked. The `reserve_assistant_run()` RPC checks the daily limits and inserts the row under per-network and per-user advisory locks before any model call, so parallel requests cannot pass a limit together; the handler fills in the outcome when the run ends. The same rows back the global run and token caps. Guest sessions (Supabase anonymous sign-in, flagged by the token's `is_anonymous` claim) get a smaller limit. A per-network limit counts runs by a keyed HMAC of the client IP (IPv6 by /64), so creating guest after guest cannot spend the shared budget; raw IPs are never stored. Guests with no session activity for 30 days are deleted by `delete_stale_guests()` in the monthly workflow. Rows are readable by their owner under RLS and writable only by the service role.
 
 **Interaction caps.** Each user can record at most 500 interactions total. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
 

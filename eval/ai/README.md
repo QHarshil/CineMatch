@@ -14,8 +14,10 @@ npm run eval:assistant injection   # one category
 npm run typecheck && npm test      # what CI runs
 ```
 
-Reports are written to `results/` (gitignored) and the summary is printed as a
-table.
+Keys come from the repo-root `.env`. The agent eval targets `EVAL_API_URL`
+(default `http://localhost:8080`); `EVAL_SPACING_MS` raises the gap between
+requests. Reports are written to `results/` (gitignored) and the summary is
+printed as a table.
 
 ## Retrieval (`search.eval.ts`)
 

@@ -4,7 +4,7 @@ Offline evaluation for comparing ranker models. Generates synthetic user data, t
 
 The retrieval and agent evals for the AI layer live in [`eval/ai`](ai/README.md) (TypeScript).
 
-I built this because I needed a way to measure whether changes to the ranking model actually improve recommendations before deploying them. Online A/B testing requires real traffic, so this synthetic pipeline gives a reasonable signal during development.
+There is no real traffic to A/B test against, so synthetic users give a signal on whether a ranker change helps before it ships.
 
 ## Running the full pipeline
 
@@ -28,26 +28,25 @@ python benchmark_latency.py
 Run tests:
 
 ```bash
-python -m pytest tests/ -v             # 20 tests
+python -m pytest tests/ -v             # 23 tests
 ```
 
 Output files:
-- `data/synthetic_interactions.parquet` -- 8,871 interactions across 200 users
-- `data/train.parquet`, `data/test.parquet` -- feature-engineered training data
-- `models/lambdamart-v1.txt` -- trained LightGBM model
-- `results/eval_report.json` -- metric comparison
+- `data/movies.parquet`: the catalog snapshot the users are generated against
+- `data/synthetic_interactions.parquet`: 8,871 interactions across 200 users
+- `data/train.parquet`, `data/test.parquet`: feature-engineered training data
+- `models/lambdamart-v1.txt`: trained LightGBM model
+- `results/eval_report.json`: metric comparison
 
 ## Metrics
 
-Three metrics, each measuring something different:
-
-**NDCG@10** (Normalized Discounted Cumulative Gain) -- the primary metric. Measures ranking quality by checking whether relevant movies appear near the top. A movie at position 1 contributes more than one at position 10 because of the logarithmic discount. NDCG of 1.0 means perfect ranking; 0.0 means nothing relevant in the top 10.
+**NDCG@10** (Normalized Discounted Cumulative Gain) is the primary metric. Measures ranking quality by checking whether relevant movies appear near the top. A movie at position 1 contributes more than one at position 10 because of the logarithmic discount. NDCG of 1.0 means perfect ranking; 0.0 means nothing relevant in the top 10.
 
 Formula: `DCG = sum(gain_i / log2(i + 2))`, normalized by the ideal DCG (if you sorted by relevance first).
 
-**MRR** (Mean Reciprocal Rank) -- how quickly the first relevant result appears. If the first "like" or "watch" movie is at position 3, the reciprocal rank is 1/3. Averaged across all users. High MRR means users don't have to scroll far to find something good.
+**MRR** (Mean Reciprocal Rank) measures how quickly the first relevant result appears. If the first "like" or "watch" movie is at position 3, the reciprocal rank is 1/3. Averaged across all users. High MRR means users don't have to scroll far to find something good.
 
-**Hit Rate@10** -- the simplest metric. What fraction of users see at least one relevant movie in their top 10? A sanity check: if this is low, the pipeline is fundamentally broken.
+**Hit Rate@10** is the fraction of users who see at least one relevant movie in their top 10. It is a sanity check: if it is low, the pipeline is broken.
 
 Relevance is defined as interactions of type "like" or "watch" (relevance label >= 2).
 
@@ -60,11 +59,11 @@ Most recent eval (held-out: 40 users, 1,695 interactions), produced by `eval_ran
 | Popularity baseline | 0.716 | 0.875 | 1.00 |
 | Vector retrieval only | 0.798 | 0.938 | 1.00 |
 | Two-stage (feature-linear-v1) | 0.795 | 0.950 | 1.00 |
-| Two-stage (lambdamart-v1) | 0.814 | 1.000 | 1.00 |
+| Two-stage (lambdamart-v1) | 0.814 | 0.988 | 1.00 |
 
-LambdaMART leads on NDCG@10: +14% over the popularity baseline, and ahead of both retrieval-only and the linear re-ranker. The synthetic users have non-linear preferences (a favourite release era, a vote-average sweet spot, and recency that only applies inside loved genres) that a fixed-weight linear formula structurally cannot represent.
+LambdaMART leads on NDCG@10 and MRR: +14% NDCG over the popularity baseline, and ahead of both retrieval-only and the linear re-ranker. The synthetic users have non-linear preferences (a favourite release era, a vote-average sweet spot, and recency that only applies inside loved genres) that a fixed-weight linear formula cannot represent.
 
-Note the linear re-ranker (0.795) does not beat retrieval-only (0.798): its monotonic quality weight misranks users whose taste peaks at mid-range ratings. That is exactly the non-monotonic relationship the learned model captures, and it is the argument for a learned ranker over hand-tuned weights.
+Note the linear re-ranker (0.795) does not beat retrieval-only (0.798): its monotonic quality weight misranks users whose taste peaks at mid-range ratings. The learned model captures that non-monotonic relationship, which hand-tuned weights cannot.
 
 Re-ranking latency (50 candidates to top 20, `benchmark_latency.py`): p50 0.8 ms, p95 0.9 ms, p99 1.0 ms.
 
@@ -83,7 +82,7 @@ Re-ranking latency (50 candidates to top 20, `benchmark_latency.py`): p50 0.8 ms
 | thriller_junkie | 10% | Thriller, Crime, Mystery |
 | generalist | 14% | No strong preference |
 
-Each user generates 20-80 interactions against the real 494-movie catalog. Which movies a user engages with, and whether they like / watch / skip / dislike, is driven by a "true utility" that combines a linear genre signal with three deliberately non-linear effects: a favourite release decade (a peaked bump), a vote-average sweet spot rather than "higher is always better," and a recency bias that only applies inside loved genres. The genre signal alone is stored as the retrieval similarity, so a ranker limited to it leaves the non-linear structure on the table. Gaussian noise keeps outcomes non-deterministic.
+Each user generates 20 to 80 interactions against a 494-title snapshot of the real catalog. Which movies a user engages with, and whether they like / watch / skip / dislike, is driven by a "true utility" that combines a linear genre signal with three deliberately non-linear effects: a favourite release decade (a peaked bump), a vote-average sweet spot (higher is not always better) and a recency bias that only applies inside loved genres. The genre signal alone is stored as the retrieval similarity, so a ranker limited to it leaves the non-linear structure on the table. Gaussian noise keeps outcomes non-deterministic.
 
 ## Feature engineering
 

@@ -24,6 +24,7 @@ Lint, type-check, and test:
 
 ```bash
 npm run lint
+npm run format:check
 npx tsc --noEmit
 npm test          # Vitest + Testing Library render tests
 ```
@@ -64,62 +65,30 @@ token, OpenAI key, and OMDb key all stay in the Go backend.
 Movie cards and the detail page show a Film/TV badge from each title's
 `media_type`.
 
-## Design system: Atlas
+## Design
 
-Editorial, light, and futuristic, after the Hermes Agent site: a white canvas
-with pale-blue washed sections, hairline-grid framing, and serif display and
-body with monospace for the terminal. Tokens are defined CSS-first in
-`src/app/globals.css` (Tailwind v4 `@theme`); the bundled `cinematch-design`
-skill is the full reference.
-
-**Color (light):**
-- Background `#ffffff`, section washes `#e9f0ff`
-- Ink text `#1b2440`, muted `#5b6a8f`
-- Primary (cornflower) `#2f54ff`; amber `#f5a623` as a sparing spark
-- Gold `#c8860b` reserved for star ratings only
-- Hairline borders `#d2ddf2`, radius `0.25rem`
-
-**Type (`next/font/google`):**
-- Display and headings: Fraunces (serif), frequently uppercase
-- Body: Newsreader (serif)
-- Terminal, labels, numbers: JetBrains Mono
-- App default sans: Inter
-
-**Signature pieces:**
-- `useTypewriter` + `TypingText` + `CodeTyper` drive the code/terminal typing
-  motif. Both are reduced-motion aware and mirror full text to an `sr-only`
-  node, so the animation never costs accessibility or SSR content.
-- `.duotone` blue-tinted film stills, `.halftone` print grain, `.eyebrow`
-  letter-spaced labels.
-- `ScrollRow`, `MovieCard`, `SearchBar` (live TMDB-thumbnail dropdown),
-  `InteractionButtons`, `Toast`, plus shadcn/ui (Base UI) primitives.
-
-**Conventions:**
-- Near-sharp corners, flat hairline borders, no glow.
-- Lucide icons only, no emoji; no em dashes in copy.
-- 200ms ease transitions; skeleton-shimmer loading states.
-- WCAG AA contrast; `prefers-reduced-motion` honored.
+A light editorial look: white canvas, pale-blue washed sections, hairline-grid
+framing, Fraunces and Newsreader serifs, and JetBrains Mono for data and
+terminals. Tokens live in `src/app/globals.css` (Tailwind v4 `@theme`), on top
+of shadcn/ui (Base UI) primitives and Lucide icons.
 
 ## Motion
 
-Motion is layered on Atlas, not a separate look. Everything lives in
-`src/components/motion/` and runs only under
+All motion lives in `src/components/motion/` and runs only under
 `(prefers-reduced-motion: no-preference)`. Markup renders complete first, so
 content reads the same with JavaScript off.
 
-- **Lenis** (`smooth-scroll.tsx`) smooths page scroll and is driven by GSAP's
-  ticker, so ScrollTrigger reads the same position Lenis renders. Nested scroll
-  areas opt out with `data-lenis-prevent`.
-- **GSAP**: `Reveal` (scroll-in fade), `SplitHeading` (masked line reveal with
-  SplitText), `CountUp` (measured numbers), `ScrambleCycle` (the hero prompt's
-  example text via ScrambleTextPlugin), and the pinned assistant story on the
+- **Lenis** (`smooth-scroll.tsx`) smooths page scroll on GSAP's ticker, so
+  ScrollTrigger reads the position Lenis renders. Nested scroll areas opt out
+  with `data-lenis-prevent`.
+- **GSAP**: `Reveal`, `SplitHeading` (SplitText line reveal), `CountUp`,
+  `ScrambleCycle` (ScrambleTextPlugin), and the pinned assistant story on the
   landing page.
 - **React Bits**: `SplitHeading` and `SpotlightCard` are adapted from React
-  Bits SplitText and SpotlightCard. The spotlight writes pointer position to
-  CSS variables, so moving the mouse never re-renders.
-- **Vanta** (`vanta-net.tsx`): the NET effect behind the hero is a picture of
-  the embedding space search runs in. Vanta and three.js r134 load on demand,
-  render only while visible, and stay off below 768px.
+  Bits. The spotlight writes pointer position to CSS variables, so the mouse
+  never triggers a re-render.
+- **Vanta** (`vanta-net.tsx`): the hero's NET effect. Vanta and three.js r134
+  load on demand, render only while visible, and stay off below 768px.
 
 ## Assistant client
 

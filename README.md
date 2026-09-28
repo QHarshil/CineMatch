@@ -23,20 +23,20 @@ A film and TV recommender with a grounded AI assistant. Describe a mood or name 
 ```mermaid
 flowchart LR
     user([Browser]) --> web["Next.js 16<br/>Vercel"]
-    web -- "REST + SSE" --> api["Go API<br/>Cloud Run"]
+    web -- "REST + SSE" --> api_box
     web -- "auth, public reads" --> sb
 
-    subgraph api_box [Go API]
-        api --> discover["/discover<br/>hybrid search"]
-        api --> assistant["/assistant<br/>agent loop"]
-        api --> recommend["/recommend<br/>two-stage pipeline"]
+    subgraph api_box [Go API on Cloud Run]
+        discover["/discover<br/>hybrid search"]
+        assistant["/assistant<br/>agent loop"]
+        recommend["/recommend<br/>two-stage pipeline"]
     end
 
     discover --> embed["OpenAI embeddings<br/>LRU + daily cap"]
     assistant -- "tool calls" --> llm["LLM provider<br/>Gemini / Ollama"]
     assistant --> discover
     assistant --> recommend
-    recommend --> ranker["Python ranker<br/>LambdaMART + SHAP"]
+    recommend --> ranker["Python ranker on Cloud Run<br/>LambdaMART + SHAP"]
 
     discover --> sb[("Supabase Postgres<br/>pgvector HNSW, full text,<br/>RLS on every table")]
     recommend --> sb
@@ -55,11 +55,11 @@ When something fails, the site degrades:
 - **Grounding by ref:** every retrieved title gets a short ref such as `t3`, and `present_picks` accepts only refs a tool returned. Anything else is rejected on the server and counted in the audit log.
 - **Output guard:** a reply that repeats the system instructions is replaced before it is sent. The eval found this failure.
 - **Budgets that fail closed:**
-  - Daily limits per user, per guest, and per network (a hashed IP).
-  - A global token cap.
+  - Daily limits per user, per guest, and per network (a hashed IP). A run is counted under a lock before it starts, so parallel requests cannot pass the limit together.
+  - A global token cap, plus per-run caps on model calls, tool calls, and tokens.
   - If usage cannot be read, no model call is made.
 - **Provider-agnostic:** one OpenAI-compatible client. Ollama runs locally; production uses Gemini's free tier.
-- **Privacy:** emails and prompts are stored only as SHA-256 hashes, and IPs only as HMACs.
+- **Privacy:** app tables store emails and prompts only as SHA-256 hashes, and IPs only as HMACs.
 
 ## Evaluation
 
@@ -83,7 +83,7 @@ The description queries are paraphrases scored by TMDB genre; a random ranking g
 | Ranker (`eval/eval_rankers.py`) | NDCG@10 | MRR |
 |---|---|---|
 | Popularity baseline | 0.716 | 0.875 |
-| **Two-stage, LambdaMART** | **0.814** | **1.000** |
+| **Two-stage, LambdaMART** | **0.814** | **0.988** |
 
 LambdaMART is 14% ahead of popularity on held-out synthetic users, with a 0.9 ms p95 re-rank. Methods are in [eval/README.md](eval/README.md) and [eval/ai/README.md](eval/ai/README.md).
 
@@ -91,16 +91,20 @@ LambdaMART is 14% ahead of popularity on held-out synthetic users, with a 0.9 ms
 
 ## Run it locally
 
-You need Go 1.22+, Node 24+, Python 3.12+, a Supabase project, and a TMDB token. An OpenAI key enables embedding search. For the assistant, install [Ollama](https://ollama.com) and run `ollama pull qwen3:8b`.
+You need Go 1.25+, Node 24+, Python 3.12+, a Supabase project, a TMDB read token, and an OpenAI key for embeddings. For the assistant, install [Ollama](https://ollama.com) and run `ollama pull qwen3:8b`.
+
+1. Apply `migrations/` to Supabase in order.
+2. `cp .env.example .env` and fill in the keys. `JWT_SECRET` is the project's legacy JWT secret (Supabase settings, JWT Keys); the API verifies tokens with the project's JWKS and uses the secret for older HS256 tokens and as the IP hash key. `LLM_*` already point at Ollama.
+3. Seed the catalog: `cd scripts && go run seed_movies.go --media both --count 600`.
+4. Start each service in its own terminal:
 
 ```bash
-cp .env.example .env                      # fill in keys; LLM_* already point at Ollama
-cd backend && go run .                    # API on :8080
-cd ranker && pip install -r requirements.txt && uvicorn main:app --port 8000
-cd frontend && npm install && npm run dev # app on :3000
+cd backend && go run .                                                        # API on :8080
+cd ranker && pip install -r requirements.txt && uvicorn main:app --port 8000  # ranker on :8000
+cd frontend && cp .env.local.example .env.local && npm install && npm run dev # app on :3000
 ```
 
-Apply `migrations/` to Supabase first. [backend/README.md](backend/README.md) describes every setting, and [DEPLOY.md](DEPLOY.md) covers Cloud Run, Vercel, and choosing a free model provider.
+[backend/README.md](backend/README.md) describes every setting, and [DEPLOY.md](DEPLOY.md) covers Cloud Run, Vercel, and choosing a free model provider.
 
 ## Repo
 
@@ -114,4 +118,4 @@ Apply `migrations/` to Supabase first. [backend/README.md](backend/README.md) de
 | `migrations/` | Supabase SQL |
 | `deploy/` | Cloud Run deploy scripts and a billing kill switch |
 
-CI runs Go vet and race tests, pytest, Vitest, tsc, lint, and a production build on every push.
+CI runs on pushes to main and on pull requests: gofmt, Go vet and race tests, black and pytest, Prettier, ESLint, tsc, Vitest, and a production build.

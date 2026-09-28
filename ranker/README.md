@@ -1,6 +1,6 @@
 # CineMatch Ranker
 
-Stage-2 re-ranking microservice. Takes the 50 candidates that pgvector retrieval produces and re-scores them using movie features and user preferences. The Go backend calls this internally; it's not exposed to browsers.
+Stage-2 re-ranking service. It takes the 50 candidates from pgvector retrieval and re-scores them with movie features and user preferences. Only the Go backend calls it. The Cloud Run URL is public, but the service holds no data and only scores the candidates it is sent.
 
 ## Running locally
 
@@ -107,9 +107,9 @@ score = 0.50 * similarity
 
 I chose these weights by intuition and manual testing. Similarity gets the most weight because if the vector search thinks a movie matches, it probably does. Quality and popularity prevent obscure low-rated movies from ranking high just because their embedding happens to be close.
 
-**Vote-floor penalty:** If a movie's rating falls below the user's `min_vote_preference`, the score is halved. This is a soft penalty, not a hard cutoff, because a movie that's great in every other dimension shouldn't be completely buried by a mediocre rating.
+**Vote-floor penalty:** If a movie's rating falls below the user's `min_vote_preference`, the score is halved. A title strong on every other signal can still rank.
 
-**Genre overlap with no preferences:** Returns 0.5 (neutral) when the user hasn't expressed genre preferences yet. This avoids penalizing cold-start users.
+**Genre overlap with no preferences:** Returns 0.5 (neutral) so cold-start users are not penalized.
 
 ### lambdamart-v1
 
@@ -128,18 +128,6 @@ The production re-ranker: a LightGBM model trained with the `lambdarank` objecti
 The feature vector in `lambdamart_ranker.py` must exactly match `FEATURE_COLUMNS` in `eval/build_training_data.py`. If you add or reorder features in training, update the ranker too. On synthetic eval this model leads on NDCG@10 (0.814, +14% over a popularity baseline).
 
 Training details: 200 boost rounds, 31 leaves, learning rate 0.05, lambdarank truncation at 10. See `eval/train_lambdamart.py` for the full config.
-
-## Upgrade path
-
-The current setup makes it straightforward to swap or A/B test models:
-
-1. Train a new model in `eval/` (change features, hyperparameters, or training data).
-2. Export it to `eval/models/your-model-v2.txt`.
-3. Add a new scoring function in `ranker/` that loads and applies it.
-4. Add the model name to the routing logic in `main.py`.
-5. Update the Go backend to request the new model name in the `model` field.
-
-The `model` field in the request body means the Go backend controls which model scores each request. This makes it possible to run A/B experiments by routing a percentage of traffic to the new model and comparing conversion metrics.
 
 ## Docker
 

@@ -155,9 +155,23 @@ The response includes a `source` field so the frontend knows what it got:
 {
   "movies": [ ... ],
   "source": "personalized",
-  "model_version": "lambdamart-v1"
+  "model_version": "lambdamart-v1",
+  "explanations": {
+    "550e8400-e29b-41d4-a716-446655440000": {
+      "similarity": 0.71,
+      "because_you_liked": { "id": "...", "title": "Arrival", "similarity": 0.83 },
+      "factors": [{ "feature": "similarity", "contribution": 0.2135 }]
+    }
+  }
 }
 ```
+
+Titles the user already liked, watched, disliked, or skipped are excluded; the pipeline over-fetches from pgvector to keep 50 candidates. Each pick carries an explanation:
+- `similarity` is the cosine similarity to the taste vector.
+- `because_you_liked` is the liked title closest to the pick, from the `nearest_liked_titles` RPC.
+- `factors` are the ranker's SHAP contributions.
+
+Popular feeds have no explanations.
 
 **POST /interactions**
 

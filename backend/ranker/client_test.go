@@ -75,7 +75,7 @@ func TestClientRank(t *testing.T) {
 
 			resp := map[string]any{
 				"ranked": []map[string]any{
-					{"movie_id": "aaaaaaaa-0000-0000-0000-000000000001", "score": 0.91, "rank": 1},
+					{"movie_id": "aaaaaaaa-0000-0000-0000-000000000001", "score": 0.91, "rank": 1, "factors": []map[string]any{{"feature": "similarity", "contribution": 0.21}}},
 					{"movie_id": "aaaaaaaa-0000-0000-0000-000000000002", "score": 0.87, "rank": 2},
 				},
 				"model_version": "feature-linear-v1",
@@ -99,6 +99,9 @@ func TestClientRank(t *testing.T) {
 		}
 		if result.Ranked[0].MovieID != "aaaaaaaa-0000-0000-0000-000000000001" {
 			t.Errorf("first ranked = %q, want aaaaaaaa-...-1", result.Ranked[0].MovieID)
+		}
+		if f := result.Ranked[0].Factors; len(f) != 1 || f[0].Feature != "similarity" || f[0].Contribution != 0.21 {
+			t.Errorf("factors = %+v", f)
 		}
 	})
 

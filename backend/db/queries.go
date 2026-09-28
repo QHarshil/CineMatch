@@ -360,3 +360,43 @@ func parseVectorString(s string) ([]float32, error) {
 	}
 	return vec, nil
 }
+
+// InteractedMovieIDs returns every title the user has interacted with in any
+// way, so recommendations do not repeat titles they already rated.
+func (c *SupabaseClient) InteractedMovieIDs(ctx context.Context, userID string) (map[string]bool, error) {
+	params := url.Values{}
+	params.Set("select", "movie_id")
+	params.Set("user_id", "eq."+userID)
+	params.Set("limit", "1000")
+
+	var rows []struct {
+		MovieID string `json:"movie_id"`
+	}
+	if err := c.doGet(ctx, "interactions", params, &rows); err != nil {
+		return nil, fmt.Errorf("fetching interacted titles for user %s: %w", userID, err)
+	}
+	seen := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		seen[row.MovieID] = true
+	}
+	return seen, nil
+}
+
+// LikedMatch pairs a recommended title with the closest title the user liked.
+type LikedMatch struct {
+	MovieID    string  `json:"movie_id"`
+	LikedID    string  `json:"liked_id"`
+	LikedTitle string  `json:"liked_title"`
+	Similarity float64 `json:"similarity"`
+}
+
+// NearestLikedTitles finds, for each movie ID, the liked title closest in
+// embedding space, via the nearest_liked_titles RPC.
+func (c *SupabaseClient) NearestLikedTitles(ctx context.Context, userID string, movieIDs []string) ([]LikedMatch, error) {
+	payload := map[string]any{"p_user_id": userID, "p_movie_ids": movieIDs}
+	var matches []LikedMatch
+	if err := c.CallRPC(ctx, "nearest_liked_titles", payload, &matches); err != nil {
+		return nil, fmt.Errorf("nearest_liked_titles rpc: %w", err)
+	}
+	return matches, nil
+}

@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	retrievalCandidateCount = 50 // Stage-1: number of candidates fetched from pgvector
-	recommendedMovieCount   = 20 // final count returned after ranking
+	retrievalCandidateCount = 50  // Stage-1: candidates passed to the ranker
+	maxRetrievalCount       = 150 // upper bound when over-fetching to replace seen titles
+	recommendedMovieCount   = 20  // final count returned after ranking
 )
 
 // MovieRanker re-scores Stage-1 candidates via the Python ranker service.
@@ -27,6 +28,25 @@ type Recommendation struct {
 	Movies       []db.Movie `json:"movies"`
 	Source       string     `json:"source"` // "personalized" | "popular" | "similarity_fallback"
 	ModelVersion string     `json:"model_version,omitempty"`
+	// Explanations are keyed by movie ID; absent for popular feeds.
+	Explanations map[string]Explanation `json:"explanations,omitempty"`
+}
+
+// Explanation says why a title was recommended.
+type Explanation struct {
+	// Similarity is the cosine similarity between the title and the taste vector.
+	Similarity float64 `json:"similarity"`
+	// BecauseYouLiked is the liked title closest to this one.
+	BecauseYouLiked *LikedTitle `json:"because_you_liked,omitempty"`
+	// Factors are the ranker features that raised the score, largest first.
+	Factors []ranker.Factor `json:"factors,omitempty"`
+}
+
+// LikedTitle is a title the user liked, with its similarity to the pick.
+type LikedTitle struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Similarity float64 `json:"similarity"`
 }
 
 // pipelineError carries a message that is safe to return to clients.
@@ -80,10 +100,18 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 		return popularMoviesResponse(movies), nil
 	}
 
-	candidates, err := p.querier.MatchMovies(ctx, embedding, retrievalCandidateCount)
+	// Titles the user already rated sit close to their taste vector and would
+	// crowd the top of the feed, so fetch extra and drop them.
+	seen, err := p.querier.InteractedMovieIDs(ctx, userID)
+	if err != nil {
+		slog.Warn("failed to load interacted titles, not excluding them", "error", err)
+	}
+	fetch := min(retrievalCandidateCount+len(seen), maxRetrievalCount)
+	candidates, err := p.querier.MatchMovies(ctx, embedding, fetch)
 	if err != nil {
 		return Recommendation{}, pipelineError("failed to retrieve candidates")
 	}
+	candidates = excludeSeen(candidates, seen, retrievalCandidateCount)
 
 	// Stage-2: call the Python ranker to re-score candidates.
 	// On failure, degrade gracefully to cosine-similarity order rather than
@@ -100,9 +128,59 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 	})
 	if err != nil {
 		slog.Warn("ranker unavailable, falling back to similarity order", "error", err)
-		return similarityFallback(candidates, recommendedMovieCount), nil
+		feed := similarityFallback(candidates, recommendedMovieCount)
+		feed.Explanations = p.explain(ctx, userID, candidates, feed.Movies, nil)
+		return feed, nil
 	}
-	return rankedResponse(candidates, ranked), nil
+	feed := rankedResponse(candidates, ranked)
+	feed.Explanations = p.explain(ctx, userID, candidates, feed.Movies, ranked)
+	return feed, nil
+}
+
+// excludeSeen drops titles the user has interacted with and caps the list.
+func excludeSeen(candidates []db.MovieCandidate, seen map[string]bool, limit int) []db.MovieCandidate {
+	kept := make([]db.MovieCandidate, 0, min(len(candidates), limit))
+	for _, c := range candidates {
+		if !seen[c.ID] && len(kept) < limit {
+			kept = append(kept, c)
+		}
+	}
+	return kept
+}
+
+// explain builds per-title explanations from retrieval similarity, ranker
+// factors, and the closest liked title. The liked-title lookup is best effort:
+// on failure the explanations still carry similarity and factors.
+func (p *RecommendationPipeline) explain(ctx context.Context, userID string, candidates []db.MovieCandidate, movies []db.Movie, ranked *ranker.RankResponse) map[string]Explanation {
+	similarity := make(map[string]float64, len(candidates))
+	for _, c := range candidates {
+		similarity[c.ID] = c.Similarity
+	}
+	factors := map[string][]ranker.Factor{}
+	if ranked != nil {
+		for _, r := range ranked.Ranked {
+			factors[r.MovieID] = r.Factors
+		}
+	}
+
+	ids := make([]string, len(movies))
+	for i, m := range movies {
+		ids[i] = m.ID
+	}
+	liked := map[string]*LikedTitle{}
+	if matches, err := p.querier.NearestLikedTitles(ctx, userID, ids); err != nil {
+		slog.Warn("failed to find nearest liked titles", "error", err)
+	} else {
+		for _, m := range matches {
+			liked[m.MovieID] = &LikedTitle{ID: m.LikedID, Title: m.LikedTitle, Similarity: m.Similarity}
+		}
+	}
+
+	out := make(map[string]Explanation, len(movies))
+	for _, id := range ids {
+		out[id] = Explanation{Similarity: similarity[id], BecauseYouLiked: liked[id], Factors: factors[id]}
+	}
+	return out
 }
 
 // RecommendForUser handles GET /recommend with the two-stage pipeline.

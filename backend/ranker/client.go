@@ -78,9 +78,17 @@ type RankResponse struct {
 
 // RankedMovie is a single entry in the ranker's response.
 type RankedMovie struct {
-	MovieID string  `json:"movie_id"`
-	Score   float64 `json:"score"`
-	Rank    int     `json:"rank"`
+	MovieID string   `json:"movie_id"`
+	Score   float64  `json:"score"`
+	Rank    int      `json:"rank"`
+	Factors []Factor `json:"factors"`
+}
+
+// Factor is a title-level feature that raised a ranked title's score, with
+// its SHAP contribution. Only lambdamart-v1 returns factors.
+type Factor struct {
+	Feature      string  `json:"feature"`
+	Contribution float64 `json:"contribution"`
 }
 
 // Rank sends Stage-1 candidates to the Python ranker and returns re-scored

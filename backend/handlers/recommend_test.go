@@ -163,3 +163,69 @@ func TestRecommendForUser(t *testing.T) {
 		})
 	}
 }
+
+func TestRecommendExcludesSeenTitlesAndExplainsPicks(t *testing.T) {
+	seenID := "aaaaaaaa-0000-0000-0000-000000000001"
+	freshID := "aaaaaaaa-0000-0000-0000-000000000002"
+	var requestedCount int
+	q := &stubQuerier{
+		getUserEmbedding: func(context.Context, string) ([]float32, error) { return make([]float32, 1536), nil },
+		interactedMovieIDs: func(context.Context, string) (map[string]bool, error) {
+			return map[string]bool{seenID: true}, nil
+		},
+		matchMovies: func(_ context.Context, _ []float32, limit int) ([]db.MovieCandidate, error) {
+			requestedCount = limit
+			return []db.MovieCandidate{
+				{Movie: db.Movie{ID: seenID, Title: "Already Liked"}, Similarity: 0.95},
+				{Movie: db.Movie{ID: freshID, Title: "New Pick"}, Similarity: 0.71},
+			}, nil
+		},
+		nearestLikedTitles: func(_ context.Context, _ string, ids []string) ([]db.LikedMatch, error) {
+			return []db.LikedMatch{{MovieID: ids[0], LikedID: seenID, LikedTitle: "Already Liked", Similarity: 0.83}}, nil
+		},
+	}
+	factorRanker := &stubRanker{rankFunc: func(_ context.Context, candidates []db.MovieCandidate, _ int, _ ranker.UserContext) (*ranker.RankResponse, error) {
+		ranked := make([]ranker.RankedMovie, len(candidates))
+		for i, c := range candidates {
+			ranked[i] = ranker.RankedMovie{MovieID: c.ID, Rank: i + 1, Factors: []ranker.Factor{{Feature: "similarity", Contribution: 0.21}}}
+		}
+		return &ranker.RankResponse{Ranked: ranked, ModelVersion: "lambdamart-v1"}, nil
+	}}
+
+	feed, err := handlers.NewRecommendationPipeline(q, factorRanker, &stubCache{}).Recommend(context.Background(), "user-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requestedCount != 51 {
+		t.Errorf("fetched %d candidates, want 51 to cover the seen title", requestedCount)
+	}
+	if len(feed.Movies) != 1 || feed.Movies[0].ID != freshID {
+		t.Fatalf("movies = %+v", feed.Movies)
+	}
+	exp, ok := feed.Explanations[freshID]
+	if !ok || exp.Similarity != 0.71 || exp.BecauseYouLiked == nil || exp.BecauseYouLiked.Title != "Already Liked" {
+		t.Fatalf("explanation = %+v", exp)
+	}
+	if len(exp.Factors) != 1 || exp.Factors[0].Feature != "similarity" {
+		t.Errorf("factors = %+v", exp.Factors)
+	}
+}
+
+func TestRecommendExplanationsSurviveALikedTitleLookupFailure(t *testing.T) {
+	q := &stubQuerier{
+		getUserEmbedding: func(context.Context, string) ([]float32, error) { return make([]float32, 1536), nil },
+		matchMovies: func(context.Context, []float32, int) ([]db.MovieCandidate, error) {
+			return []db.MovieCandidate{{Movie: db.Movie{ID: "m1"}, Similarity: 0.6}}, nil
+		},
+		nearestLikedTitles: func(context.Context, string, []string) ([]db.LikedMatch, error) {
+			return nil, errors.New("rpc failed")
+		},
+	}
+	feed, err := handlers.NewRecommendationPipeline(q, failingRanker(), &stubCache{}).Recommend(context.Background(), "user-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if feed.Source != "similarity_fallback" || feed.Explanations["m1"].Similarity != 0.6 || feed.Explanations["m1"].BecauseYouLiked != nil {
+		t.Errorf("feed = %+v", feed)
+	}
+}

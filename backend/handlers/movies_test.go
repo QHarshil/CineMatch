@@ -30,6 +30,22 @@ type stubQuerier struct {
 	matchMovies              func(ctx context.Context, emb []float32, limit int) ([]db.MovieCandidate, error)
 	refreshUserEmbedding     func(ctx context.Context, userID string) error
 	userInteractionStats     func(ctx context.Context, userID string) (db.UserStats, error)
+	interactedMovieIDs       func(ctx context.Context, userID string) (map[string]bool, error)
+	nearestLikedTitles       func(ctx context.Context, userID string, movieIDs []string) ([]db.LikedMatch, error)
+}
+
+func (s *stubQuerier) InteractedMovieIDs(ctx context.Context, userID string) (map[string]bool, error) {
+	if s.interactedMovieIDs == nil {
+		return nil, nil
+	}
+	return s.interactedMovieIDs(ctx, userID)
+}
+
+func (s *stubQuerier) NearestLikedTitles(ctx context.Context, userID string, movieIDs []string) ([]db.LikedMatch, error) {
+	if s.nearestLikedTitles == nil {
+		return nil, nil
+	}
+	return s.nearestLikedTitles(ctx, userID, movieIDs)
 }
 
 func (s *stubQuerier) ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error) {

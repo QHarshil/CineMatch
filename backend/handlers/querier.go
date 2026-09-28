@@ -23,4 +23,6 @@ type DBQuerier interface {
 	MatchMovies(ctx context.Context, queryEmbedding []float32, limit int) ([]db.MovieCandidate, error)
 	RefreshUserEmbedding(ctx context.Context, userID string) error
 	UserInteractionStats(ctx context.Context, userID string) (db.UserStats, error)
+	InteractedMovieIDs(ctx context.Context, userID string) (map[string]bool, error)
+	NearestLikedTitles(ctx context.Context, userID string, movieIDs []string) ([]db.LikedMatch, error)
 }

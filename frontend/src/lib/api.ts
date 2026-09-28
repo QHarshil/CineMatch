@@ -56,10 +56,6 @@ function authHeaders(token: string): HeadersInit {
 // Public endpoints
 // ---------------------------------------------------------------------------
 
-export function fetchMovies(limit = 20, offset = 0): Promise<Movie[]> {
-  return apiFetch<Movie[]>(`/movies?limit=${limit}&offset=${offset}`);
-}
-
 export function fetchMovieById(id: string): Promise<Movie> {
   return apiFetch<Movie>(`/movies/${id}`);
 }

@@ -1,14 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { LandingHero } from "@/components/landing-hero";
+import { LandingHero } from "@/components/landing/hero";
 import { AssistantStory } from "@/components/landing/assistant-story";
 import { MetricsBand, type Metric } from "@/components/landing/metrics-band";
 import { ProductionGrid } from "@/components/landing/production-grid";
 import { SplitHeading } from "@/components/motion/split-heading";
 import { AGENT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
 import { ScrollRow } from "@/components/scroll-row";
-import { CodeTyper } from "@/components/code-typer";
+import { CodeTyper } from "@/components/landing/code-typer";
 import { discoverTitles } from "@/lib/api";
 import type { Movie, SearchHit } from "@/types/movie";
 

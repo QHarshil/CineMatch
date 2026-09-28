@@ -25,6 +25,13 @@ Required env vars (set in `../.env` or export directly):
 | `OMDB_API_KEY` | no | - (IMDb/Rotten Tomatoes ratings are hidden if unset) |
 | `OPENAI_API_KEY` | no | - (query embeddings for `/discover`; search runs keyword-only if unset) |
 | `EMBED_DAILY_LIMIT` | no | `5000` upstream embedding calls per instance per UTC day |
+| `LLM_BASE_URL` | no | - (OpenAI-compatible chat API, e.g. `http://localhost:11434/v1`; the assistant answers from search alone if unset) |
+| `LLM_MODEL` | no | - (e.g. `qwen3:8b` on Ollama) |
+| `LLM_API_KEY` | no | - (empty for local Ollama) |
+| `LLM_REASONING_EFFORT` | no | - (`none` turns off thinking on reasoning models; omit for providers that reject the field) |
+| `ASSISTANT_USER_DAILY_RUNS` | no | `25` assistant requests per user per UTC day |
+| `ASSISTANT_DAILY_RUNS` | no | `1000` model-backed runs per UTC day across all users |
+| `ASSISTANT_DAILY_TOKENS` | no | `2000000` model tokens per UTC day across all users |
 
 Run tests:
 
@@ -185,6 +192,40 @@ Upserts a 1-10 star rating for a movie (send `score: 0` to clear it). Rate limit
 { "movie_id": "550e8400-e29b-41d4-a716-446655440000", "score": 8 }
 ```
 
+**POST /assistant**
+
+The grounded assistant. Rate limited to 6 req/min per user, plus the daily caps above. Body:
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Something like Parasite, but a series" }
+  ]
+}
+```
+
+Up to 12 turns (`user` or `assistant`), the last one from the user; each user turn is at most 800 characters. Older turns are dropped once the conversation passes 3,000 characters. The response is a `text/event-stream`:
+
+| Event | Data |
+|-------|------|
+| `start` | `{ "model", "prompt_version" }` |
+| `tool_call` | `{ "id", "tool", "label", "args" }`, sent before the tool runs |
+| `tool_result` | `{ "id", "tool", "count", "latency_ms", "retrieval", "titles", "error" }` |
+| `picks` | `{ "message", "picks": [{ "movie", "reason", "similarity", "source" }], "dropped" }` |
+| `message` | `{ "text" }`: a clarifying question or a decline |
+| `error` | `{ "code", "message" }` |
+| `done` | `{ "run_id", "status", "model", "usage": { "input_tokens", "output_tokens" }, "latency_ms", "remaining_today" }` |
+
+`status` is `picks`, `answered`, `fallback` (search results served without the model's final answer), or `error`. Returns 429 with `{ "error", "resets_at" }` once the user's daily limit is reached, and 503 when usage cannot be checked (the quota fails closed).
+
+**GET /assistant/usage**
+
+```json
+{ "used": 3, "limit": 25, "remaining": 22, "resets_at": "2026-09-29T00:00:00Z", "model_available": true }
+```
+
+`model_available` is false when no model is configured or the global budget is spent; the assistant then answers from search.
+
 ## Architecture decisions
 
 **Why Chi.** Chi's middleware composes as `func(http.Handler) http.Handler`, which is the stdlib pattern. No framework lock-in, no magic. Route groups (`r.Group`) make it clean to apply auth middleware to authenticated routes without touching public ones.
@@ -208,6 +249,18 @@ RequestID and RealIP come first because the logger and rate limiter need accurat
 **Graceful degradation.** A `PopularMoviesCache` holds the top 50 movies in memory, refreshed hourly. When Supabase is unreachable, `/movies`, `/search`, `/discover`, and `/recommend` all fall back to this cache instead of returning 500s. Search does a basic title substring match against cached movies. This keeps the site functional during database maintenance or outages.
 
 **Hybrid retrieval.** Embeddings capture mood and plot ("a heist that goes wrong") but miss exact titles and typos; full-text and trigram matching catch those. Reciprocal rank fusion combines them by rank, so the three scores never need calibrating against each other. Filters are applied inside each ranker, and pgvector 0.8 iterative index scans keep the HNSW search walking until enough rows pass them. Query embeddings go through an LRU cache and a per-day call cap (`embed.Budgeted`), so repeated queries are free and spend is bounded even under a traffic spike.
+
+**Grounded assistant.** The agent (`assistant/`) runs a tool-calling loop against any OpenAI-compatible chat API (`llm/`), so Ollama, Groq, Gemini, and OpenAI differ only by `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY`. Its tools are read-only: `search_catalog` (hybrid search with filters), `find_similar` (filtered vector search from one title), `get_taste_profile`, `get_recommendations` (the two-stage pipeline), and `present_picks`, which ends the run. Every title a tool returns gets a short ref (`t3`), and `present_picks` only accepts refs the agent has seen, so a model cannot recommend a title outside the catalog. Rejected refs are counted in the audit log. Short refs matter because small models copy them reliably where they garble UUIDs.
+
+The agent also guards against common small-model failures:
+- It maps genre words across TMDB's film and series vocabularies. Series have no Thriller genre, for example.
+- It accepts quoted numbers.
+- When a filter hides a title the person named, it returns that title separately as a seed.
+- If the model answers in prose after using tools, it asks once for `present_picks`, then falls back to the grounded titles.
+
+If the model is unconfigured, rate limited, down, or over the daily budget, the endpoint still answers with hybrid search results and says so.
+
+**Assistant audit and quotas.** Each run writes an `assistant_runs` row with the model, prompt version, tool calls, pick IDs, grounding drops, token counts, and latency. The prompt is stored only as a SHA-256 hash and a length. Tool arguments are stored with emails and phone numbers masked. The same table backs the per-user daily limit and the global run and token caps, checked in one RPC before any model call. Rows are readable by their owner under RLS and writable only by the service role.
 
 **Interaction caps.** Each user can record at most 500 interactions total. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
 

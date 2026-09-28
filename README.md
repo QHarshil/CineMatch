@@ -94,6 +94,9 @@ Copy `.env.example` to `.env` and fill in:
 | `TMDB_READ_ACCESS_TOKEN` | backend, scripts | TMDB v4 Bearer token |
 | `OPENAI_API_KEY` | backend, scripts | Catalog embeddings (seeder) and query embeddings for natural-language search |
 | `EMBED_DAILY_LIMIT` | backend | Cap on upstream query-embedding calls per instance per day (default `5000`) |
+| `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | backend | Assistant model on any OpenAI-compatible API (Ollama locally, a hosted free tier in production) |
+| `LLM_REASONING_EFFORT` | backend | `none` turns off thinking on reasoning models |
+| `ASSISTANT_USER_DAILY_RUNS`, `ASSISTANT_DAILY_RUNS`, `ASSISTANT_DAILY_TOKENS` | backend | Per-user and global daily caps on assistant use |
 | `ALLOWED_ORIGINS` | backend | Comma-separated CORS origins |
 | `APP_PORT` | backend | HTTP listen port (default `8080`) |
 | `RANKER_URL` | backend | Python ranker URL (default `http://localhost:8000`) |

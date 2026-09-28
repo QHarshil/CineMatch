@@ -12,9 +12,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/harshilc/cinematch-backend/assistant"
 	"github.com/harshilc/cinematch-backend/db"
 	"github.com/harshilc/cinematch-backend/embed"
 	"github.com/harshilc/cinematch-backend/handlers"
+	"github.com/harshilc/cinematch-backend/llm"
 	custommw "github.com/harshilc/cinematch-backend/middleware"
 	"github.com/harshilc/cinematch-backend/omdb"
 	"github.com/harshilc/cinematch-backend/ranker"
@@ -68,6 +70,33 @@ func main() {
 		slog.Info("OPENAI_API_KEY not set, search runs keyword-only")
 	}
 	titleSearch := search.NewService(supabase, queryEmbedder)
+	recommendations := handlers.NewRecommendationPipeline(supabase, movieRanker, popularCache)
+
+	// The assistant speaks the OpenAI chat API, so LLM_BASE_URL can point at
+	// Ollama locally or a hosted provider in production. Without it the
+	// assistant answers from search alone.
+	var chatModel assistant.ChatModel
+	if baseURL, model := os.Getenv("LLM_BASE_URL"), os.Getenv("LLM_MODEL"); baseURL != "" && model != "" {
+		chatModel = llm.NewClient(llm.Config{
+			BaseURL:         baseURL,
+			APIKey:          os.Getenv("LLM_API_KEY"),
+			Model:           model,
+			ReasoningEffort: os.Getenv("LLM_REASONING_EFFORT"),
+			Temperature:     0.3,
+		})
+	} else {
+		slog.Info("LLM_BASE_URL or LLM_MODEL not set, assistant serves search results only")
+	}
+	agent := assistant.New(chatModel, titleSearch, supabase, assistant.RecommenderFunc(
+		func(ctx context.Context, userID string) ([]db.Movie, string, error) {
+			feed, err := recommendations.Recommend(ctx, userID)
+			return feed.Movies, feed.Source, err
+		}))
+	assistantLimits := handlers.AssistantLimits{
+		UserDailyRuns:     envInt("ASSISTANT_USER_DAILY_RUNS", 25),
+		GlobalDailyRuns:   envInt("ASSISTANT_DAILY_RUNS", 1000),
+		GlobalDailyTokens: envInt("ASSISTANT_DAILY_TOKENS", 2_000_000),
+	}
 
 	r := chi.NewRouter()
 
@@ -102,6 +131,8 @@ func main() {
 		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.ToggleInteraction(supabase))
 		r.Get("/interactions", handlers.GetMovieInteractionState(supabase))
 		r.With(custommw.WriteRateLimiter()).Put("/ratings", handlers.RecordRating(supabase))
+		r.With(custommw.AssistantRateLimiter()).Post("/assistant", handlers.RunAssistant(agent, supabase, assistantLimits))
+		r.Get("/assistant/usage", handlers.GetAssistantUsage(agent, supabase, assistantLimits))
 	})
 
 	// Container platforms (Cloud Run, Render) inject PORT. Fall back to

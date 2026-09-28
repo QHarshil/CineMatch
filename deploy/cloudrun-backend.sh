@@ -36,6 +36,13 @@ JWT_SECRET="$(get JWT_SECRET)"
 SUPABASE_URL="$(get SUPABASE_URL)"
 SUPABASE_SECRET_KEY="$(get SUPABASE_SECRET_KEY)"
 OMDB_API_KEY="$(get OMDB_API_KEY)" # optional; enables IMDb/Rotten Tomatoes ratings
+OPENAI_API_KEY="$(get OPENAI_API_KEY)" # optional; enables embedding-based search
+# The assistant model for production. LLM_* in .env usually points at a local
+# Ollama, so production reads DEPLOY_LLM_*. Unset runs the assistant search-only.
+DEPLOY_LLM_BASE_URL="$(get DEPLOY_LLM_BASE_URL)"
+DEPLOY_LLM_MODEL="$(get DEPLOY_LLM_MODEL)"
+DEPLOY_LLM_API_KEY="$(get DEPLOY_LLM_API_KEY)"
+DEPLOY_LLM_REASONING_EFFORT="$(get DEPLOY_LLM_REASONING_EFFORT)"
 
 for name in JWT_SECRET SUPABASE_URL SUPABASE_SECRET_KEY; do
   if [[ -z "${!name}" ]]; then
@@ -53,10 +60,22 @@ RANKER_URL: "$RANKER_URL"
 ALLOWED_ORIGINS: "$ALLOWED_ORIGINS"
 RATE_LIMIT_RPM: "60"
 EOF
-# OMDB_API_KEY is optional; only include it when set so ratings stay disabled otherwise.
-if [[ -n "$OMDB_API_KEY" ]]; then
-  echo "OMDB_API_KEY: \"$OMDB_API_KEY\"" >> "$ENV_FILE"
-fi
+# Optional keys are written only when set, so each feature stays off otherwise.
+add_optional() {
+  if [[ -n "$2" ]]; then
+    echo "$1: \"$2\"" >> "$ENV_FILE"
+  fi
+}
+add_optional OMDB_API_KEY "$OMDB_API_KEY"
+add_optional OPENAI_API_KEY "$OPENAI_API_KEY"
+add_optional LLM_BASE_URL "$DEPLOY_LLM_BASE_URL"
+add_optional LLM_MODEL "$DEPLOY_LLM_MODEL"
+add_optional LLM_API_KEY "$DEPLOY_LLM_API_KEY"
+add_optional LLM_REASONING_EFFORT "$DEPLOY_LLM_REASONING_EFFORT"
+add_optional ASSISTANT_USER_DAILY_RUNS "$(get ASSISTANT_USER_DAILY_RUNS)"
+add_optional ASSISTANT_DAILY_RUNS "$(get ASSISTANT_DAILY_RUNS)"
+add_optional ASSISTANT_DAILY_TOKENS "$(get ASSISTANT_DAILY_TOKENS)"
+add_optional EMBED_DAILY_LIMIT "$(get EMBED_DAILY_LIMIT)"
 echo "Wrote $ENV_FILE"
 
 gcloud run deploy cinematch-backend \
@@ -67,5 +86,5 @@ gcloud run deploy cinematch-backend \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 3 \
-  --timeout 30 \
+  --timeout 120 \
   --env-vars-file "$ENV_FILE"

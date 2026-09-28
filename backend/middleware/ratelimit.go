@@ -39,6 +39,12 @@ func RecommendRateLimiter() func(http.Handler) http.Handler {
 	return httprate.Limit(10, time.Minute, httprate.WithKeyFuncs(userOrIPKey))
 }
 
+// AssistantRateLimiter enforces 6 requests/min per authenticated user. Each
+// request can make several model calls, so this is tighter than /recommend.
+func AssistantRateLimiter() func(http.Handler) http.Handler {
+	return httprate.Limit(6, time.Minute, httprate.WithKeyFuncs(userOrIPKey))
+}
+
 // userOrIPKey extracts the authenticated user ID from request context for rate
 // limiting keyed by user. Falls back to remote IP if no user is in context.
 func userOrIPKey(r *http.Request) (string, error) {

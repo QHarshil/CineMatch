@@ -106,6 +106,9 @@ type Outcome struct {
 	Picks             []Pick
 	Steps             []StepRecord
 	UngroundedDropped int
-	Usage             llm.Usage
-	Model             string
+	// OutputBlocked is set when a reply was replaced because it repeated the
+	// system instructions.
+	OutputBlocked bool
+	Usage         llm.Usage
+	Model         string
 }

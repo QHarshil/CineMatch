@@ -158,6 +158,10 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 			if text == "" {
 				return a.fallback(ctx, req, emit, out, noticeOffline)
 			}
+			if leaksInstructions(text) {
+				slog.Warn("assistant reply blocked: repeated its instructions", "model", out.Model)
+				text, out.OutputBlocked = safeDecline, true
+			}
 			emit(Event{EventMessage, MessageData{Text: text}})
 			out.Status, out.Message = StatusAnswered, text
 			return out
@@ -169,6 +173,10 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 				message, picks, ungrounded, problem := grounded.resolvePicks(tc.Function.Arguments)
 				out.UngroundedDropped += ungrounded
 				if len(picks) > 0 {
+					if leaksInstructions(message) {
+						slog.Warn("assistant message blocked: repeated its instructions", "model", out.Model)
+						message, out.OutputBlocked = "Here are picks that fit your request.", true
+					}
 					emit(Event{EventPicks, PicksData{Message: message, Picks: picks, Dropped: out.UngroundedDropped}})
 					out.Status, out.Message, out.Picks = StatusPicks, message, picks
 					return out

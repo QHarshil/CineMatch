@@ -23,6 +23,7 @@ type AssistantRun struct {
 	Steps             json.RawMessage `json:"steps"`
 	PickIDs           []string        `json:"pick_ids"`
 	UngroundedDropped int             `json:"ungrounded_dropped"`
+	OutputBlocked     bool            `json:"output_blocked"`
 	InputTokens       int             `json:"input_tokens"`
 	OutputTokens      int             `json:"output_tokens"`
 	LatencyMS         int             `json:"latency_ms"`

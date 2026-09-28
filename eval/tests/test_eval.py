@@ -137,6 +137,10 @@ class TestFeatureEngineering:
 
 # ── Data integrity tests ─────────────────────────────────────────────────────
 
+@pytest.mark.skipif(
+    not (EVAL_DIR / "data" / "train.parquet").exists(),
+    reason="generated data missing; run the eval pipeline first",
+)
 class TestDataIntegrity:
     def test_parquet_files_exist(self):
         data_dir = EVAL_DIR / "data"

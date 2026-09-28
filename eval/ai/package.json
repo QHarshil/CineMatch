@@ -1,0 +1,18 @@
+{
+  "name": "cinematch-ai-evals",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "eval:search": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON search.eval.ts",
+    "eval:assistant": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON assistant.eval.ts",
+    "typecheck": "tsc",
+    "test": "node --test metrics.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5"
+  }
+}

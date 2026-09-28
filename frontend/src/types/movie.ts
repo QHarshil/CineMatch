@@ -13,11 +13,12 @@ export interface Movie {
   runtime: number;
   /** "movie" or "tv". Absent on responses from a backend deploy predating TV support. */
   media_type?: "movie" | "tv";
+  /** ISO 639-1 code such as "en" or "ko". */
+  original_language?: string;
 }
 
 /** One GET /discover result. A null rank means that retriever did not return the title. */
 export interface SearchHit extends Movie {
-  original_language?: string;
   /** Cosine similarity between the query and the title's embedding. */
   similarity: number | null;
   semantic_rank: number | null;

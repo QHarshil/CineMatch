@@ -9,9 +9,8 @@ import (
 	"github.com/go-chi/httprate"
 )
 
-// RateLimiter enforces a per-IP request limit read from RATE_LIMIT_RPM (default 60).
-// Excess requests receive HTTP 429 with a Retry-After header.
-// The limit is per-IP so one client cannot starve others.
+// RateLimiter enforces a per-IP limit from RATE_LIMIT_RPM (default 60) and
+// returns 429 with Retry-After past it.
 func RateLimiter() func(http.Handler) http.Handler {
 	rpm := 60
 	if raw := os.Getenv("RATE_LIMIT_RPM"); raw != "" {

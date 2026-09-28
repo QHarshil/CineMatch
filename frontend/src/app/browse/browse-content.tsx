@@ -137,7 +137,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 lg:px-8">
-      {/* Page heading */}
       <p className="eyebrow text-primary">{isSearchMode ? "Search" : "Catalog"}</p>
       <h1 className="mb-6 mt-2 font-heading text-3xl font-semibold uppercase tracking-tight">
         {isSearchMode ? <>Results for &lsquo;{searchQuery}&rsquo;</> : "Browse"}
@@ -146,10 +145,8 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         <p className="eyebrow -mt-3 mb-8 text-muted-foreground">{RETRIEVAL_NOTES[retrieval]}</p>
       )}
 
-      {/* Filter/sort bar, hidden in search mode */}
       {!isSearchMode && (
         <div className="mb-8 flex flex-col gap-4 border-y border-border py-3 sm:flex-row sm:items-center">
-          {/* Genre chips */}
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 pb-1">
               {["All", ...genres].map((genre) => (
@@ -168,7 +165,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
             </div>
           </div>
 
-          {/* Sort dropdown */}
           <div ref={sortRef} className="relative shrink-0">
             <button
               onClick={() => setSortOpen(!sortOpen)}
@@ -200,7 +196,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         </div>
       )}
 
-      {/* Loading skeleton */}
       {loading && (
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -213,7 +208,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         </div>
       )}
 
-      {/* Movie grid */}
       {!loading && movies.length > 0 && (
         <>
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -222,7 +216,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
             ))}
           </div>
 
-          {/* Load more */}
           {hasMore && !isSearchMode && (
             <div className="mt-12 flex justify-center">
               <button
@@ -237,7 +230,6 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         </>
       )}
 
-      {/* Empty state */}
       {!loading && movies.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
           <div className="flex size-16 items-center justify-center border border-border text-primary">

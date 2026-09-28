@@ -114,7 +114,6 @@ func extractBearerToken(r *http.Request) (string, bool) {
 // Tries ES256 verification via JWKS first (current Supabase signing), then falls
 // back to HS256 with the project's JWT secret (legacy signing).
 func verifySupabaseJWT(tokenString, hmacSecret string) (identity, error) {
-	// Try ES256 via JWKS (current Supabase default)
 	if globalJWKS.jwksURL != "" {
 		who, err := verifyES256(tokenString)
 		if err == nil {
@@ -122,7 +121,6 @@ func verifySupabaseJWT(tokenString, hmacSecret string) (identity, error) {
 		}
 	}
 
-	// Fall back to HS256 (legacy Supabase projects)
 	return verifyHS256(tokenString, hmacSecret)
 }
 
@@ -182,7 +180,6 @@ func (j *jwksCache) getKey(kid string) (*ecdsa.PublicKey, error) {
 	}
 	j.mu.RUnlock()
 
-	// Fetch fresh JWKS
 	if err := j.refresh(); err != nil {
 		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
 	}
@@ -250,7 +247,6 @@ type jwkKey struct {
 }
 
 func (k *jwkKey) toPublicKey() (*ecdsa.PublicKey, error) {
-	// Prefer x5c certificate chain if available
 	if len(k.X5C) > 0 {
 		certDER, err := base64.StdEncoding.DecodeString(k.X5C[0])
 		if err == nil {
@@ -263,7 +259,6 @@ func (k *jwkKey) toPublicKey() (*ecdsa.PublicKey, error) {
 		}
 	}
 
-	// Fall back to raw x/y coordinates
 	xBytes, err := base64.RawURLEncoding.DecodeString(k.X)
 	if err != nil {
 		return nil, fmt.Errorf("invalid x coordinate: %w", err)

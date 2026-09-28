@@ -96,7 +96,6 @@ export function SimilarMoviesDemo({
 
       {!loading && searched && neighbors.length > 0 && (
         <div className="space-y-6">
-          {/* Seed movie label */}
           {selected && (
             <div className="flex items-center gap-3 border-b border-border pb-4">
               {selected.poster_path && (
@@ -117,7 +116,6 @@ export function SimilarMoviesDemo({
             </div>
           )}
 
-          {/* Neighbors */}
           <div className="grid gap-3">
             {neighbors.map((n, i) => (
               <div

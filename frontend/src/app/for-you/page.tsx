@@ -80,7 +80,6 @@ export default function ForYouPage() {
 
   /** Fetch the user's recent liked movies and find similar titles for each. */
   const fetchBecauseYouLiked = useCallback(async (userId: string): Promise<BecauseYouLikedSection[]> => {
-    // Get the 3 most recent "like" interactions
     const { data: interactions } = await supabase.current
       .from("interactions")
       .select("movie_id")
@@ -93,7 +92,6 @@ export default function ForYouPage() {
 
     const likedMovieIds = interactions.map((i) => i.movie_id as string);
 
-    // Fetch the liked movies themselves
     const { data: likedMovies } = await supabase.current
       .from("movies")
       .select(MOVIE_FIELDS)
@@ -101,7 +99,6 @@ export default function ForYouPage() {
 
     if (!likedMovies || likedMovies.length === 0) return [];
 
-    // For each liked movie, find similar movies by genre overlap
     const sections: BecauseYouLikedSection[] = [];
     const seenMovieIds = new Set(likedMovieIds);
 
@@ -118,7 +115,6 @@ export default function ForYouPage() {
         .order("popularity", { ascending: false })
         .limit(20);
 
-      // Filter out movies already shown in other sections
       const filtered = ((similar ?? []) as Movie[]).filter((m) => !seenMovieIds.has(m.id));
       filtered.forEach((m) => seenMovieIds.add(m.id));
 
@@ -130,7 +126,6 @@ export default function ForYouPage() {
     return sections;
   }, []);
 
-  // Fetch authenticated user's recommendations
   const fetchAuthRecs = useCallback(async () => {
     if (!session || fetchedRef.current) return;
     fetchedRef.current = true;
@@ -199,7 +194,7 @@ export default function ForYouPage() {
   const isAuthLoading = authLoading;
   const isDataLoading = loading;
 
-  // ── Loading skeleton ──────────────────────────────────────────
+  // Loading skeleton
   if (isAuthLoading || isDataLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 pb-12 pt-24 lg:px-8">
@@ -222,11 +217,10 @@ export default function ForYouPage() {
     );
   }
 
-  // ── Unauthenticated: auth gate + demo profiles ────────────────
+  // Unauthenticated: auth gate + demo profiles
   if (!session && !demoProfile) {
     return (
       <div className="relative min-h-screen overflow-hidden">
-        {/* Blurred poster grid background */}
         <div className="pointer-events-none absolute inset-0 grid grid-cols-4 gap-2 p-4 opacity-[0.10] blur-sm sm:grid-cols-6">
           {backdropMovies.map((m) => (
             <div key={m.id} className="relative aspect-[2/3]">
@@ -260,7 +254,6 @@ export default function ForYouPage() {
             Sign in
           </Link>
 
-          {/* Demo profiles */}
           <div className="w-full max-w-lg">
             <p className="eyebrow mb-4 text-muted-foreground">
               Or try a demo profile
@@ -293,7 +286,7 @@ export default function ForYouPage() {
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────
+  // Error
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 pb-16 pt-32">
@@ -310,7 +303,7 @@ export default function ForYouPage() {
     );
   }
 
-  // ── Cold start (no personalized results) ──────────────────────
+  // Cold start (no personalized results)
   const hasPersonalized = topPicks.length > 0 && source !== "popular";
   const isDemoMode = demoProfile !== null;
 
@@ -345,7 +338,6 @@ export default function ForYouPage() {
         </p>
       )}
 
-      {/* Cold-start banner */}
       {!hasPersonalized && !isDemoMode && (
         <div className="mb-10 border border-border bg-wash px-5 py-4">
           <p className="font-serif text-foreground">
@@ -361,7 +353,6 @@ export default function ForYouPage() {
         </div>
       )}
 
-      {/* Top Picks section */}
       {topPicks.length > 0 && (
         <div className="mb-12">
           <ScrollRow
@@ -372,7 +363,6 @@ export default function ForYouPage() {
         </div>
       )}
 
-      {/* Because you liked X: personalized sections */}
       {becauseYouLiked.map((section) => (
         <div key={section.likedMovie.id} className="mb-12">
           <ScrollRow
@@ -382,7 +372,6 @@ export default function ForYouPage() {
         </div>
       ))}
 
-      {/* Popular right now, always shown */}
       {popular.length > 0 && (
         <div className="mb-12">
           <ScrollRow

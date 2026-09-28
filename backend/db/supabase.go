@@ -14,8 +14,9 @@ import (
 	"time"
 )
 
-// SupabaseClient wraps an http.Client configured for Supabase REST and RPC calls.
-// The service key grants full database access, so this struct must stay server-side only.
+// SupabaseClient calls Supabase REST and RPC endpoints with the service key,
+// which bypasses RLS: callers enforce authorization, and it never leaves the
+// backend.
 type SupabaseClient struct {
 	baseURL    string
 	serviceKey string
@@ -152,8 +153,7 @@ func (c *SupabaseClient) execute(req *http.Request, dest any) error {
 	return nil
 }
 
-// injectAuthHeaders adds Supabase service-key auth to every outgoing request.
-// The service key bypasses RLS; callers are responsible for enforcing authorization.
+// injectAuthHeaders adds service-key auth to every outgoing request.
 func (c *SupabaseClient) injectAuthHeaders(req *http.Request) {
 	req.Header.Set("apikey", c.serviceKey)
 	req.Header.Set("Authorization", "Bearer "+c.serviceKey)

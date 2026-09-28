@@ -60,7 +60,7 @@ export function LandingHero({ catalogSize }: { catalogSize: number }) {
 
         <p className="mx-auto mt-6 max-w-2xl font-serif text-lg leading-relaxed text-muted-foreground">
           CineMatch pairs a two-stage recommender with a grounded AI assistant. It searches {size} films and series by
-          meaning, re-ranks with LambdaMART, and can only recommend titles it actually retrieved.
+          meaning, re-ranks with LambdaMART, and can only recommend titles it retrieved.
         </p>
 
         <form onSubmit={submit} className="mx-auto mt-10 max-w-2xl text-left">

@@ -9,9 +9,8 @@ import (
 	"github.com/go-chi/httprate"
 )
 
-// TestRateLimiterEnforces429 verifies that a per-IP limiter returns 429
-// once the request budget is exhausted. We use a custom limit of 2 req/min
-// rather than the production 60 so the test doesn't require 61 round-trips.
+// TestRateLimiterEnforces429 checks a per-IP limiter returns 429 once its
+// budget is spent. A limit of 2 keeps the test to 3 requests.
 func TestRateLimiterEnforces429(t *testing.T) {
 	limit := 2
 	limiter := httprate.LimitByIP(limit, time.Minute)

@@ -1,9 +1,9 @@
 name: Refresh catalog
 
-# Monthly ingest of newly released English + Korean movies and TV shows so the
-# catalog stays current, then removal of idle guest accounts. Runs the seeder
-# in "recent" mode, which upserts (no duplicates). Requires repo secrets: TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY,
-# SUPABASE_URL, SUPABASE_SECRET_KEY. The media_type migration must be applied first.
+# Monthly: seed new English and Korean releases (upserts, so no duplicates),
+# backfill their details, and delete idle guest accounts. Needs the repo
+# secrets TMDB_READ_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_URL, and
+# SUPABASE_SECRET_KEY.
 
 on:
   schedule:

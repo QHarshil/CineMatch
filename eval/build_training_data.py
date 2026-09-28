@@ -26,7 +26,6 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def load_interactions() -> pd.DataFrame:
-    """Load synthetic interactions parquet."""
     path = DATA_DIR / "synthetic_interactions.parquet"
     df = pd.read_parquet(path)
     print(f"Loaded {len(df)} interactions from {path.name}")

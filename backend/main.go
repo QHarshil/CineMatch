@@ -142,8 +142,7 @@ func main() {
 		r.Get("/assistant/usage", handlers.GetAssistantUsage(agent, supabase, assistantLimits))
 	})
 
-	// Container platforms (Cloud Run, Render) inject PORT. Fall back to
-	// APP_PORT (local convention) and then 8080.
+	// Cloud Run injects PORT; locally APP_PORT or 8080.
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = os.Getenv("APP_PORT")

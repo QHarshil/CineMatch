@@ -30,8 +30,7 @@ interface CodeTyperProps {
   speed?: number;
 }
 
-// Near-monochrome blue, the editorial terminal palette. Amber and teal are the
-// only sparks, reserved for match scores and string literals.
+// Near-monochrome blue; amber marks scores and teal marks string literals.
 const TOKEN_COLOR: Record<TokenKind, string> = {
   plain: "text-foreground",
   keyword: "text-primary",
@@ -55,8 +54,8 @@ export function CodeTyper({
   className,
   speed = 28,
 }: CodeTyperProps) {
-  // Flatten to a single stream so the caret walks line to line. A newline costs
-  // one character, which reads as a natural beat between statements.
+  // One character stream across lines, so the caret moves line to line; each
+  // newline counts as one character.
   const starts: number[] = [];
   let cursor = 0;
   lines.forEach((line, index) => {
@@ -83,7 +82,6 @@ export function CodeTyper({
           revealed character by character only after hydration. */}
       <pre className="sr-only">{result ? `${fullText}\n${result}` : fullText}</pre>
 
-      {/* Window chrome */}
       <div className="flex items-center gap-1.5 border-b border-primary/25 bg-white/60 px-4 py-2.5">
         <span className="size-2 rounded-full bg-primary/70" />
         <span className="size-2 rounded-full bg-primary/40" />
@@ -93,7 +91,6 @@ export function CodeTyper({
         </span>
       </div>
 
-      {/* Code body */}
       <div className="px-4 py-4 font-mono text-[13px] leading-6 text-foreground sm:text-sm">
         {lines.map((line, lineIndex) => {
           let offset = starts[lineIndex];
@@ -128,7 +125,6 @@ export function CodeTyper({
         })}
       </div>
 
-      {/* Result line */}
       {result && (
         <div
           className="flex items-center gap-2 border-t border-primary/20 bg-white/40 px-4 py-3 font-mono text-xs text-primary transition-opacity duration-500"

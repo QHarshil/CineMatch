@@ -3,10 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * Handles the magic link redirect from Supabase Auth.
- * Supabase appends ?code=<auth_code> to this URL after the user clicks
- * the magic link in their email. We exchange the code for a session
- * and redirect to the for-you page.
+ * Magic-link landing route: exchanges Supabase's ?code= for a session, then
+ * redirects to ?next= (relative paths only) or /for-you.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);

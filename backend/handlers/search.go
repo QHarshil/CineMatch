@@ -22,7 +22,6 @@ func SearchMovies(querier DBQuerier, cache PopularCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := strings.TrimSpace(r.URL.Query().Get("q"))
 
-		// Sanitize the search query.
 		q = sanitizeString(q)
 
 		if len(q) < searchQueryMinLen {

@@ -115,7 +115,6 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
         </div>
       </form>
 
-      {/* Live results dropdown */}
       {showDropdown && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-border bg-popover shadow-sm">
           {results.map((movie) => (

@@ -5,10 +5,9 @@ import type { VantaEffect } from "vanta/dist/vanta.net.min";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 /**
- * Vanta's NET effect: points drifting in 3D and linking to their neighbors,
- * a literal picture of the embedding space the search runs in. Vanta and
- * three.js load only when this mounts, it renders only while on screen, and
- * it stays off on small screens and under reduced motion.
+ * Vanta's NET effect: points drifting in 3D and linking to their neighbors.
+ * Vanta and three.js load only when this mounts, it renders only while on
+ * screen, and it stays off on small screens and under reduced motion.
  */
 export function VantaNet({ className }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null);

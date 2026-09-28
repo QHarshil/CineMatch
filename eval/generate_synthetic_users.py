@@ -1,21 +1,13 @@
 """Generate synthetic user interaction data for ranker training and evaluation.
 
 Creates 200 users across 8 taste profiles, each with 20-80 interactions against
-the real movie catalog. A user's interactions are driven by a "true utility"
-that mixes a linear genre signal with three deliberately non-linear effects:
+the catalog. Each interaction comes from a utility that adds a linear genre
+signal to three non-linear effects: a favourite release decade, a vote-average
+sweet spot, and a recency bias inside loved genres.
 
-  - era preference: each profile favours a release decade (a peaked bump)
-  - non-monotonic quality: most profiles have a vote-average sweet spot rather
-    than "higher is always better"
-  - recency-by-genre: a recency bias that only applies inside loved genres
-
-The genre signal is stored separately as `affinity_score`, which is what the
-Stage-2 linear ranker sees as `similarity`. The non-linear effects are NOT in
-`affinity_score`, so the fixed-weight linear ranker (similarity, quality,
-popularity, genre overlap) structurally cannot represent them, while a tree
-model with decade / is_recent / vote_average features can. This is what lets
-LambdaMART beat the linear baseline on held-out data instead of merely matching
-a formula it was generated from.
+Only the genre signal is exposed as `affinity_score` (the linear ranker's
+`similarity`). A fixed-weight linear scorer cannot model the other effects; a
+tree model with decade, is_recent, and vote_average features can.
 
 Output: eval/data/synthetic_interactions.parquet, eval/data/movies.parquet
 """
@@ -97,9 +89,8 @@ TASTE_PROFILES: dict[str, dict] = {
     },
 }
 
-# Relative weights of each utility component. The non-linear terms (era, quality,
-# recency) together outweigh the linear genre term, so a model that can only use
-# the genre signal leaves most of the ranking signal on the table.
+# Utility weights. The non-linear terms together outweigh the genre term, so a
+# genre-only model cannot capture most of the utility.
 W_GENRE = 0.70
 W_ERA = 1.00
 W_QUALITY = 0.70

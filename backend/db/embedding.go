@@ -100,8 +100,7 @@ func (c *SupabaseClient) DeleteUserEmbedding(ctx context.Context, userID string)
 // RefreshUserEmbedding recomputes a user's taste vector from the movies they have
 // liked or watched and stores it. Recent interactions are weighted more heavily
 // so recommendations track evolving taste. With no positive interactions the
-// stored vector is removed. This is what makes /recommend actually personalize:
-// match_movies has nothing to query against until this vector exists.
+// stored vector is removed. /recommend needs this vector to personalize.
 func (c *SupabaseClient) RefreshUserEmbedding(ctx context.Context, userID string) error {
 	movieIDs, err := c.PositiveInteractionMovieIDs(ctx, userID)
 	if err != nil {

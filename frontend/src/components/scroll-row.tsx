@@ -55,7 +55,6 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
 
   return (
     <section className="relative">
-      {/* Section header */}
       <div className="mb-4 flex items-center justify-between border-b border-border pb-2.5">
         <h3 className="font-heading text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           {title}
@@ -71,7 +70,6 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
       </div>
 
       <div className="group/row relative">
-        {/* Left fade + arrow */}
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
@@ -84,7 +82,6 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
           </button>
         )}
 
-        {/* Scroll container */}
         <div
           ref={scrollRef}
           data-lenis-prevent-horizontal
@@ -101,7 +98,6 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
           ))}
         </div>
 
-        {/* Right fade + arrow */}
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}

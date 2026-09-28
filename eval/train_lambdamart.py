@@ -22,7 +22,6 @@ MODEL_DIR = Path(__file__).resolve().parent / "models"
 
 
 def load_splits() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load train and test parquet files."""
     train = pd.read_parquet(DATA_DIR / "train.parquet")
     test = pd.read_parquet(DATA_DIR / "test.parquet")
     return train, test
@@ -108,7 +107,6 @@ def main():
     print("\nTraining LambdaMART...")
     booster = train_ranker(train_df)
 
-    # Feature importance
     importance = booster.feature_importance(importance_type="gain")
     feat_imp = sorted(
         zip(FEATURE_COLUMNS, importance), key=lambda x: x[1], reverse=True
@@ -123,13 +121,11 @@ def main():
     print(f"  NDCG@10: {metrics['ndcg@10']:.4f}")
     print(f"  Test users: {metrics['num_test_users']}")
 
-    # Save model
     MODEL_DIR.mkdir(exist_ok=True)
     model_path = MODEL_DIR / "lambdamart-v1.txt"
     booster.save_model(str(model_path))
     print(f"\nModel saved to {model_path}")
 
-    # Save metadata
     meta = {
         "model_version": "lambdamart-v1",
         "features": FEATURE_COLUMNS,

@@ -21,9 +21,7 @@ from ranker import (
 client = TestClient(app)
 
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 
 def make_candidate(
@@ -58,9 +56,7 @@ CANDIDATE_C = make_candidate(
 )
 
 
-# ---------------------------------------------------------------------------
 # Unit tests: scoring helpers
-# ---------------------------------------------------------------------------
 
 
 def test_log_popularity_score_clamps_to_one():
@@ -98,9 +94,7 @@ def test_genre_overlap_case_insensitive():
     assert _genre_overlap(["action"], ["Action"]) == 1.0
 
 
-# ---------------------------------------------------------------------------
 # Unit tests: rank() function
-# ---------------------------------------------------------------------------
 
 
 def test_rank_returns_top_n():
@@ -175,9 +169,7 @@ def test_rank_single_candidate():
     assert response.ranked[0].rank == 1
 
 
-# ---------------------------------------------------------------------------
 # Integration tests: HTTP endpoint via TestClient
-# ---------------------------------------------------------------------------
 
 
 def test_health_endpoint():

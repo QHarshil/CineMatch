@@ -7,7 +7,7 @@ retrieval similarity with movie quality, popularity, and genre-overlap signals.
 Scoring formula:
     score = 0.50 * similarity          # dominant: pgvector cosine sim
           + 0.25 * quality             # vote_average normalised to [0, 1]
-          + 0.15 * log_popularity      # log-scaled popularity (prevents blockbusters drowning everything)
+          + 0.15 * log_popularity      # log scale keeps blockbusters from dominating
           + 0.10 * genre_overlap       # fraction of candidate genres matching user preference
 
     An optional vote-floor penalty halves the score when vote_average falls

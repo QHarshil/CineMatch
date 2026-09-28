@@ -52,9 +52,6 @@ function authHeaders(token: string): HeadersInit {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Public endpoints
-// ---------------------------------------------------------------------------
 
 export function fetchMovieById(id: string): Promise<Movie> {
   return apiFetch<Movie>(`/movies/${id}`);
@@ -103,9 +100,6 @@ export function discoverTitles(
   return apiFetch<DiscoverResponse>(`/discover?${params}`, init);
 }
 
-// ---------------------------------------------------------------------------
-// Authenticated endpoints
-// ---------------------------------------------------------------------------
 
 export function fetchRecommendations(
   token: string

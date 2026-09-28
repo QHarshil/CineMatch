@@ -1,6 +1,4 @@
 -- Adds TV-show support to the shared movies catalog.
--- Apply via the Supabase SQL editor (Dashboard > SQL Editor) BEFORE seeding TV
--- or redeploying the backend with the media_type field.
 
 -- 1. media_type distinguishes movies from TV shows. Existing rows default to
 --    'movie', so the column is safe to add to a populated table.

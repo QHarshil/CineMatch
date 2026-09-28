@@ -82,7 +82,6 @@ func ToggleInteraction(querier DBQuerier) http.HandlerFunc {
 			activeTypes[row.Type] = true
 		}
 
-		// Toggle off: interaction already exists, remove it.
 		if activeTypes[body.Type] {
 			if err := querier.DeleteInteraction(r.Context(), userID, body.MovieID, body.Type); err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to remove interaction")
@@ -93,7 +92,6 @@ func ToggleInteraction(querier DBQuerier) http.HandlerFunc {
 			return
 		}
 
-		// Enforce per-user total cap before inserting.
 		totalCount, err := querier.CountUserInteractions(r.Context(), userID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to check interaction limits")
@@ -112,7 +110,6 @@ func ToggleInteraction(querier DBQuerier) http.HandlerFunc {
 			}
 		}
 
-		// Toggle on: insert the new interaction.
 		if err := querier.UpsertInteraction(r.Context(), db.InteractionInsert{
 			UserID:  userID,
 			MovieID: body.MovieID,

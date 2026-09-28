@@ -7,7 +7,6 @@ import pytest
 import sys
 from pathlib import Path
 
-# Add eval directory to path
 EVAL_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(EVAL_DIR))
 
@@ -22,7 +21,7 @@ from eval_rankers import (
 from build_training_data import engineer_features, RELEVANCE_MAP, FEATURE_COLUMNS
 
 
-# ── Metric tests ──────────────────────────────────────────────────────────────
+# Metric tests
 
 class TestNDCG:
     """Metrics take relevance values already in ranked order (graded gains)."""
@@ -90,7 +89,7 @@ class TestScorers:
         assert scores[0] > scores[1]
 
 
-# ── Feature engineering tests ─────────────────────────────────────────────────
+# Feature engineering tests
 
 class TestFeatureEngineering:
     @pytest.fixture()
@@ -135,7 +134,7 @@ class TestFeatureEngineering:
         assert (featured["log_popularity"] > 0).all()
 
 
-# ── Data integrity tests ─────────────────────────────────────────────────────
+# Data integrity tests
 
 @pytest.mark.skipif(
     not (EVAL_DIR / "data" / "train.parquet").exists(),

@@ -20,7 +20,6 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-stretch px-4 lg:px-8">
-        {/* Wordmark */}
         <Link
           href="/"
           className="flex items-center pr-6 font-heading text-xl font-semibold uppercase tracking-tight text-primary"
@@ -28,7 +27,6 @@ export function Header() {
           CineMatch
         </Link>
 
-        {/* Cell nav */}
         <nav className="hidden items-stretch divide-x divide-border border-x border-border md:flex">
           {navLinks.map((link) => (
             <Link
@@ -41,7 +39,6 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Search + auth */}
         <div className="ml-auto flex items-center gap-4 pl-6">
           <div className="hidden sm:block">
             <SearchBar variant="header" />
@@ -77,7 +74,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <nav className="space-y-1 border-t border-border bg-background px-4 py-4 md:hidden">
           <div className="pb-3 sm:hidden">

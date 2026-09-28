@@ -8,9 +8,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// StructuredLogger returns a middleware that emits one JSON log line per request.
-// It captures status code via chi's WrapResponseWriter so logging happens after
-// the handler writes, giving us the real response code.
+// StructuredLogger emits one JSON log line per request, after the handler
+// runs so the line carries the real status code.
 func StructuredLogger() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

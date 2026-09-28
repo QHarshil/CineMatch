@@ -55,8 +55,6 @@ const (
 	tmdbRequestDelay = 260 * time.Millisecond
 )
 
-// TMDB types
-
 type tmdbGenre struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
@@ -97,8 +95,6 @@ func (t tmdbItem) dateString() string {
 	return t.FirstAirDate
 }
 
-// Supabase row type
-
 // movieRow matches the Supabase movies table schema.
 // Embedding is []float64 because json.Unmarshal decodes JSON numbers as float64;
 // pgvector accepts a JSON array for vector columns over the PostgREST API.
@@ -121,8 +117,6 @@ type embedResult struct {
 	row movieRow
 	err error
 }
-
-// main
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "fetch and embed without writing to the database")
@@ -206,8 +200,6 @@ func main() {
 	}
 	slog.Info("seed complete", "upserted", upserted)
 }
-
-// TMDB helpers
 
 // fetchGenreMap returns a merged map of TMDB genre ID -> name across the
 // requested media types. Movie and TV genre lists overlap but each has a few
@@ -345,8 +337,6 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 	return resp, nil
 }
 
-// OpenAI helpers
-
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
 // The shared limiter enforces openAIRPM so we never exceed Tier-1 rate limits.
 // Returns completed rows and the count of items that failed embedding.
@@ -448,8 +438,6 @@ func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, e
 	return result.Data[0].Embedding, nil
 }
 
-// Supabase upsert
-
 // upsertMovies sends rows to Supabase in batches, using (tmdb_id, media_type) as
 // the conflict target so re-running the seeder updates existing rows rather than
 // duplicating them. Requires the composite unique index from the media_type migration.
@@ -496,8 +484,6 @@ func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []mo
 	}
 	return total, nil
 }
-
-// Pure helpers (also tested)
 
 // parseMediaTypes expands the --media flag into the list of TMDB media types to seed.
 func parseMediaTypes(media string) ([]string, error) {

@@ -177,7 +177,6 @@ export default async function HomePage() {
     <div className="mx-auto max-w-6xl border-x border-border">
       <LandingHero catalogSize={movieCount + seriesCount} />
 
-      {/* See it in action */}
       <section className="halftone border-t border-border bg-wash">
         <div className="relative z-10 px-6 pt-12 lg:px-8">
           <p className="eyebrow text-primary">See it in action</p>
@@ -212,7 +211,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Inside the assistant */}
       <section className="border-t border-border">
         <div className="px-6 pb-10 pt-14 lg:px-8">
           <p className="eyebrow text-primary">Inside the assistant</p>
@@ -226,7 +224,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Measured results */}
       <section className="border-t border-border">
         <div className="px-6 pb-10 pt-14 lg:px-8">
           <p className="eyebrow text-primary">Measured, not claimed</p>
@@ -238,7 +235,6 @@ export default async function HomePage() {
         <MetricsBand metrics={METRICS} />
       </section>
 
-      {/* Engineering */}
       <section className="border-t border-border">
         <div className="px-6 pb-10 pt-14 lg:px-8">
           <p className="eyebrow text-primary">Built like production</p>
@@ -250,7 +246,6 @@ export default async function HomePage() {
         <ProductionGrid />
       </section>
 
-      {/* Catalog */}
       {hasCatalog && (
         <section className="border-t border-border px-6 py-14 lg:px-8">
           <p className="eyebrow text-primary">The catalog</p>
@@ -272,7 +267,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Closing CTA */}
       <section className="halftone border-t border-border bg-wash">
         <div className="relative z-10 flex flex-col items-center px-6 py-20 text-center">
           <h2 className="max-w-2xl font-heading text-3xl font-semibold uppercase tracking-tight text-foreground sm:text-4xl">
@@ -290,7 +284,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="grid border-t border-border font-mono text-xs text-muted-foreground sm:grid-cols-3 sm:divide-x sm:divide-border">
         <div className="px-6 py-5">
           <span className="font-heading text-sm font-semibold uppercase tracking-tight text-foreground">

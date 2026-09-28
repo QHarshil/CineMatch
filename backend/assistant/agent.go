@@ -100,7 +100,7 @@ const (
 	noticeOffline = "The assistant model is offline right now, so these are direct search matches for your request."
 	noticeBudget  = "The assistant has used its model budget for today, so these are direct search matches for your request."
 	noticeBusy    = "The model provider is at capacity right now, so these are direct search matches for your request."
-	noticeSteps   = "Here are the strongest matches the search turned up."
+	noticeSteps   = "Top search matches for your request."
 )
 
 // finishNudge asks the model to finish through present_picks after it

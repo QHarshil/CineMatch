@@ -42,7 +42,6 @@ func Health(supabase HealthChecker, startTime time.Time) http.HandlerFunc {
 			Database:      dbStatus,
 		}
 
-		// Fetch stats only when DB is reachable.
 		if dbStatus == "ok" {
 			stats, err := supabase.GetTableStats(r.Context())
 			if err == nil {

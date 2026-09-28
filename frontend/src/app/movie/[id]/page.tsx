@@ -67,7 +67,6 @@ export default async function MovieDetailPage({
 
   return (
     <div className="-mt-16">
-      {/* ── Backdrop hero ──────────────────────────────────────── */}
       <div className="relative h-[55vh] min-h-[400px] w-full overflow-hidden">
         {backdropUrl ? (
           <Image
@@ -86,10 +85,8 @@ export default async function MovieDetailPage({
         <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-transparent" />
       </div>
 
-      {/* ── Content ────────────────────────────────────────────── */}
       <div className="relative z-10 mx-auto -mt-44 max-w-5xl px-4 pb-8 lg:px-8">
         <div className="flex flex-col gap-8 sm:flex-row">
-          {/* Poster */}
           <div className="relative mx-auto aspect-[2/3] w-40 shrink-0 overflow-hidden border border-border bg-muted sm:mx-0 sm:w-64">
             {posterUrl ? (
               <Image
@@ -107,7 +104,6 @@ export default async function MovieDetailPage({
             )}
           </div>
 
-          {/* Metadata */}
           <div className="flex flex-col gap-4 pt-2 text-center sm:text-left">
             <div>
               <h1 className="font-heading text-3xl font-semibold leading-tight sm:text-4xl">
@@ -132,7 +128,6 @@ export default async function MovieDetailPage({
               </div>
             </div>
 
-            {/* Rating - prominent */}
             {movie.vote_average > 0 && (
               <div className="flex items-center justify-center gap-1.5 sm:justify-start">
                 <span className="text-lg text-gold">&#9733;</span>
@@ -146,7 +141,6 @@ export default async function MovieDetailPage({
             {/* IMDb / Rotten Tomatoes from OMDb, loaded client-side */}
             <MovieRatings movieId={movie.id} />
 
-            {/* Genre chips */}
             {movie.genres.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                 {movie.genres.map((genre) => (
@@ -160,7 +154,6 @@ export default async function MovieDetailPage({
               </div>
             )}
 
-            {/* Overview */}
             <p className="max-w-xl font-serif leading-relaxed text-muted-foreground line-clamp-4 sm:line-clamp-none">
               {movie.overview || "No overview available."}
             </p>
@@ -168,12 +161,10 @@ export default async function MovieDetailPage({
         </div>
       </div>
 
-      {/* ── Interaction buttons ────────────────────────────────── */}
       <div className="mx-auto max-w-5xl border-t border-border px-4 py-6 lg:px-8">
         <InteractionButtons movieId={movie.id} />
       </div>
 
-      {/* ── Similar movies ─────────────────────────────────────── */}
       {similarMovies.length > 0 && (
         <div className="mx-auto max-w-7xl px-4 py-10 lg:px-8">
           <SimilarMoviesRow movies={similarMovies} />

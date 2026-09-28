@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createSupabaseServerClient();
 
-  // Fetch the seed movie's embedding
   const { data: seedMovie, error: seedError } = await supabase
     .from("movies")
     .select("id, title, embedding")
@@ -30,7 +29,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Call match_movies RPC with the seed embedding
   const { data: matches, error: matchError } = await supabase.rpc(
     "match_movies",
     {
@@ -46,7 +44,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Filter out the seed movie and take top 5
   const neighbors = (matches ?? [])
     .filter((m: { id: string }) => m.id !== movieId)
     .slice(0, 5)

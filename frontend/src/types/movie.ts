@@ -11,7 +11,7 @@ export interface Movie {
   vote_average: number;
   popularity: number;
   runtime: number;
-  /** "movie" or "tv". Absent on responses from a backend deploy predating TV support. */
+  /** "movie" or "tv". */
   media_type?: "movie" | "tv";
   /** ISO 639-1 code such as "en" or "ko". */
   original_language?: string;

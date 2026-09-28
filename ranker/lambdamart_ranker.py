@@ -97,7 +97,7 @@ def load_model(model_path: str | None = None) -> lgb.Booster:
 
 
 def rank(request: RankRequest) -> RankResponse:
-    """Re-rank candidates using the LambdaMART model."""
+    """Score candidates with LambdaMART and attach each pick's SHAP factors."""
     booster = load_model()
 
     # User-level features arrive on request.user_features from the Go backend;

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 /**
  * Creates a Supabase client for use in Server Components and Route Handlers.
- * Uses the publishable anon key only -- RLS restricts access.
+ * Uses the publishable anon key only; RLS restricts access.
  */
 export async function createSupabaseServerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
@@ -21,7 +21,7 @@ export async function createSupabaseServerClient() {
           try {
             cookieStore.set(name, value, options);
           } catch {
-            // Server Components can't set cookies - safe to ignore
+            // Server Components cannot set cookies; the middleware refreshes them.
           }
         }
       },

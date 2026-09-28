@@ -21,7 +21,6 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
 
   return (
     <Link href={`/movie/${movie.id}`} className="group flex flex-col">
-      {/* Poster */}
       <div className="relative aspect-[2/3] w-full overflow-hidden border border-border bg-muted transition-colors duration-200 group-hover:border-primary">
         {posterUrl ? (
           <Image
@@ -52,7 +51,6 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
         )}
       </div>
 
-      {/* Always-visible metadata */}
       <div className="flex flex-col gap-1 pt-2.5">
         <h3 className="truncate font-heading text-sm font-medium leading-tight text-foreground transition-colors group-hover:text-primary">
           {movie.title}

@@ -21,8 +21,8 @@ function prefersReducedMotion(): boolean {
 
 /**
  * Drives a character-by-character reveal. Returns the number of characters that
- * should currently be visible so callers can slice arbitrary content (plain
- * strings, or multi-line tokenised code) against a single source of truth.
+ * should currently be visible, so callers can slice plain strings or tokenised
+ * code with the same count.
  *
  * When the user prefers reduced motion the full content is revealed instantly.
  */

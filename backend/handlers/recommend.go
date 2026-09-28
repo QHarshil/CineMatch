@@ -86,8 +86,6 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 		return Recommendation{}, pipelineError("failed to load user profile")
 	}
 
-	// Cold-start: no embedding means no interaction history yet.
-	// Return popular movies so new users see a useful default feed.
 	if embedding == nil {
 		movies, err := p.querier.ListMovies(ctx, recommendedMovieCount, 0)
 		if err != nil {
@@ -113,9 +111,6 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 	}
 	candidates = excludeSeen(candidates, seen, retrievalCandidateCount)
 
-	// Stage-2: call the Python ranker to re-score candidates.
-	// On failure, degrade gracefully to cosine-similarity order rather than
-	// returning an error; partial recommendations are better than none.
 	stats, statsErr := p.querier.UserInteractionStats(ctx, userID)
 	if statsErr != nil {
 		slog.Warn("failed to load user stats for ranker, using defaults", "error", statsErr)

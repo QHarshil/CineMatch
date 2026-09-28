@@ -7,9 +7,8 @@ Compares four rankers on the same held-out (user, movie) rows:
   - feature-linear-v1: the explicit weighted scorer (Stage-2 linear)
   - lambdamart-v1   : the trained LightGBM model (Stage-2 learned)
 
-Features for the learned model are engineered identically to training
-(build_training_data.FEATURE_COLUMNS) so the comparison is apples-to-apples and
-free of train/serve skew. Relevance is graded: like=3, watch=2, skip=1,
+Features for the learned model come from build_training_data.FEATURE_COLUMNS,
+the same code training uses, so there is no train/serve skew. Relevance is graded: like=3, watch=2, skip=1,
 dislike=0; an item is "relevant" for MRR / Hit Rate when relevance >= 2.
 
 Output: eval/results/eval_report.json + a console table.

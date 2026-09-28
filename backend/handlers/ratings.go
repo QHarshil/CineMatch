@@ -25,8 +25,7 @@ type RatingsCache interface {
 //
 // It returns a title's IMDb and Rotten Tomatoes scores from OMDb, served from
 // an in-memory cache after the first lookup. When OMDb is unconfigured or
-// unreachable it returns an empty (null) ratings body, so the detail page
-// degrades gracefully rather than erroring.
+// unreachable it returns null ratings, and the detail page hides them.
 func GetMovieRatings(querier DBQuerier, fetcher RatingsFetcher, cache RatingsCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
@@ -40,7 +39,7 @@ func GetMovieRatings(querier DBQuerier, fetcher RatingsFetcher, cache RatingsCac
 			return
 		}
 
-		// OMDb key not configured: ratings are simply unavailable.
+		// No OMDb key configured.
 		if fetcher == nil {
 			writeJSON(w, http.StatusOK, omdb.Ratings{})
 			return

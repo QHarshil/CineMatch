@@ -20,8 +20,7 @@ class CandidateMovie(BaseModel):
 class UserFeatures(BaseModel):
     """Per-request user signals used to personalise Stage-2 re-ranking.
 
-    All fields are optional so the ranker degrades gracefully when a user
-    has few or no interactions recorded yet.
+    All fields are optional; users with no history get neutral scoring.
     """
 
     preferred_genres: list[str] = Field(

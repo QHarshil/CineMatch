@@ -35,7 +35,7 @@ func parseOrigins(raw string) []string {
 			origins = append(origins, trimmed)
 		}
 	}
-	// Fallback to localhost only so the server remains usable locally without a misconfigured env.
+	// Default to localhost when ALLOWED_ORIGINS is unset.
 	if len(origins) == 0 {
 		return []string{"http://localhost:3000"}
 	}

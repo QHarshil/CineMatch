@@ -108,7 +108,6 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Interaction buttons */}
       <div className="flex items-center gap-6">
         {INTERACTIONS.map(({ type, label, icon: Icon }) => {
           const isActive = activeTypes.has(type);
@@ -140,7 +139,6 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
         })}
       </div>
 
-      {/* Star rating */}
       {session && loaded && (
         <div className="flex items-center gap-1">
           <span className="eyebrow mr-2 text-muted-foreground">Your rating</span>

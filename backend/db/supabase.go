@@ -52,7 +52,7 @@ func (c *SupabaseClient) Ping() error {
 	}
 	defer resp.Body.Close()
 
-	// Treat any 4xx/5xx as a failure — a 401 means the service key is wrong,
+	// Treat any 4xx/5xx as a failure; a 401 means the service key is wrong,
 	// which is just as broken as a 500 from the database's perspective.
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("supabase returned %d", resp.StatusCode)
@@ -92,7 +92,7 @@ func (c *SupabaseClient) doPost(ctx context.Context, path string, payload, dest 
 	}
 	c.injectAuthHeaders(req)
 
-	// Request minimal response body on inserts — we don't need the echoed row.
+	// Request minimal response body on inserts; we don't need the echoed row.
 	if dest == nil {
 		req.Header.Set("Prefer", "return=minimal")
 	}
@@ -153,7 +153,7 @@ func (c *SupabaseClient) execute(req *http.Request, dest any) error {
 }
 
 // injectAuthHeaders adds Supabase service-key auth to every outgoing request.
-// The service key bypasses RLS — callers are responsible for enforcing authorization.
+// The service key bypasses RLS; callers are responsible for enforcing authorization.
 func (c *SupabaseClient) injectAuthHeaders(req *http.Request) {
 	req.Header.Set("apikey", c.serviceKey)
 	req.Header.Set("Authorization", "Bearer "+c.serviceKey)

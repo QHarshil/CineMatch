@@ -1,11 +1,11 @@
-"""CineMatch ranker service — Stage-2 re-ranking microservice.
+"""CineMatch ranker service: Stage-2 re-ranking microservice.
 
 Accepts Stage-1 pgvector candidates from the Go backend and re-scores them
 using either feature-linear-v1 (explicit weights) or lambdamart-v1 (learned
 LightGBM model). The Go backend selects the model via the `model` field in
 the RankRequest body.
 
-Internal service only — not exposed to the browser. The Go backend calls
+Internal service only, not exposed to the browser. The Go backend calls
 POST /rank after match_movies returns Stage-1 candidates.
 """
 
@@ -78,7 +78,7 @@ def rank_candidates(request: RankRequest) -> RankResponse:
         try:
             return lambdamart_ranker.rank(request)
         except Exception:
-            # Model file missing or scoring failed — degrade to the explicit
+            # Model file missing or scoring failed: degrade to the explicit
             # linear scorer instead of failing the request. Keeps Stage-2 alive
             # even if the learned model can't load.
             logger.warning("lambdamart-v1 scoring failed, falling back to feature-linear-v1")

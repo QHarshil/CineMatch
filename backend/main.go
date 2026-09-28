@@ -117,14 +117,14 @@ func main() {
 
 	r.Get("/health", handlers.Health(supabase, bootTime))
 
-	// Public endpoints — no auth required.
+	// Public endpoints: no auth required.
 	r.Get("/movies", handlers.ListMovies(supabase, popularCache))
 	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
 	r.Get("/movies/{id}/ratings", handlers.GetMovieRatings(supabase, ratingsFetcher, ratingsCache))
 	r.With(custommw.SearchRateLimiter()).Get("/search", handlers.SearchMovies(supabase, popularCache))
 	r.With(custommw.SearchRateLimiter()).Get("/discover", handlers.DiscoverTitles(titleSearch, popularCache))
 
-	// Authenticated endpoints — require a valid Supabase JWT.
+	// Authenticated endpoints: require a valid Supabase JWT.
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
 		r.Use(custommw.RequireAuth(jwtSecret))

@@ -14,7 +14,7 @@ import (
 )
 
 // stubQuerier provides controlled responses for handler tests.
-// Fields left nil will panic if called — intentional, to catch unexpected calls.
+// Fields left nil will panic if called, which is intentional, to catch unexpected calls.
 type stubQuerier struct {
 	listMoviesFunc           func(ctx context.Context, limit, offset int) ([]db.Movie, error)
 	getMovieByIDFunc         func(ctx context.Context, id string) (*db.Movie, error)

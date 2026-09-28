@@ -372,7 +372,7 @@ export default function ForYouPage() {
         </div>
       )}
 
-      {/* Because you liked X — personalized sections */}
+      {/* Because you liked X: personalized sections */}
       {becauseYouLiked.map((section) => (
         <div key={section.likedMovie.id} className="mb-12">
           <ScrollRow
@@ -382,7 +382,7 @@ export default function ForYouPage() {
         </div>
       ))}
 
-      {/* Popular right now — always shown */}
+      {/* Popular right now, always shown */}
       {popular.length > 0 && (
         <div className="mb-12">
           <ScrollRow

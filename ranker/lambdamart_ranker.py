@@ -82,7 +82,7 @@ def _resolve_model_path(model_path: str | None) -> str:
     for candidate in candidates:
         if candidate.exists():
             return str(candidate)
-    # Nothing found — return the bundled path so the loader raises a clear error.
+    # Nothing found: return the bundled path so the loader raises a clear error.
     return str(candidates[0])
 
 

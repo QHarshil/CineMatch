@@ -39,7 +39,7 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
       setActiveTypes(new Set(state.interactions as InteractionType[]));
       setRating(state.rating ?? 0);
     } catch {
-      // Silently fail on load — the user can still interact
+      // Silently fail on load; the user can still interact
     } finally {
       setLoaded(true);
     }

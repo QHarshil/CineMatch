@@ -6,7 +6,7 @@ import (
 )
 
 // stripHTMLTags removes HTML/script tags from user-supplied strings.
-// This is a defense-in-depth measure — the API returns JSON, not HTML,
+// This is a defense-in-depth measure: the API returns JSON, not HTML,
 // but stripping tags prevents stored XSS if data is ever rendered in a browser.
 var htmlTagPattern = regexp.MustCompile(`<[^>]*>`)
 

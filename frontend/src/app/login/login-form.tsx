@@ -52,7 +52,7 @@ export function LoginForm() {
       setSent(true);
       startCooldown();
     } catch (err) {
-      // Don't reveal whether email exists — always show generic message
+      // Don't reveal whether email exists; always show generic message
       // unless it's clearly a client-side error.
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {

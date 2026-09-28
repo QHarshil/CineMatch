@@ -41,7 +41,7 @@ def _log_popularity_score(popularity: float) -> float:
 def _genre_overlap(candidate_genres: list[str], preferred_genres: list[str]) -> float:
     """Fraction of candidate genres present in user's preferred set.
 
-    Returns 0.5 when the user has no recorded preferences — neutral, not penalising.
+    Returns 0.5 when the user has no recorded preferences: neutral, not penalising.
     """
     if not preferred_genres:
         return 0.5

@@ -146,7 +146,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         <p className="eyebrow -mt-3 mb-8 text-muted-foreground">{RETRIEVAL_NOTES[retrieval]}</p>
       )}
 
-      {/* Filter/sort bar — hidden in search mode */}
+      {/* Filter/sort bar, hidden in search mode */}
       {!isSearchMode && (
         <div className="mb-8 flex flex-col gap-4 border-y border-border py-3 sm:flex-row sm:items-center">
           {/* Genre chips */}

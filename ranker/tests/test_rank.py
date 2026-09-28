@@ -59,7 +59,7 @@ CANDIDATE_C = make_candidate(
 
 
 # ---------------------------------------------------------------------------
-# Unit tests — scoring helpers
+# Unit tests: scoring helpers
 # ---------------------------------------------------------------------------
 
 
@@ -99,7 +99,7 @@ def test_genre_overlap_case_insensitive():
 
 
 # ---------------------------------------------------------------------------
-# Unit tests — rank() function
+# Unit tests: rank() function
 # ---------------------------------------------------------------------------
 
 
@@ -176,7 +176,7 @@ def test_rank_single_candidate():
 
 
 # ---------------------------------------------------------------------------
-# Integration tests — HTTP endpoint via TestClient
+# Integration tests: HTTP endpoint via TestClient
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +262,7 @@ def test_post_rank_rejects_top_n_above_max():
 
 
 def test_post_rank_default_user_features():
-    """Endpoint works with no user_features supplied — defaults to neutral scoring."""
+    """Endpoint works with no user_features supplied; defaults to neutral scoring."""
     candidate = {
         "movie_id": "aaaaaaaa-0000-0000-0000-000000000001",
         "title": "Movie",

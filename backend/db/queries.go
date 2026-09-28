@@ -187,7 +187,7 @@ func (c *SupabaseClient) GetUserMovieRating(ctx context.Context, userID, movieID
 }
 
 // GetUserEmbedding returns the stored preference vector for a user.
-// Returns nil (no error) if the user has no embedding yet — callers should fall back
+// Returns nil (no error) if the user has no embedding yet; callers should fall back
 // to popularity-based recommendations in that case.
 func (c *SupabaseClient) GetUserEmbedding(ctx context.Context, userID string) ([]float32, error) {
 	params := url.Values{}

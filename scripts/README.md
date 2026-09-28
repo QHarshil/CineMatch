@@ -16,7 +16,7 @@ go run seed_movies.go --dry-run                               # fetch + embed, s
 
 Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--count` (titles per media type, split across languages, default 500), `--languages` (comma-separated TMDB original-language codes, default `en,ko`), `--dry-run`.
 
-**Prerequisite:** apply the migrations in `migrations/` before seeding TV — `0002_add_media_type.sql` (the `media_type` column + `(tmdb_id, media_type)` unique index, since TMDB movie and TV IDs are separate namespaces) and `0003_add_original_language.sql` (stores `original_language` for the language filter).
+**Prerequisite:** apply the migrations in `migrations/` before seeding TV: `0002_add_media_type.sql` (the `media_type` column + `(tmdb_id, media_type)` unique index, since TMDB movie and TV IDs are separate namespaces) and `0003_add_original_language.sql` (stores `original_language` for the language filter).
 
 **What it does:**
 1. Fetches titles from TMDB discover (`/discover/movie` and/or `/discover/tv`), 20 per page, sorted by popularity or release date

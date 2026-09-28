@@ -31,7 +31,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 MODEL_DIR = Path(__file__).resolve().parent / "models"
 
-# Linear scorer weights — kept in sync with ranker/ranker.py.
+# Linear scorer weights, kept in sync with ranker/ranker.py.
 _W_SIM, _W_QUALITY, _W_POP, _W_GENRE = 0.50, 0.25, 0.15, 0.10
 _POP_LOG_CEIL = math.log1p(3000.0)
 

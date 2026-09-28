@@ -45,7 +45,7 @@ const (
 
 	// 5 concurrent workers; actual request rate is throttled to openAIRPM below.
 	embedWorkers = 5
-	// Stay at 80 RPM — safely under Tier-1's 100 RPM hard limit, with headroom
+	// Stay at 80 RPM, safely under Tier-1's 100 RPM hard limit, with headroom
 	// for occasional retries and other API activity on the same key.
 	openAIRPM       = 80
 	upsertBatchSize = 50
@@ -55,7 +55,7 @@ const (
 	tmdbRequestDelay = 260 * time.Millisecond
 )
 
-// — TMDB types ——————————————————————————————————————————————————————————————
+// TMDB types
 
 type tmdbGenre struct {
 	ID   int    `json:"id"`
@@ -97,7 +97,7 @@ func (t tmdbItem) dateString() string {
 	return t.FirstAirDate
 }
 
-// — Supabase row type ————————————————————————————————————————————————————————
+// Supabase row type
 
 // movieRow matches the Supabase movies table schema.
 // Embedding is []float64 because json.Unmarshal decodes JSON numbers as float64;
@@ -122,7 +122,7 @@ type embedResult struct {
 	err error
 }
 
-// — main —————————————————————————————————————————————————————————————————————
+// main
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "fetch and embed without writing to the database")
@@ -207,7 +207,7 @@ func main() {
 	slog.Info("seed complete", "upserted", upserted)
 }
 
-// — TMDB helpers —————————————————————————————————————————————————————————————
+// TMDB helpers
 
 // fetchGenreMap returns a merged map of TMDB genre ID -> name across the
 // requested media types. Movie and TV genre lists overlap but each has a few
@@ -345,7 +345,7 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 	return resp, nil
 }
 
-// — OpenAI helpers ———————————————————————————————————————————————————————————
+// OpenAI helpers
 
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
 // The shared limiter enforces openAIRPM so we never exceed Tier-1 rate limits.
@@ -448,7 +448,7 @@ func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, e
 	return result.Data[0].Embedding, nil
 }
 
-// — Supabase upsert ——————————————————————————————————————————————————————————
+// Supabase upsert
 
 // upsertMovies sends rows to Supabase in batches, using (tmdb_id, media_type) as
 // the conflict target so re-running the seeder updates existing rows rather than
@@ -497,7 +497,7 @@ func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []mo
 	return total, nil
 }
 
-// — Pure helpers (also tested) ———————————————————————————————————————————————
+// Pure helpers (also tested)
 
 // parseMediaTypes expands the --media flag into the list of TMDB media types to seed.
 func parseMediaTypes(media string) ([]string, error) {

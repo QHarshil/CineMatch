@@ -12,22 +12,23 @@ import (
 // movieSelectFields excludes the embedding column on list/search endpoints.
 // Returning 1536 floats per movie (~24KB each) on paginated responses is wasteful;
 // the embedding is only needed server-side for similarity search.
-const movieSelectFields = "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime"
+const movieSelectFields = "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime,original_language"
 
 // Movie is the public representation of a movie row, safe to return to API clients.
 type Movie struct {
-	ID           string   `json:"id"`
-	TmdbID       int      `json:"tmdb_id"`
-	MediaType    string   `json:"media_type"`
-	Title        string   `json:"title"`
-	Overview     string   `json:"overview"`
-	Genres       []string `json:"genres"`
-	ReleaseYear  int      `json:"release_year"`
-	PosterPath   string   `json:"poster_path"`
-	BackdropPath string   `json:"backdrop_path"`
-	VoteAverage  float64  `json:"vote_average"`
-	Popularity   float64  `json:"popularity"`
-	Runtime      int      `json:"runtime"`
+	ID               string   `json:"id"`
+	TmdbID           int      `json:"tmdb_id"`
+	MediaType        string   `json:"media_type"`
+	Title            string   `json:"title"`
+	Overview         string   `json:"overview"`
+	Genres           []string `json:"genres"`
+	ReleaseYear      int      `json:"release_year"`
+	PosterPath       string   `json:"poster_path"`
+	BackdropPath     string   `json:"backdrop_path"`
+	VoteAverage      float64  `json:"vote_average"`
+	Popularity       float64  `json:"popularity"`
+	Runtime          int      `json:"runtime"`
+	OriginalLanguage string   `json:"original_language,omitempty"` // ISO 639-1, e.g. "en" or "ko"
 }
 
 // MovieCandidate extends Movie with a cosine similarity score from the match_movies RPC.

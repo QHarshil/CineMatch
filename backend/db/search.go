@@ -21,12 +21,11 @@ type SearchFilters struct {
 // A nil rank means that ranker did not return the title.
 type SearchHit struct {
 	Movie
-	OriginalLanguage string   `json:"original_language,omitempty"`
-	Similarity       *float64 `json:"similarity"`
-	SemanticRank     *int     `json:"semantic_rank"`
-	KeywordRank      *int     `json:"keyword_rank"`
-	TitleRank        *int     `json:"title_rank"`
-	Score            float64  `json:"score"`
+	Similarity   *float64 `json:"similarity"`
+	SemanticRank *int     `json:"semantic_rank"`
+	KeywordRank  *int     `json:"keyword_rank"`
+	TitleRank    *int     `json:"title_rank"`
+	Score        float64  `json:"score"`
 }
 
 type hybridSearchParams struct {

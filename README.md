@@ -55,6 +55,7 @@ The agent plans with a language model but answers only from the catalog.
 - **Output guard.** Replies that repeat the instructions (tool names, headings, any eight-word run) are replaced before they are sent. The agent eval found this failure on qwen3:8b.
 - **Budgets that fail closed.**
   - A per-user daily limit, and a smaller one for guests.
+  - A per-network limit keyed by a hashed IP, so new guest accounts do not reset it.
   - A global run and token cap, and an embedding call cap.
   - If usage cannot be read, no model call is made.
 - **Privacy.** Emails are stored as SHA-256 hashes, prompts are stored as hashes, and emails and phone numbers are masked in logged tool arguments.
@@ -161,7 +162,8 @@ Copy `.env.example` to `.env` and fill in:
 | `EMBED_DAILY_LIMIT` | backend | Cap on upstream query-embedding calls per instance per day (default `5000`) |
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | backend | Assistant model on any OpenAI-compatible API (Ollama locally, a hosted free tier in production) |
 | `LLM_REASONING_EFFORT` | backend | `none` turns off thinking on reasoning models |
-| `ASSISTANT_USER_DAILY_RUNS`, `ASSISTANT_GUEST_DAILY_RUNS`, `ASSISTANT_DAILY_RUNS`, `ASSISTANT_DAILY_TOKENS` | backend | Per-user, per-guest, and global daily caps on assistant use |
+| `ASSISTANT_USER_DAILY_RUNS`, `ASSISTANT_GUEST_DAILY_RUNS`, `ASSISTANT_IP_DAILY_RUNS`, `ASSISTANT_DAILY_RUNS`, `ASSISTANT_DAILY_TOKENS` | backend | Per-user, per-guest, per-network, and global daily caps on assistant use |
+| `TRUSTED_PROXY_HOPS` | backend | Proxies in front of the API whose `X-Forwarded-For` entries are trusted (`1` on Cloud Run) |
 | `ALLOWED_ORIGINS` | backend | Comma-separated CORS origins |
 | `APP_PORT` | backend | HTTP listen port (default `8080`) |
 | `RANKER_URL` | backend | Python ranker URL (default `http://localhost:8000`) |

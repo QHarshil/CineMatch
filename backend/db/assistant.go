@@ -24,6 +24,7 @@ type AssistantRun struct {
 	PickIDs           []string        `json:"pick_ids"`
 	UngroundedDropped int             `json:"ungrounded_dropped"`
 	OutputBlocked     bool            `json:"output_blocked"`
+	IPHash            string          `json:"ip_hash,omitempty"`
 	InputTokens       int             `json:"input_tokens"`
 	OutputTokens      int             `json:"output_tokens"`
 	LatencyMS         int             `json:"latency_ms"`
@@ -32,6 +33,7 @@ type AssistantRun struct {
 // AssistantUsage totals assistant activity since a cutoff.
 type AssistantUsage struct {
 	UserRuns    int `json:"user_runs"`
+	IPRuns      int `json:"ip_runs"`
 	TotalRuns   int `json:"total_runs"`
 	TotalTokens int `json:"total_tokens"`
 }
@@ -50,11 +52,13 @@ func (c *SupabaseClient) InsertAssistantRun(ctx context.Context, run AssistantRu
 	return nil
 }
 
-// AssistantUsageSince returns the user's run count plus global run and token
-// totals since the cutoff, via the assistant_usage RPC.
-func (c *SupabaseClient) AssistantUsageSince(ctx context.Context, userID string, since time.Time) (AssistantUsage, error) {
+// AssistantUsageSince returns run counts for the user and for the network
+// (by IP hash), plus global run and token totals since the cutoff, via the
+// assistant_usage RPC.
+func (c *SupabaseClient) AssistantUsageSince(ctx context.Context, userID, ipHash string, since time.Time) (AssistantUsage, error) {
 	payload := map[string]string{
 		"p_user_id": userID,
+		"p_ip_hash": ipHash,
 		"p_since":   since.UTC().Format(time.RFC3339),
 	}
 	var rows []AssistantUsage

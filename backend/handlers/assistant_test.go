@@ -34,13 +34,15 @@ func (s *stubRunner) Run(_ context.Context, req assistant.Request, emit assistan
 }
 
 type stubAssistantStore struct {
+	gotIPHash string
 	usage     db.AssistantUsage
 	usageErr  error
 	insertErr error
 	inserted  []db.AssistantRun
 }
 
-func (s *stubAssistantStore) AssistantUsageSince(context.Context, string, time.Time) (db.AssistantUsage, error) {
+func (s *stubAssistantStore) AssistantUsageSince(_ context.Context, _, ipHash string, _ time.Time) (db.AssistantUsage, error) {
+	s.gotIPHash = ipHash
 	return s.usage, s.usageErr
 }
 
@@ -49,7 +51,7 @@ func (s *stubAssistantStore) InsertAssistantRun(_ context.Context, run db.Assist
 	return s.insertErr
 }
 
-var testLimits = handlers.AssistantLimits{UserDailyRuns: 5, GuestDailyRuns: 2, GlobalDailyRuns: 100, GlobalDailyTokens: 50000}
+var testLimits = handlers.AssistantLimits{UserDailyRuns: 5, GuestDailyRuns: 2, IPDailyRuns: 10, GlobalDailyRuns: 100, GlobalDailyTokens: 50000, IPHashKey: []byte("test-key")}
 
 type sseEvent struct {
 	name string
@@ -106,6 +108,7 @@ func TestRunAssistantValidation(t *testing.T) {
 		{name: "rejects long user message", body: `{"messages":[{"role":"user","content":"` + long + `"}]}`, authed: true, wantStatus: http.StatusBadRequest},
 		{name: "fails closed when usage is unreadable", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usageErr: errors.New("db down")}, wantStatus: http.StatusServiceUnavailable},
 		{name: "enforces the per-user quota", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 5}}, wantStatus: http.StatusTooManyRequests},
+		{name: "enforces the per-network quota across accounts", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 0, IPRuns: 10}}, wantStatus: http.StatusTooManyRequests},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -266,5 +269,37 @@ func TestGuestsGetTheSmallerDailyLimit(t *testing.T) {
 
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429 at the guest limit", rec.Code)
+	}
+}
+
+func TestRunAssistantAuditsAHashedIPNotTheAddress(t *testing.T) {
+	store := &stubAssistantStore{}
+	runner := &stubRunner{model: "m", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}
+	postAssistant(t, runner, store, `{"messages":[{"role":"user","content":"hi"}]}`, true)
+
+	if len(store.inserted) != 1 {
+		t.Fatal("expected one audit row")
+	}
+	hash := store.inserted[0].IPHash
+	if len(hash) != 64 || strings.Contains(hash, "192.0.2") || hash != store.gotIPHash {
+		t.Errorf("ip hash = %q, usage lookup used %q", hash, store.gotIPHash)
+	}
+}
+
+func TestUsageReportsTheTighterOfAccountAndNetworkLimits(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/assistant/usage", nil)
+	req = req.WithContext(middleware.WithUserID(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+	rec := httptest.NewRecorder()
+	store := &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 1, IPRuns: 9}}
+	handlers.GetAssistantUsage(&stubRunner{model: "m"}, store, testLimits)(rec, req)
+
+	var body struct {
+		Remaining int `json:"remaining"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Remaining != 1 {
+		t.Errorf("remaining = %d, want 1 (network limit)", body.Remaining)
 	}
 }

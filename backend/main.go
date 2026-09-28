@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"log/slog"
 	"net/http"
 	"os"
@@ -95,16 +96,19 @@ func main() {
 	assistantLimits := handlers.AssistantLimits{
 		UserDailyRuns:     envInt("ASSISTANT_USER_DAILY_RUNS", 25),
 		GuestDailyRuns:    envInt("ASSISTANT_GUEST_DAILY_RUNS", 8),
+		IPDailyRuns:       envInt("ASSISTANT_IP_DAILY_RUNS", 20),
 		GlobalDailyRuns:   envInt("ASSISTANT_DAILY_RUNS", 1000),
 		GlobalDailyTokens: envInt("ASSISTANT_DAILY_TOKENS", 2_000_000),
+		IPHashKey:         ipHashKey(jwtSecret),
 	}
 
 	r := chi.NewRouter()
 
-	// Middleware order matters: RequestID and RealIP must come before logging
-	// so log lines include the request ID and real client IP.
+	// Middleware order matters: RequestID and ClientIP must come before logging
+	// and rate limiting so both see the request ID and the real client IP.
+	// Cloud Run sets TRUSTED_PROXY_HOPS=1; locally the header is ignored.
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(custommw.ClientIP(envInt("TRUSTED_PROXY_HOPS", 0)))
 	r.Use(custommw.StructuredLogger())
 	r.Use(middleware.Recoverer)
 	r.Use(custommw.CORSHandler())
@@ -185,4 +189,12 @@ func envInt(name string, def int) int {
 		return n
 	}
 	return def
+}
+
+// ipHashKey derives a key for hashing client IPs from a server secret, so the
+// audit log never holds raw addresses and the hashes cannot be reversed by
+// hashing every IPv4 address.
+func ipHashKey(secret string) []byte {
+	sum := sha256.Sum256([]byte("assistant-ip-quota:" + secret))
+	return sum[:]
 }

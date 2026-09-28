@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -41,7 +42,7 @@ type AssistantRunner interface {
 // AssistantStore records runs and reports usage. Implemented by
 // db.SupabaseClient.
 type AssistantStore interface {
-	AssistantUsageSince(ctx context.Context, userID string, since time.Time) (db.AssistantUsage, error)
+	AssistantUsageSince(ctx context.Context, userID, ipHash string, since time.Time) (db.AssistantUsage, error)
 	InsertAssistantRun(ctx context.Context, run db.AssistantRun) error
 }
 
@@ -50,10 +51,22 @@ type AssistantStore interface {
 // under the model provider's free tier. Past a global cap the assistant still
 // answers, from search alone.
 type AssistantLimits struct {
-	UserDailyRuns     int
-	GuestDailyRuns    int // anonymous sessions are free to create, so they get fewer runs
+	UserDailyRuns  int
+	GuestDailyRuns int // anonymous sessions are free to create, so they get fewer runs
+	// IPDailyRuns caps one network across all its accounts, so creating guest
+	// after guest cannot spend the shared budget.
+	IPDailyRuns       int
 	GlobalDailyRuns   int
 	GlobalDailyTokens int
+	// IPHashKey keys the HMAC of client IPs; the audit log stores only the hash.
+	IPHashKey []byte
+}
+
+// ipHash returns the keyed hash that identifies a network in the audit log.
+func (l AssistantLimits) ipHash(r *http.Request) string {
+	mac := hmac.New(sha256.New, l.IPHashKey)
+	mac.Write([]byte(r.RemoteAddr))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // runsFor returns the caller's daily run limit.
@@ -110,7 +123,8 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 		}
 
 		dayStart, resetsAt := utcDay(time.Now())
-		usage, err := store.AssistantUsageSince(r.Context(), userID, dayStart)
+		ipHash := limits.ipHash(r)
+		usage, err := store.AssistantUsageSince(r.Context(), userID, ipHash, dayStart)
 		if err != nil {
 			slog.Error("assistant usage check failed", "error", err)
 			writeError(w, http.StatusServiceUnavailable, "assistant is temporarily unavailable")
@@ -120,6 +134,13 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 		if usage.UserRuns >= dailyRuns {
 			writeJSON(w, http.StatusTooManyRequests, quotaError{
 				Error:    fmt.Sprintf("daily limit of %d assistant requests reached", dailyRuns),
+				ResetsAt: resetsAt.Format(time.RFC3339),
+			})
+			return
+		}
+		if usage.IPRuns >= limits.IPDailyRuns {
+			writeJSON(w, http.StatusTooManyRequests, quotaError{
+				Error:    "daily assistant limit reached for this network",
 				ResetsAt: resetsAt.Format(time.RFC3339),
 			})
 			return
@@ -155,6 +176,7 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 
 		runID := newRunID()
 		record := auditRecord(runID, userID, chimw.GetReqID(r.Context()), turns, outcome, latency)
+		record.IPHash = ipHash
 		// Record the run even if the client disconnected mid-stream.
 		auditCtx, cancelAudit := context.WithTimeout(context.WithoutCancel(r.Context()), auditWriteTimeout)
 		if err := store.InsertAssistantRun(auditCtx, record); err != nil {
@@ -168,7 +190,7 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 			Model:          outcome.Model,
 			Usage:          outcome.Usage,
 			LatencyMS:      latency,
-			RemainingToday: max(0, dailyRuns-usage.UserRuns-1),
+			RemainingToday: remainingRuns(dailyRuns, usage, limits) - 1,
 		}})
 		slog.Info("assistant run",
 			"run_id", runID,
@@ -204,7 +226,7 @@ func GetAssistantUsage(runner AssistantRunner, store AssistantStore, limits Assi
 			return
 		}
 		dayStart, resetsAt := utcDay(time.Now())
-		usage, err := store.AssistantUsageSince(r.Context(), userID, dayStart)
+		usage, err := store.AssistantUsageSince(r.Context(), userID, limits.ipHash(r), dayStart)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, "assistant is temporarily unavailable")
 			return
@@ -213,11 +235,17 @@ func GetAssistantUsage(runner AssistantRunner, store AssistantStore, limits Assi
 		writeJSON(w, http.StatusOK, assistantUsageResponse{
 			Used:           usage.UserRuns,
 			Limit:          dailyRuns,
-			Remaining:      max(0, dailyRuns-usage.UserRuns),
+			Remaining:      remainingRuns(dailyRuns, usage, limits),
 			ResetsAt:       resetsAt.Format(time.RFC3339),
 			ModelAvailable: runner.ModelName() != "none" && !limits.modelBudgetSpent(usage),
 		})
 	}
+}
+
+// remainingRuns is what the caller can still run today: the tighter of the
+// account limit and the network limit.
+func remainingRuns(dailyRuns int, usage db.AssistantUsage, limits AssistantLimits) int {
+	return max(0, min(dailyRuns-usage.UserRuns, limits.IPDailyRuns-usage.IPRuns))
 }
 
 // validateTurns checks roles and lengths, cleans the text, and keeps the most

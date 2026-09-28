@@ -31,6 +31,8 @@ Required env vars (set in `../.env` or export directly):
 | `LLM_REASONING_EFFORT` | no | - (`none` turns off thinking on reasoning models; omit for providers that reject the field) |
 | `ASSISTANT_USER_DAILY_RUNS` | no | `25` assistant requests per user per UTC day |
 | `ASSISTANT_GUEST_DAILY_RUNS` | no | `8` for guest (anonymous) sessions, which anyone can create |
+| `ASSISTANT_IP_DAILY_RUNS` | no | `20` per network across all its accounts |
+| `TRUSTED_PROXY_HOPS` | no | `0` (ignore `X-Forwarded-For`); Cloud Run sets `1` |
 | `ASSISTANT_DAILY_RUNS` | no | `1000` model-backed runs per UTC day across all users |
 | `ASSISTANT_DAILY_TOKENS` | no | `2000000` model tokens per UTC day across all users |
 
@@ -248,7 +250,7 @@ Up to 12 turns (`user` or `assistant`), the last one from the user; each user tu
 **Middleware stack.** The 9-layer stack runs in this order, and the order matters:
 
 1. `RequestID` - assigns a unique ID for log correlation
-2. `RealIP` - extracts the real client IP from proxy headers (must run before rate limiting)
+2. `ClientIP` - takes the client IP from the last `TRUSTED_PROXY_HOPS` entry of `X-Forwarded-For`, the one Cloud Run appends. chi's `RealIP` trusted the first entry, which clients can forge to pick their own rate-limit key
 3. `StructuredLogger` - JSON log per request: method, path, status, latency_ms, bytes, request_id, remote_addr
 4. `Recoverer` - catches panics so one bad request doesn't crash the server
 5. `CORSHandler` - reads `ALLOWED_ORIGINS`, allows GET/POST/PUT/DELETE/OPTIONS
@@ -277,7 +279,7 @@ If the model is unconfigured, rate limited, down, or over the daily budget, the 
 
 **Output guard.** In the eval, a "developer mode" prompt got qwen3:8b to repeat part of its system prompt, so wording the instructions more firmly was not enough. Before any reply or picks message is sent, it is checked for tool names, section headings, and any eight-word run copied from the instructions. A match is replaced with a plain decline and recorded as `output_blocked` in the audit log.
 
-**Assistant audit and quotas.** Each run writes an `assistant_runs` row with the model, prompt version, tool calls, pick IDs, grounding drops, whether the output guard fired, token counts, and latency. The prompt is stored only as a SHA-256 hash and a length. Tool arguments are stored with emails and phone numbers masked. The same table backs the per-user daily limit and the global run and token caps, checked in one RPC before any model call. Guest sessions (Supabase anonymous sign-in, flagged by the token's `is_anonymous` claim) get a smaller limit. Rows are readable by their owner under RLS and writable only by the service role.
+**Assistant audit and quotas.** Each run writes an `assistant_runs` row with the model, prompt version, tool calls, pick IDs, grounding drops, whether the output guard fired, token counts, and latency. The prompt is stored only as a SHA-256 hash and a length. Tool arguments are stored with emails and phone numbers masked. The same table backs the per-user daily limit and the global run and token caps, checked in one RPC before any model call. Guest sessions (Supabase anonymous sign-in, flagged by the token's `is_anonymous` claim) get a smaller limit. A per-network limit counts runs by a keyed HMAC of the client IP, so creating guest after guest cannot spend the shared budget; raw IPs are never stored. Guests idle for 30 days are deleted by `delete_stale_guests()` in the monthly workflow. Rows are readable by their owner under RLS and writable only by the service role.
 
 **Interaction caps.** Each user can record at most 500 interactions total. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
 

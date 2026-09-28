@@ -49,12 +49,14 @@ token, OpenAI key, and OMDb key all stay in the Go backend.
 
 | Route | Rendering | Description |
 |-------|-----------|-------------|
-| `/` | SSR | Landing: product hero with the pipeline typed out as setup steps, a "see it in action" terminal beside a duotone still, a feature grid, and live catalog rows |
+| `/` | SSR + client | Landing: Vanta hero with a prompt that hands off to the assistant, a live `/discover` terminal, a scroll story of one agent run, measured eval results, and catalog rows |
+| `/assistant` | client | The grounded assistant: streamed tool steps, pick cards with a confidence meter and like/dislike, and a sticky agent trace with the audit run ID. Guest sign-in for visitors |
 | `/browse` | SSR + client | Genre chips, sort dropdown (popular/top-rated/newest/A-Z), 30-per-page pagination |
-| `/browse?q=term` | SSR + client | Search results from the Go backend, same grid |
+| `/browse?q=term` | SSR + client | Natural-language results from `/discover` (hybrid retrieval), labeled with how they matched |
 | `/movie/[id]` | SSR | Detail: TMDB backdrop, poster, ratings, genres, overview, interaction buttons, similar titles |
-| `/for-you` | client | Personalized recommendations (auth required): "Top Picks", "Because you liked X", and popular rows. Signed-out visitors get demo taste profiles |
-| `/how-it-works` | SSR + client | Technical deep-dive: pipeline diagram, live pgvector similarity demo, eval table, tech stack |
+| `/for-you` | client | Personalized recommendations (auth required): "Top Picks" with the nearest liked title and ranker factors under each, "Because you liked X", and popular rows. Signed-out visitors get demo taste profiles |
+| `/how-it-works` | SSR + client | Technical deep-dive: pipeline diagram, live pgvector similarity demo, ranker eval, the AI layer with retrieval and agent eval tables, tech stack |
+| `/search?q=term` | redirect | Redirects to `/browse?q=term` |
 | `/login` | client | Supabase magic-link sign-in, 60-second resend cooldown |
 | `/auth/callback` | SSR | Exchanges the magic-link code for a session |
 | `/api/similar` | API route | Internal: pgvector neighbors for the how-it-works demo |
@@ -62,7 +64,7 @@ token, OpenAI key, and OMDb key all stay in the Go backend.
 Movie cards and the detail page show a Film/TV badge from each title's
 `media_type`.
 
-## Design system — Atlas
+## Design system: Atlas
 
 Editorial, light, and futuristic, after the Hermes Agent site: a white canvas
 with pale-blue washed sections, hairline-grid framing, and serif display and
@@ -97,6 +99,35 @@ skill is the full reference.
 - Lucide icons only, no emoji; no em dashes in copy.
 - 200ms ease transitions; skeleton-shimmer loading states.
 - WCAG AA contrast; `prefers-reduced-motion` honored.
+
+## Motion
+
+Motion is layered on Atlas, not a separate look. Everything lives in
+`src/components/motion/` and runs only under
+`(prefers-reduced-motion: no-preference)`. Markup renders complete first, so
+content reads the same with JavaScript off.
+
+- **Lenis** (`smooth-scroll.tsx`) smooths page scroll and is driven by GSAP's
+  ticker, so ScrollTrigger reads the same position Lenis renders. Nested scroll
+  areas opt out with `data-lenis-prevent`.
+- **GSAP**: `Reveal` (scroll-in fade), `SplitHeading` (masked line reveal with
+  SplitText), `CountUp` (measured numbers), `ScrambleCycle` (the hero prompt's
+  example text via ScrambleTextPlugin), and the pinned assistant story on the
+  landing page.
+- **React Bits**: `SplitHeading` and `SpotlightCard` are adapted from React
+  Bits SplitText and SpotlightCard. The spotlight writes pointer position to
+  CSS variables, so moving the mouse never re-renders.
+- **Vanta** (`vanta-net.tsx`): the NET effect behind the hero is a picture of
+  the embedding space search runs in. Vanta and three.js r134 load on demand,
+  render only while visible, and stay off below 768px.
+
+## Assistant client
+
+`src/lib/assistant-stream.ts` is a dependency-free, typed parser for the
+`/assistant` event stream. It validates each event's shape and ignores unknown
+ones. The eval runner in `eval/ai` imports the same file.
+`src/lib/assistant-session.ts` folds events into UI state as a pure reducer,
+and `src/hooks/use-assistant.ts` owns the stream, cancellation, and quota.
 
 ## Client-side protections
 

@@ -60,40 +60,66 @@ curl https://cinematch-ranker-XXXXXXXX-uc.a.run.app/health
 
 ## 2. Deploy the Go backend
 
-Secrets are passed through a local env file so they never land in shell history.
-Create `backend/.env.cloudrun.yaml` (already gitignored):
-
-```yaml
-JWT_SECRET: "your-supabase-jwt-secret"
-SUPABASE_URL: "https://YOUR_PROJECT.supabase.co"
-SUPABASE_SECRET_KEY: "your-supabase-service-role-key"
-RANKER_URL: "https://cinematch-ranker-XXXXXXXX-uc.a.run.app"
-ALLOWED_ORIGINS: "https://your-frontend-domain.com"
-RATE_LIMIT_RPM: "60"
-```
-
-Deploy:
+`deploy/cloudrun-backend.sh` reads secrets from the local `.env`, writes the
+gitignored `backend/.env.cloudrun.yaml`, and deploys with a 120-second request
+timeout so assistant streams can finish. Optional keys are included only when
+set, so each feature stays off without them.
 
 ```bash
-cd ../backend
-gcloud run deploy cinematch-backend \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --memory 256Mi \
-  --cpu 1 \
-  --min-instances 0 \
-  --max-instances 3 \
-  --timeout 30 \
-  --env-vars-file .env.cloudrun.yaml
+ALLOWED_ORIGINS=https://cinematch.harshilc.com bash deploy/cloudrun-backend.sh
 ```
 
-Copy the backend URL it prints. Verify it reaches Supabase:
+| `.env` key | Effect in production |
+|------------|----------------------|
+| `OPENAI_API_KEY` | Embedding search on `/discover`; keyword-only without it |
+| `DEPLOY_LLM_BASE_URL`, `DEPLOY_LLM_MODEL`, `DEPLOY_LLM_API_KEY` | The assistant model; search-only answers without them |
+| `DEPLOY_LLM_REASONING_EFFORT` | Set only if the provider accepts `reasoning_effort` |
+| `ASSISTANT_*_DAILY_*`, `EMBED_DAILY_LIMIT` | Budgets; match them to the provider's free tier |
+| `OMDB_API_KEY` | IMDb and Rotten Tomatoes ratings |
+
+`LLM_*` in `.env` points at a local Ollama for development, so production reads
+the separate `DEPLOY_LLM_*` keys.
+
+Verify it reaches Supabase:
 
 ```bash
 curl https://cinematch-backend-XXXXXXXX-uc.a.run.app/health
 # status "ok", database "reachable", plus movie_count / user_count / interaction_count
 ```
+
+### Choosing a free model provider
+
+Ollama runs the model on the machine that hosts it, so visitors cannot reach a
+laptop's Ollama, and a GPU on Cloud Run is not free. A hosted free tier with an
+OpenAI-compatible endpoint works with no code changes. As of September 2026:
+
+| Provider | `DEPLOY_LLM_BASE_URL` | Free tier | Fit |
+|----------|-----------------------|-----------|-----|
+| Google Gemini (Flash-Lite) | `https://generativelanguage.googleapis.com/v1beta/openai` | 15 requests/min, 1,000/day | Best daily capacity. An assistant run makes 2 to 3 model calls, so about 350 runs/day. Free-tier prompts may be used to improve Google's products. |
+| Groq (gpt-oss-20b, Qwen) | `https://api.groq.com/openai/v1` | 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day | Fastest, but runs average about 6,300 tokens, so roughly one run a minute and 30 a day. |
+
+Set the global caps just under the provider's limits: for Gemini Flash-Lite,
+`ASSISTANT_DAILY_RUNS=350`; for Groq, `ASSISTANT_DAILY_TOKENS=180000`. Past a
+cap, or on a provider 429, the assistant answers from search and says so.
+
+### Guest sessions
+
+The assistant offers "Try it as a guest", which uses Supabase anonymous sign-in.
+Enable it in the Supabase dashboard under Authentication > Sign In / Providers >
+"Allow anonymous sign-ins". Migration `0009_guest_users.sql` must be applied
+first so guests do not collide on `email_hash`. Guests get
+`ASSISTANT_GUEST_DAILY_RUNS` (default 8). Supabase rate-limits anonymous
+sign-ins per IP, and the global caps bound total spend.
+
+For magic links to return to the page that asked for sign-in, the Supabase
+redirect allow list needs a wildcard entry such as
+`https://cinematch.harshilc.com/**`.
+
+### Order matters
+
+The frontend calls `/discover` and `/assistant`, so deploy the backend (and
+apply migrations `0004` through `0009`) before the frontend build that uses
+them goes live.
 
 ## 3. Point the frontend at the new backend
 

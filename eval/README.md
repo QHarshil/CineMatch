@@ -2,6 +2,8 @@
 
 Offline evaluation for comparing ranker models. Generates synthetic user data, trains a LambdaMART model, and benchmarks it against the feature-linear baseline.
 
+The retrieval and agent evals for the AI layer live in [`eval/ai`](ai/README.md) (TypeScript).
+
 I built this because I needed a way to measure whether changes to the ranking model actually improve recommendations before deploying them. Online A/B testing requires real traffic, so this synthetic pipeline gives a reasonable signal during development.
 
 ## Running the full pipeline

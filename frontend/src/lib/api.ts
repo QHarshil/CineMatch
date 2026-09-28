@@ -1,4 +1,11 @@
-import type { Movie, RecommendResponse, InteractionType, InteractionState, ToggleResponse } from "@/types/movie";
+import type {
+  DiscoverResponse,
+  InteractionState,
+  InteractionType,
+  Movie,
+  RecommendResponse,
+  ToggleResponse,
+} from "@/types/movie";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -71,6 +78,33 @@ export function searchMovies(query: string, limit = 20): Promise<Movie[]> {
   return apiFetch<Movie[]>(
     `/search?q=${encodeURIComponent(query)}&limit=${limit}`
   );
+}
+
+export interface DiscoverFilters {
+  limit?: number;
+  type?: "movie" | "tv";
+  genres?: string[];
+  yearMin?: number;
+  yearMax?: number;
+  ratingMin?: number;
+  runtimeMax?: number;
+}
+
+/** Natural-language search: fuses embedding similarity with keyword and title matches. */
+export function discoverTitles(
+  query: string,
+  filters: DiscoverFilters = {},
+  init?: RequestInit,
+): Promise<DiscoverResponse> {
+  const params = new URLSearchParams({ q: query });
+  if (filters.limit) params.set("limit", String(filters.limit));
+  if (filters.type) params.set("type", filters.type);
+  if (filters.genres?.length) params.set("genre", filters.genres.join(","));
+  if (filters.yearMin) params.set("year_min", String(filters.yearMin));
+  if (filters.yearMax) params.set("year_max", String(filters.yearMax));
+  if (filters.ratingMin) params.set("rating_min", String(filters.ratingMin));
+  if (filters.runtimeMax) params.set("runtime_max", String(filters.runtimeMax));
+  return apiFetch<DiscoverResponse>(`/discover?${params}`, init);
 }
 
 // ---------------------------------------------------------------------------

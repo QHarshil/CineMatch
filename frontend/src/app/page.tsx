@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { LandingHero } from "@/components/landing-hero";
 import { ScrollRow } from "@/components/scroll-row";
 import { CodeTyper } from "@/components/code-typer";
-import type { Movie } from "@/types/movie";
+import { discoverTitles } from "@/lib/api";
+import type { Movie, SearchHit } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
 
@@ -13,59 +14,76 @@ const MOVIE_FIELDS =
 
 const TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
 
-// A stylised sample interaction for the "see it in action" terminal.
-const DEMO_SESSION = [
-  [
-    { t: "$ ", k: "punct" as const },
-    { t: "cinematch ", k: "fn" as const },
-    { t: "recommend ", k: "keyword" as const },
-    { t: "--for ", k: "prop" as const },
-    { t: '"slow-burn sci-fi"', k: "string" as const },
-  ],
-  [{ t: "matching 1,510 titles in the catalog", k: "comment" as const }],
-  [
-    { t: "1  ", k: "punct" as const },
-    { t: "Arrival", k: "plain" as const },
-    { t: "              ", k: "plain" as const },
-    { t: "98% match", k: "match" as const },
-  ],
-  [
-    { t: "2  ", k: "punct" as const },
-    { t: "Blade Runner 2049", k: "plain" as const },
-    { t: "    ", k: "plain" as const },
-    { t: "96% match", k: "match" as const },
-  ],
-  [
-    { t: "3  ", k: "punct" as const },
-    { t: "Annihilation", k: "plain" as const },
-    { t: "         ", k: "plain" as const },
-    { t: "94% match", k: "match" as const },
-  ],
-];
+// The "see it in action" terminal runs this query against the live API.
+const DEMO_QUERY = "mind-bending dream heist";
 
-const FEATURES = [
-  {
-    title: "Movies and TV",
-    body: "815 films and 695 series, embedded and refreshed weekly from TMDB.",
-  },
-  {
-    title: "Built on your taste",
-    body: "A 1536-dim embedding per title. Your likes steer both retrieval and ranking.",
-  },
-  {
-    title: "Ranks in milliseconds",
-    body: "A LambdaMART model re-orders the 50 candidates with p95 latency near 0.9 ms.",
-  },
-  {
-    title: "Honest metrics",
-    body: "NDCG@10 0.81 on held-out users, a 14% lift over a popularity baseline.",
-  },
-];
+type TerminalLine = Parameters<typeof CodeTyper>[0]["lines"][number];
+
+function demoSession(hits: SearchHit[], catalogSize: number): TerminalLine[] {
+  const lines: TerminalLine[] = [
+    [
+      { t: "$ ", k: "punct" },
+      { t: "cinematch ", k: "fn" },
+      { t: "discover ", k: "keyword" },
+      { t: `"${DEMO_QUERY}"`, k: "string" },
+    ],
+    [
+      {
+        t: catalogSize > 0 ? `hybrid retrieval over ${catalogSize.toLocaleString("en-US")} titles` : "hybrid retrieval",
+        k: "comment",
+      },
+    ],
+  ];
+  hits.slice(0, 3).forEach((hit, i) => {
+    const title = hit.title.length > 22 ? `${hit.title.slice(0, 21)}…` : hit.title;
+    lines.push([
+      { t: `${i + 1}  `, k: "punct" },
+      { t: title.padEnd(24), k: "plain" },
+      { t: hit.similarity != null ? `cos ${hit.similarity.toFixed(2)}` : "title match", k: "match" },
+    ]);
+  });
+  return lines;
+}
+
+async function fetchDemoHits(): Promise<SearchHit[]> {
+  try {
+    const { results } = await discoverTitles(
+      DEMO_QUERY,
+      { limit: 3 },
+      { next: { revalidate: 3600 }, signal: AbortSignal.timeout(2500) },
+    );
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+function catalogFeatures(movieCount: number, seriesCount: number) {
+  const catalog =
+    movieCount > 0
+      ? `${movieCount.toLocaleString("en-US")} films and ${seriesCount.toLocaleString("en-US")} series, embedded and refreshed monthly from TMDB.`
+      : "Films and series, embedded and refreshed monthly from TMDB.";
+  return [
+    { title: "Movies and TV", body: catalog },
+    {
+      title: "Search by meaning",
+      body: "Describe a mood or a plot. Vector, keyword, and title matches are fused with reciprocal rank fusion.",
+    },
+    {
+      title: "Ranks in milliseconds",
+      body: "A LambdaMART model re-orders the 50 candidates with p95 latency near 0.9 ms.",
+    },
+    {
+      title: "Honest metrics",
+      body: "NDCG@10 0.81 on held-out users, a 14% lift over a popularity baseline.",
+    },
+  ];
+}
 
 async function fetchHomeData() {
   const supabase = await createSupabaseServerClient();
 
-  const [trendingRes, topRatedRes, newReleasesRes] = await Promise.all([
+  const [trendingRes, topRatedRes, newReleasesRes, movieCountRes, seriesCountRes] = await Promise.all([
     supabase
       .from("movies")
       .select(MOVIE_FIELDS)
@@ -81,12 +99,16 @@ async function fetchHomeData() {
       .select(MOVIE_FIELDS)
       .order("release_year", { ascending: false })
       .limit(20),
+    supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "movie"),
+    supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "tv"),
   ]);
 
   return {
     trending: (trendingRes.data ?? []) as Movie[],
     topRated: (topRatedRes.data ?? []) as Movie[],
     newReleases: (newReleasesRes.data ?? []) as Movie[],
+    movieCount: movieCountRes.count ?? 0,
+    seriesCount: seriesCountRes.count ?? 0,
   };
 }
 
@@ -94,15 +116,22 @@ export default async function HomePage() {
   let trending: Movie[] = [];
   let topRated: Movie[] = [];
   let newReleases: Movie[] = [];
+  let movieCount = 0;
+  let seriesCount = 0;
 
+  const demoHitsPromise = fetchDemoHits();
   try {
     const data = await fetchHomeData();
     trending = data.trending;
     topRated = data.topRated;
     newReleases = data.newReleases;
+    movieCount = data.movieCount;
+    seriesCount = data.seriesCount;
   } catch {
-    // Supabase unavailable — render the pitch without catalog rows.
+    // Supabase unavailable: render the pitch without catalog rows.
   }
+  const demoHits = await demoHitsPromise;
+  const features = catalogFeatures(movieCount, seriesCount);
 
   const featured =
     trending.find((m) => m.backdrop_path && m.vote_average >= 7) ??
@@ -130,8 +159,12 @@ export default async function HomePage() {
           <div className="border-b border-border p-6 lg:border-b-0 lg:border-r lg:p-8">
             <CodeTyper
               filename="cinematch"
-              lines={DEMO_SESSION}
-              result="ranked by your taste, not the box office"
+              lines={demoSession(demoHits, movieCount + seriesCount)}
+              result={
+                demoHits.length > 0
+                  ? "live results, ranked by meaning, keywords, and title"
+                  : "try any description in the search bar"
+              }
               speed={26}
             />
           </div>
@@ -158,7 +191,7 @@ export default async function HomePage() {
           <p className="eyebrow text-primary">Why it works</p>
         </div>
         <div className="mt-6 grid gap-px border-t border-border bg-border sm:grid-cols-2">
-          {FEATURES.map((feature) => (
+          {features.map((feature) => (
             <div key={feature.title} className="bg-background p-6 lg:p-8">
               <h3 className="font-heading text-lg font-semibold uppercase tracking-wide text-foreground">
                 {feature.title}

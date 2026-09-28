@@ -15,6 +15,26 @@ export interface Movie {
   media_type?: "movie" | "tv";
 }
 
+/** One GET /discover result. A null rank means that retriever did not return the title. */
+export interface SearchHit extends Movie {
+  original_language?: string;
+  /** Cosine similarity between the query and the title's embedding. */
+  similarity: number | null;
+  semantic_rank: number | null;
+  keyword_rank: number | null;
+  title_rank: number | null;
+  /** Reciprocal rank fusion score. */
+  score: number;
+}
+
+/** How /discover matched: embeddings + keywords + titles, keywords only, or the offline cache. */
+export type RetrievalMode = "hybrid" | "keyword" | "cached";
+
+export interface DiscoverResponse {
+  results: SearchHit[];
+  retrieval: RetrievalMode;
+}
+
 /** GET /recommend response from the Go backend. */
 export interface RecommendResponse {
   movies: Movie[];

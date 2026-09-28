@@ -99,7 +99,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
           </div>
           <Input
             type="search"
-            placeholder="Search titles..."
+            placeholder="Title, genre, or mood"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => {

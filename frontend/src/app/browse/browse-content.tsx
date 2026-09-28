@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Film, ChevronDown } from "lucide-react";
-import type { Movie } from "@/types/movie";
-import { searchMovies } from "@/lib/api";
+import type { Movie, RetrievalMode } from "@/types/movie";
+import { discoverTitles } from "@/lib/api";
 import { MovieCard } from "@/components/movie-card";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -16,6 +16,12 @@ const SORT_LABELS: Record<SortOption, string> = {
   top_rated: "Top Rated",
   newest: "Newest",
   a_z: "A-Z",
+};
+
+const RETRIEVAL_NOTES: Record<RetrievalMode, string> = {
+  hybrid: "Matched by meaning, keywords, and title",
+  keyword: "Matched by keywords and title",
+  cached: "Showing title matches from the offline cache",
 };
 
 const SORT_CONFIG: Record<SortOption, { column: string; ascending: boolean }> = {
@@ -38,8 +44,8 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [sortOpen, setSortOpen] = useState(false);
+  const [retrieval, setRetrieval] = useState<RetrievalMode | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
-  const initialFetchDone = useRef(false);
   const supabase = useRef(createSupabaseBrowserClient());
 
   const isSearchMode = searchQuery.length > 0;
@@ -71,8 +77,9 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
       setHasMore(true);
       try {
         if (isSearchMode) {
-          const results = await searchMovies(searchQuery, 40);
+          const { results, retrieval: mode } = await discoverTitles(searchQuery, { limit: 40 });
           setMovies(results);
+          setRetrieval(mode);
           setHasMore(false);
         } else {
           const results = await fetchFromSupabase(genre, sortKey, 0);
@@ -89,22 +96,19 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
     [isSearchMode, searchQuery, fetchFromSupabase]
   );
 
-  // Trigger initial load
-  if (!initialFetchDone.current) {
-    initialFetchDone.current = true;
-    loadInitial(activeGenre, sort);
-  }
+  // Reload when the search query changes; filter and sort changes load directly.
+  useEffect(() => {
+    loadInitial("All", "popular");
+  }, [loadInitial]);
 
   function handleGenreChange(genre: string) {
     setActiveGenre(genre);
-    initialFetchDone.current = true;
     loadInitial(genre, sort);
   }
 
   function handleSortChange(newSort: SortOption) {
     setSort(newSort);
     setSortOpen(false);
-    initialFetchDone.current = true;
     loadInitial(activeGenre, newSort);
   }
 
@@ -138,6 +142,9 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
       <h1 className="mb-6 mt-2 font-heading text-3xl font-semibold uppercase tracking-tight">
         {isSearchMode ? <>Results for &lsquo;{searchQuery}&rsquo;</> : "Browse"}
       </h1>
+      {isSearchMode && retrieval && !loading && (
+        <p className="eyebrow -mt-3 mb-8 text-muted-foreground">{RETRIEVAL_NOTES[retrieval]}</p>
+      )}
 
       {/* Filter/sort bar — hidden in search mode */}
       {!isSearchMode && (

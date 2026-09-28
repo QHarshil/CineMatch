@@ -15,7 +15,7 @@ const EXAMPLES = [
   "a cozy animated film for a rainy night",
 ];
 
-const QUICK_PROMPTS = ["Movies like Prisoners", "A horror movie from 2022 or later", "Something based on what I like"];
+const QUICK_PROMPTS = ["Movies like Prisoners", "Horror from 2022 on", "Based on what I like"];
 
 export function LandingHero({ catalogSize }: { catalogSize: number }) {
   const router = useRouter();
@@ -63,7 +63,7 @@ export function LandingHero({ catalogSize }: { catalogSize: number }) {
           meaning, re-ranks with LambdaMART, and can only recommend titles it actually retrieved.
         </p>
 
-        <form onSubmit={submit} className="mx-auto mt-10 max-w-2xl">
+        <form onSubmit={submit} className="mx-auto mt-10 max-w-2xl text-left">
           <label htmlFor="hero-prompt" className="sr-only">
             Describe what you want to watch
           </label>
@@ -74,10 +74,13 @@ export function LandingHero({ catalogSize }: { catalogSize: number }) {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 autoComplete="off"
-                className="h-14 w-full bg-transparent px-5 font-serif text-lg text-foreground focus:outline-none"
+                className="h-14 w-full bg-transparent px-5 font-serif text-base text-foreground focus:outline-none sm:text-lg"
               />
               {prompt === "" && (
-                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-5 flex items-center font-serif text-lg text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-5 right-3 flex items-center overflow-hidden whitespace-nowrap font-serif text-base text-muted-foreground sm:text-lg"
+                >
                   <ScrambleCycle phrases={EXAMPLES} />
                 </span>
               )}

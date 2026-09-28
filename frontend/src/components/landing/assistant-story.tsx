@@ -91,9 +91,9 @@ const STEPS: Step[] = [
     visual: (
       <Panel label="present_picks">
         {[
-          { ref: "t1", title: "Signal", ok: true },
-          { ref: "t4", title: "Stranger", ok: true },
-          { ref: "t7", title: "Mouse", ok: true },
+          { ref: "t1", title: "Mousetrap", ok: true },
+          { ref: "t4", title: "Bloodhounds", ok: true },
+          { ref: "t7", title: "Squid Game", ok: true },
           { ref: "t19", title: "a title no tool returned", ok: false },
         ].map((row) => (
           <p key={row.ref} className={`flex items-center gap-3 ${row.ok ? "" : "text-muted-foreground line-through"}`}>

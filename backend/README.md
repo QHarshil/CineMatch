@@ -23,6 +23,8 @@ Required env vars (set in `../.env` or export directly):
 | `ALLOWED_ORIGINS` | no | `http://localhost:3000` |
 | `RATE_LIMIT_RPM` | no | `60` |
 | `OMDB_API_KEY` | no | - (IMDb/Rotten Tomatoes ratings are hidden if unset) |
+| `OPENAI_API_KEY` | no | - (query embeddings for `/discover`; search runs keyword-only if unset) |
+| `EMBED_DAILY_LIMIT` | no | `5000` upstream embedding calls per instance per UTC day |
 
 Run tests:
 
@@ -90,6 +92,43 @@ Aggregate IMDb and Rotten Tomatoes scores from OMDb, looked up by title, year, a
 **GET /search?q=inception&limit=20**
 
 Title search using Postgres ILIKE backed by a trigram GIN index. `q` is 1-200 characters, `limit` capped at 50. Falls back to filtering cached popular movies when the database is down. Rate limited to 30 req/min per IP.
+
+**GET /discover?q=slow-burn+sci-fi&type=tv&limit=20**
+
+Natural-language search. The query is embedded with `text-embedding-3-small` (the model that embedded the catalog) and the `search_titles_hybrid` RPC fuses three rankers with reciprocal rank fusion: pgvector cosine similarity, Postgres full-text rank over title and overview, and trigram title similarity for typos. Rate limited to 30 req/min per IP.
+
+| Param | Validation |
+|-------|------------|
+| `q` | required, 1-200 characters, HTML stripped |
+| `type` | `movie` or `tv` |
+| `genre` | comma-separated, at most 5 |
+| `year_min`, `year_max` | 1900-2100, min not above max |
+| `rating_min` | 0-10 (TMDB vote average) |
+| `runtime_max` | 1-600 minutes |
+| `lang` | two-letter ISO 639-1 code |
+| `limit` | 1-50, default 20 |
+
+```json
+{
+  "retrieval": "hybrid",
+  "results": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Inception",
+      "media_type": "movie",
+      "release_year": 2010,
+      "original_language": "en",
+      "similarity": 0.515,
+      "semantic_rank": 1,
+      "keyword_rank": null,
+      "title_rank": null,
+      "score": 0.0164
+    }
+  ]
+}
+```
+
+A `null` rank means that ranker did not return the title. `retrieval` is `hybrid` when the query was embedded, `keyword` when no embedding was available (no key, daily cap reached, or OpenAI down), and `cached` when Supabase was unreachable and results come from the popular cache.
 
 ### Authenticated (require `Authorization: Bearer <supabase-jwt>`)
 
@@ -166,7 +205,9 @@ RequestID and RealIP come first because the logger and rate limiter need accurat
 
 **Two-stage pipeline wiring.** The recommend handler checks `GetUserEmbedding` first. No embedding means cold start, so it returns popular movies immediately and skips the whole pipeline. If an embedding exists, it calls `MatchMovies` (pgvector RPC, 50 candidates), then POSTs those to the Python ranker. If the ranker is down, candidates come back in similarity order. The frontend doesn't need to know about the failure.
 
-**Graceful degradation.** A `PopularMoviesCache` holds the top 50 movies in memory, refreshed hourly. When Supabase is unreachable, `/movies`, `/search`, and `/recommend` all fall back to this cache instead of returning 500s. Search does a basic title substring match against cached movies. This keeps the site functional during database maintenance or outages.
+**Graceful degradation.** A `PopularMoviesCache` holds the top 50 movies in memory, refreshed hourly. When Supabase is unreachable, `/movies`, `/search`, `/discover`, and `/recommend` all fall back to this cache instead of returning 500s. Search does a basic title substring match against cached movies. This keeps the site functional during database maintenance or outages.
+
+**Hybrid retrieval.** Embeddings capture mood and plot ("a heist that goes wrong") but miss exact titles and typos; full-text and trigram matching catch those. Reciprocal rank fusion combines them by rank, so the three scores never need calibrating against each other. Filters are applied inside each ranker, and pgvector 0.8 iterative index scans keep the HNSW search walking until enough rows pass them. Query embeddings go through an LRU cache and a per-day call cap (`embed.Budgeted`), so repeated queries are free and spend is bounded even under a traffic spike.
 
 **Interaction caps.** Each user can record at most 500 interactions total. Enforced in the Go handler (fast fail before the DB round-trip) and via a Supabase RLS INSERT policy (database-level safety net). This prevents a single account from flooding the interactions table on the free tier.
 

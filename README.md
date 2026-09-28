@@ -92,7 +92,8 @@ Copy `.env.example` to `.env` and fill in:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Publishable anon key (RLS restricts access) |
 | `JWT_SECRET` | backend | Supabase JWT secret for token verification |
 | `TMDB_READ_ACCESS_TOKEN` | backend, scripts | TMDB v4 Bearer token |
-| `OPENAI_API_KEY` | backend, scripts | For embedding generation |
+| `OPENAI_API_KEY` | backend, scripts | Catalog embeddings (seeder) and query embeddings for natural-language search |
+| `EMBED_DAILY_LIMIT` | backend | Cap on upstream query-embedding calls per instance per day (default `5000`) |
 | `ALLOWED_ORIGINS` | backend | Comma-separated CORS origins |
 | `APP_PORT` | backend | HTTP listen port (default `8080`) |
 | `RANKER_URL` | backend | Python ranker URL (default `http://localhost:8000`) |

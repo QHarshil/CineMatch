@@ -6,16 +6,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/harshilc/cinematch-backend/db"
+	"github.com/harshilc/cinematch-backend/embed"
 	"github.com/harshilc/cinematch-backend/handlers"
 	custommw "github.com/harshilc/cinematch-backend/middleware"
 	"github.com/harshilc/cinematch-backend/omdb"
 	"github.com/harshilc/cinematch-backend/ranker"
+	"github.com/harshilc/cinematch-backend/search"
 	"github.com/joho/godotenv"
 )
 
@@ -56,6 +59,16 @@ func main() {
 	}
 	ratingsCache := omdb.NewCache(24 * time.Hour)
 
+	// Query vectors must come from the model that embedded the catalog, so they
+	// use OpenAI. Without a key, search runs keyword and title matching only.
+	var queryEmbedder embed.Embedder
+	if openAIKey := os.Getenv("OPENAI_API_KEY"); openAIKey != "" {
+		queryEmbedder = embed.NewBudgeted(embed.NewClient(openAIKey), envInt("EMBED_DAILY_LIMIT", 5000), 1000)
+	} else {
+		slog.Info("OPENAI_API_KEY not set, search runs keyword-only")
+	}
+	titleSearch := search.NewService(supabase, queryEmbedder)
+
 	r := chi.NewRouter()
 
 	// Middleware order matters: RequestID and RealIP must come before logging
@@ -79,6 +92,7 @@ func main() {
 	r.Get("/movies/{id}", handlers.GetMovieByID(supabase))
 	r.Get("/movies/{id}/ratings", handlers.GetMovieRatings(supabase, ratingsFetcher, ratingsCache))
 	r.With(custommw.SearchRateLimiter()).Get("/search", handlers.SearchMovies(supabase, popularCache))
+	r.With(custommw.SearchRateLimiter()).Get("/discover", handlers.DiscoverTitles(titleSearch, popularCache))
 
 	// Authenticated endpoints — require a valid Supabase JWT.
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
@@ -130,4 +144,13 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server stopped cleanly")
+}
+
+// envInt reads a positive integer setting, falling back to def when unset or
+// invalid.
+func envInt(name string, def int) int {
+	if n, err := strconv.Atoi(os.Getenv(name)); err == nil && n > 0 {
+		return n
+	}
+	return def
 }

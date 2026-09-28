@@ -6,6 +6,8 @@ import { ArrowUp, Square } from "lucide-react";
 const MAX_CHARS = 800;
 
 interface ComposerProps {
+  /** Text to start with, such as a prompt typed on the landing page. */
+  draft?: string;
   busy: boolean;
   disabled?: boolean;
   disabledReason?: string;
@@ -14,9 +16,13 @@ interface ComposerProps {
 }
 
 /** Prompt box: Enter sends, Shift+Enter adds a line, and Stop cancels a run. */
-export function Composer({ busy, disabled, disabledReason, onSend, onStop }: ComposerProps) {
-  const [value, setValue] = useState("");
+export function Composer({ draft = "", busy, disabled, disabledReason, onSend, onStop }: ComposerProps) {
+  const [value, setValue] = useState(draft);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (draft) ref.current?.focus();
+  }, [draft]);
 
   useEffect(() => {
     const el = ref.current;

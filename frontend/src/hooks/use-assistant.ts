@@ -10,6 +10,9 @@ export function useAssistant(token: string | undefined) {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [usage, setUsage] = useState<AssistantUsage | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // State updates land on the next render, so a second click in the same
+  // frame would still see the old history. The ref blocks it synchronously.
+  const sendingRef = useRef(false);
   const historyRef = useRef<Exchange[]>([]);
   historyRef.current = exchanges;
 
@@ -35,7 +38,8 @@ export function useAssistant(token: string | undefined) {
   const send = useCallback(
     async (prompt: string) => {
       const text = prompt.trim();
-      if (!token || !text || historyRef.current.at(-1)?.status === "streaming") return;
+      if (!token || !text || sendingRef.current) return;
+      sendingRef.current = true;
 
       const id = crypto.randomUUID();
       const turns = toTurns(historyRef.current, text);
@@ -49,7 +53,7 @@ export function useAssistant(token: string | undefined) {
         for await (const event of streamAssistant({ apiBase: API_BASE, token, turns, signal: controller.signal })) {
           update((ex) => applyEvent(ex, event));
           if (event.type === "done") {
-            setUsage((u) => (u ? { ...u, remaining: event.data.remaining_today, used: u.limit - event.data.remaining_today } : u));
+            setUsage((u) => (u ? { ...u, remaining: event.data.remaining_today, used: u.used + 1 } : u));
           }
         }
         update((ex) => (ex.status === "streaming" ? { ...ex, status: "failed", error: { message: "The response ended early. Try again." } } : ex));
@@ -70,6 +74,7 @@ export function useAssistant(token: string | undefined) {
           },
         }));
       } finally {
+        sendingRef.current = false;
         if (abortRef.current === controller) abortRef.current = null;
       }
     },

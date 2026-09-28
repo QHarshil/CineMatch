@@ -25,7 +25,7 @@ describe("ExchangeView", () => {
     expect(screen.getByText("8 results · 140 ms")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Arrival" })).toBeInTheDocument();
     expect(screen.getByText("Strong match")).toBeInTheDocument();
-    expect(screen.getByText(/1 grounded picks, 1 ungrounded blocked/)).toBeInTheDocument();
+    expect(screen.getByText(/1 grounded pick, 1 ungrounded blocked/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Like Arrival" })).toBeInTheDocument();
   });
 
@@ -39,5 +39,17 @@ describe("ExchangeView", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(/daily limit of 8/);
     expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+  });
+
+  it("shows an error the stream reported and offers a retry", () => {
+    const timedOut: Exchange = {
+      ...newExchange("e3", "a heist film"),
+      status: "error",
+      error: { message: "The assistant took too long. Please try again." },
+    };
+    render(<ExchangeView exchange={timedOut} onRetry={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/took too long/);
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 });

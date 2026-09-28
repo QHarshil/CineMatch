@@ -95,7 +95,7 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
           </div>
         )}
 
-        {exchange.error && exchange.status === "failed" && (
+        {exchange.error && (exchange.status === "failed" || exchange.status === "error") && (
           <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 border border-destructive/40 bg-destructive/5 px-4 py-3">
             <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
             <p className="font-mono text-xs text-destructive">
@@ -118,7 +118,9 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
           <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <ShieldCheck className="size-3 text-primary" aria-hidden="true" />
-              {exchange.picks.length > 0 ? `${exchange.picks.length} grounded picks` : "no picks"}
+              {exchange.picks.length > 0
+                ? `${exchange.picks.length} grounded ${exchange.picks.length === 1 ? "pick" : "picks"}`
+                : "no picks"}
               {exchange.dropped > 0 && `, ${exchange.dropped} ungrounded blocked`}
             </span>
             <span>{(exchange.run.latency_ms / 1000).toFixed(1)} s</span>

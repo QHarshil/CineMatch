@@ -102,16 +102,13 @@ export function AssistantView() {
   const endRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const sentFromQuery = useRef(false);
 
-  // A prompt handed over from the landing page runs once, then leaves the URL.
-  const initialPrompt = searchParams.get("q");
+  // A prompt handed over from the landing page fills the composer and waits
+  // for the person to send it, so a shared link cannot spend their quota.
+  const [draft] = useState(() => searchParams.get("q")?.slice(0, 800) ?? "");
   useEffect(() => {
-    if (!token || !initialPrompt || sentFromQuery.current) return;
-    sentFromQuery.current = true;
-    router.replace("/assistant");
-    void send(initialPrompt);
-  }, [token, initialPrompt, router, send]);
+    if (searchParams.has("q")) router.replace("/assistant");
+  }, [searchParams, router]);
 
   const latest = exchanges.at(-1);
   useEffect(() => {
@@ -202,6 +199,7 @@ export function AssistantView() {
             )}
 
             <Composer
+              draft={draft}
               busy={busy}
               disabled={outOfRuns}
               disabledReason="Daily limit reached. It resets at midnight UTC."

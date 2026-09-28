@@ -15,7 +15,10 @@ interface AuthState {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signInWithMagicLink: (email: string) => Promise<void>;
+  /** Sends a magic link; `next` is the relative path to land on after sign-in. */
+  signInWithMagicLink: (email: string, next?: string) => Promise<void>;
+  /** Starts a guest session so visitors can try the assistant without an email. */
+  signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -42,17 +45,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const signInWithMagicLink = useCallback(
-    async (email: string) => {
+    async (email: string, next?: string) => {
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (next) callback.searchParams.set("next", next);
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+        options: { emailRedirectTo: callback.toString() },
       });
       if (error) throw error;
     },
     [supabase]
   );
+
+  const signInAsGuest = useCallback(async () => {
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) throw error;
+  }, [supabase]);
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
@@ -66,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         loading,
         signInWithMagicLink,
+        signInAsGuest,
         signOut,
       }}
     >

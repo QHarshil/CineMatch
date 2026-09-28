@@ -12,6 +12,9 @@ export function LoginForm() {
   const { signInWithMagicLink } = useAuth();
   const searchParams = useSearchParams();
   const callbackError = searchParams.get("error");
+  // Only relative paths, so the link cannot send people off-site.
+  const nextParam = searchParams.get("next");
+  const next = nextParam?.startsWith("/") && !nextParam.startsWith("//") ? nextParam : undefined;
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(
@@ -45,7 +48,7 @@ export function LoginForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await signInWithMagicLink(email);
+      await signInWithMagicLink(email, next);
       setSent(true);
       startCooldown();
     } catch (err) {

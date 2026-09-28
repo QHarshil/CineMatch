@@ -7,7 +7,7 @@ import type {
   ToggleResponse,
 } from "@/types/movie";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 /** Thrown when the API returns 429 Too Many Requests. */
 export class RateLimitError extends Error {
@@ -151,4 +151,17 @@ export function submitRating(
     headers: authHeaders(token),
     body: JSON.stringify({ movie_id: movieId, score }),
   });
+}
+
+/** Today's assistant quota and whether answers come from the model or search. */
+export interface AssistantUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+  resets_at: string;
+  model_available: boolean;
+}
+
+export function fetchAssistantUsage(token: string): Promise<AssistantUsage> {
+  return apiFetch<AssistantUsage>("/assistant/usage", { headers: authHeaders(token) });
 }

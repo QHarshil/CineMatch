@@ -60,9 +60,9 @@ curl https://cinematch-ranker-XXXXXXXX-uc.a.run.app/health
 
 ## 2. Deploy the Go backend
 
-`deploy/cloudrun-backend.sh` reads secrets from the local `.env`, writes the
-gitignored `backend/.env.cloudrun.yaml`, and deploys with a 120-second request
-timeout so assistant streams can finish. Optional keys are included only when
+`deploy/cloudrun-backend.sh` reads secrets from the local `.env`, passes them
+to Cloud Run in a temporary file outside the uploaded source, and deploys with a
+120-second request timeout so assistant streams can finish. Optional keys are included only when
 set, so each feature stays off without them.
 
 ```bash
@@ -84,7 +84,7 @@ Verify it reaches Supabase:
 
 ```bash
 curl https://cinematch-backend-XXXXXXXX-uc.a.run.app/health
-# status "ok", database "reachable", plus movie_count / user_count / interaction_count
+# status "ok", database "ok", plus movie_count / user_count / interaction_count
 ```
 
 ### Choosing a free model provider
@@ -118,7 +118,7 @@ redirect allow list needs a wildcard entry such as
 ### Order matters
 
 The frontend calls `/discover` and `/assistant`, so deploy the backend (and
-apply migrations `0004` through `0009`) before the frontend build that uses
+apply migrations `0004` through `0011`) before the frontend build that uses
 them goes live.
 
 ## 3. Point the frontend at the new backend
@@ -158,10 +158,11 @@ Cloud Run bills pay-as-you-go with no built-in hard cap, so the deploy commands
 above include the guardrails that bound spend:
 
 - `--max-instances` (2 for the ranker, 3 for the backend) caps how many
-  containers can run at once. This is the main cost ceiling: a traffic flood is
-  rejected with 429/503 rather than scaling into a large bill.
+  containers can run at once. This is the main cost ceiling: past it, a traffic
+  flood gets 429/503 responses and no new containers start.
 - `--min-instances 0` means no charge while idle.
-- `--timeout 30` stops a single slow request from accruing minutes of CPU.
+- Request timeouts (30 s for the ranker, 120 s for the backend so assistant
+  streams can finish) stop a single slow request from accruing minutes of CPU.
 - The Go API already rate-limits (60 req/min per IP, tighter per endpoint), so
   abusive traffic is answered with cheap 429s.
 
@@ -267,8 +268,9 @@ gcloud run services add-iam-policy-binding cinematch-ranker \
   --role roles/run.invoker
 ```
 
-This requires the backend to attach a Google-signed identity token to ranker
-requests, which is a follow-up code change in `ranker/client.go`.
+The backend would then need to send a Google-signed identity token with each
+ranker request (`backend/ranker/client.go`). It does not today, so the ranker
+stays public and only re-scores the candidates it is sent.
 
 ## No-card alternative: Render
 

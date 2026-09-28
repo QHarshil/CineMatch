@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deploy the Go backend to Cloud Run. Reads secrets from the local .env and
-# writes the gitignored backend/.env.cloudrun.yaml, so secrets stay on your
-# machine. Run from the repo root, after the ranker is deployed, passing your
-# deployed frontend origin:
+# passes them in a temporary file outside the uploaded source, so they are
+# never part of the build. Run from the repo root, after the ranker is
+# deployed, passing your deployed frontend origin:
 #   ALLOWED_ORIGINS=https://your-app.vercel.app bash deploy/cloudrun-backend.sh
 set -euo pipefail
 
@@ -51,7 +51,8 @@ for name in JWT_SECRET SUPABASE_URL SUPABASE_SECRET_KEY; do
   fi
 done
 
-ENV_FILE="$REPO_ROOT/backend/.env.cloudrun.yaml"
+ENV_FILE="$(mktemp)"
+trap 'rm -f "$ENV_FILE"' EXIT
 cat > "$ENV_FILE" <<EOF
 JWT_SECRET: "$JWT_SECRET"
 SUPABASE_URL: "$SUPABASE_URL"
@@ -79,7 +80,6 @@ add_optional ASSISTANT_IP_DAILY_RUNS "$(get ASSISTANT_IP_DAILY_RUNS)"
 add_optional ASSISTANT_DAILY_RUNS "$(get ASSISTANT_DAILY_RUNS)"
 add_optional ASSISTANT_DAILY_TOKENS "$(get ASSISTANT_DAILY_TOKENS)"
 add_optional EMBED_DAILY_LIMIT "$(get EMBED_DAILY_LIMIT)"
-echo "Wrote $ENV_FILE"
 
 gcloud run deploy cinematch-backend \
   --source "$REPO_ROOT/backend" \

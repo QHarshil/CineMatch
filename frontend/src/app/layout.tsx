@@ -3,6 +3,7 @@ import { Fraunces, Newsreader, Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/header";
 import { ToastProvider } from "@/components/toast";
+import { SmoothScroll } from "@/components/motion/smooth-scroll";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -56,8 +57,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <ToastProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
+            <SmoothScroll>
+              <Header />
+              <main className="flex-1">{children}</main>
+            </SmoothScroll>
           </ToastProvider>
         </AuthProvider>
       </body>

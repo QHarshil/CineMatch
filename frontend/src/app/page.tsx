@@ -6,7 +6,7 @@ import { AssistantStory } from "@/components/landing/assistant-story";
 import { MetricsBand, type Metric } from "@/components/landing/metrics-band";
 import { ProductionGrid } from "@/components/landing/production-grid";
 import { SplitHeading } from "@/components/motion/split-heading";
-import { ASSISTANT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
+import { AGENT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
 import { ScrollRow } from "@/components/scroll-row";
 import { CodeTyper } from "@/components/code-typer";
 import { discoverTitles } from "@/lib/api";
@@ -91,15 +91,17 @@ const METRICS: Metric[] = [
     detail: `Exact titles and typos. Keyword-only search scores ${SEARCH_EVAL.modes[0].descriptionP10.toFixed(2)} on descriptions.`,
   },
   {
-    value: ASSISTANT_EVAL.passed,
-    suffix: `/${ASSISTANT_EVAL.cases}`,
+    value: AGENT_EVAL.production.passed,
+    suffix: `/${AGENT_EVAL.production.cases}`,
     label: "Agent eval cases passed",
-    detail: `Constraints, named titles, taste, vague and off-topic requests, and prompt injection, on ${ASSISTANT_EVAL.model}.`,
+    detail: `On ${AGENT_EVAL.production.model}, the production model: constraints, named titles, taste, vague and off-topic requests, and prompt injection.`,
   },
   {
-    value: 0,
-    label: "Ungrounded picks shown",
-    detail: "The server rejects any title a tool did not return, by construction.",
+    value: AGENT_EVAL.production.latencyP50S,
+    decimals: 1,
+    suffix: " s",
+    label: "Median agent run",
+    detail: `Tool calls, retrieval, and grounded picks end to end. Zero ungrounded picks shown; the server caught ${AGENT_EVAL.production.ungroundedCaught} attempt.`,
   },
 ];
 

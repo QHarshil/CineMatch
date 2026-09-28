@@ -1,4 +1,4 @@
-import { ASSISTANT_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
+import { AGENT_EVAL, AGENT_EVAL_CATEGORIES, SEARCH_EVAL, type AgentEvalRun } from "@/lib/eval-results";
 
 const LOOP = [
   { step: "Request", body: "Up to 12 turns, validated and length-capped. Quota and budget checked first; the check fails closed." },
@@ -7,6 +7,16 @@ const LOOP = [
   { step: "Ground", body: "present_picks may only cite refs a tool returned. Anything else is rejected and counted." },
   { step: "Guard", body: "Replies that repeat the instructions are replaced before they are sent." },
   { step: "Record", body: "Streamed as server-sent events, then written to the audit log with tokens, latency, and a hashed prompt." },
+];
+
+const RUNS: AgentEvalRun[] = [AGENT_EVAL.production, AGENT_EVAL.local];
+
+const SUMMARY_ROWS: Array<[string, (run: AgentEvalRun) => string]> = [
+  ["Cases passed", (r) => `${r.passed}/${r.cases}`],
+  ["Picks meeting constraints", (r) => r.picksMeetingConstraints],
+  ["Mean tool calls", (r) => r.meanToolCalls.toFixed(2)],
+  ["Tokens per run", (r) => r.tokensPerRun.toLocaleString("en-US")],
+  ["Latency p50 / p95", (r) => `${r.latencyP50S.toFixed(1)} / ${r.latencyP95S.toFixed(1)} s`],
 ];
 
 const GUARDRAILS = [
@@ -85,33 +95,51 @@ export function AiLayer() {
 
       <h3 className="mb-2 font-heading text-xl font-semibold uppercase tracking-tight">Agent eval</h3>
       <p className="mb-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        {ASSISTANT_EVAL.cases} cases through the real API on {ASSISTANT_EVAL.model}, run locally with Ollama. Each
-        checks what a reviewer would: stated constraints on every pick, the right tools for named titles and personal
-        taste, a question for vague requests, a decline for off-topic ones, and no leaked instructions under prompt
-        injection. {ASSISTANT_EVAL.note}
+        23 cases through the real API, on the production model and on a local one. Each checks what a reviewer would:
+        stated constraints on every pick, the right tools for named titles and personal taste, a question for vague
+        requests, a decline for off-topic ones, and no leaked instructions under prompt injection.
       </p>
-      <div className="mb-14 grid gap-px border border-border bg-border lg:grid-cols-2">
-        <table className="bg-background text-sm">
+      <div className="mb-4 overflow-x-auto border border-border">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="border-b border-border bg-wash">
+              <th className="eyebrow px-5 py-3 text-left text-muted-foreground">Case</th>
+              {RUNS.map((run) => (
+                <th key={run.model} className="eyebrow px-5 py-3 text-right text-muted-foreground">
+                  {run.model}
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
-            {ASSISTANT_EVAL.categories.map((c) => (
-              <tr key={c.name} className="border-b border-border last:border-b-0">
+            {AGENT_EVAL_CATEGORIES.map((c, i) => (
+              <tr key={c.name} className="border-b border-border">
                 <td className="px-5 py-2.5 text-muted-foreground">{c.name}</td>
-                <td className="px-5 py-2.5 text-right font-mono text-foreground">
-                  {c.passed}/{c.cases}
-                </td>
+                {RUNS.map((run) => (
+                  <td key={run.model} className="px-5 py-2.5 text-right font-mono text-foreground">
+                    {run.byCategory[i]}/{c.cases}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {SUMMARY_ROWS.map(([label, format]) => (
+              <tr key={label} className="border-b border-border bg-wash/40 last:border-b-0">
+                <td className="px-5 py-2.5 text-foreground">{label}</td>
+                {RUNS.map((run) => (
+                  <td key={run.model} className="px-5 py-2.5 text-right font-mono text-foreground">
+                    {format(run)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
-        <dl className="grid grid-cols-2 gap-px bg-border">
-          {ASSISTANT_EVAL.summary.map(([label, value]) => (
-            <div key={label} className="bg-background px-5 py-3">
-              <dt className="eyebrow text-muted-foreground">{label}</dt>
-              <dd className="mt-1 font-mono text-lg text-foreground">{value}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
+      <ul className="mb-14 max-w-2xl list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+        {AGENT_EVAL.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
 
       <h3 className="mb-6 font-heading text-xl font-semibold uppercase tracking-tight">Guardrails</h3>
       <dl className="grid gap-px border border-border bg-border sm:grid-cols-2">

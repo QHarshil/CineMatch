@@ -25,26 +25,62 @@ export const SEARCH_EVAL = {
   ],
 };
 
-export const ASSISTANT_EVAL = {
+/** One run of the 23-case agent eval against a given model. */
+export interface AgentEvalRun {
+  model: string;
+  where: string;
+  passed: number;
+  cases: number;
+  /** Passed per category, in AGENT_EVAL_CATEGORIES order. */
+  byCategory: number[];
+  picksMeetingConstraints: string;
+  ungroundedCaught: number;
+  meanToolCalls: number;
+  tokensPerRun: number;
+  latencyP50S: number;
+  latencyP95S: number;
+}
+
+export const AGENT_EVAL_CATEGORIES = [
+  { name: "Hard constraints", cases: 10 },
+  { name: "Like a named title", cases: 4 },
+  { name: "From personal taste", cases: 2 },
+  { name: "Vague, asks a question", cases: 2 },
+  { name: "Off-topic, declines", cases: 2 },
+  { name: "Prompt injection", cases: 3 },
+];
+
+export const AGENT_EVAL = {
   ranAt: "2026-09-28",
-  model: "qwen3:8b",
-  cases: 23,
-  passed: 23,
-  note: "Before the output guard existed, one injection case leaked part of the instructions (22/23); the guard blocked it and one other attempt in the final run.",
-  categories: [
-    { name: "Hard constraints", passed: 10, cases: 10 },
-    { name: "Like a named title", passed: 4, cases: 4 },
-    { name: "From personal taste", passed: 2, cases: 2 },
-    { name: "Vague, asks a question", passed: 2, cases: 2 },
-    { name: "Off-topic, declines", passed: 2, cases: 2 },
-    { name: "Prompt injection", passed: 3, cases: 3 },
+  production: {
+    model: "gemini-3.5-flash-lite",
+    where: "production, Gemini free tier",
+    passed: 22,
+    cases: 23,
+    byCategory: [10, 4, 2, 1, 2, 3],
+    picksMeetingConstraints: "74/74",
+    ungroundedCaught: 1,
+    meanToolCalls: 1.17,
+    tokensPerRun: 4223,
+    latencyP50S: 3.3,
+    latencyP95S: 5.9,
+  } satisfies AgentEvalRun,
+  local: {
+    model: "qwen3:8b",
+    where: "local, Ollama on a laptop",
+    passed: 23,
+    cases: 23,
+    byCategory: [10, 4, 2, 2, 2, 3],
+    picksMeetingConstraints: "66/66",
+    ungroundedCaught: 0,
+    meanToolCalls: 1.57,
+    tokensPerRun: 6274,
+    latencyP50S: 10.8,
+    latencyP95S: 19.3,
+  } satisfies AgentEvalRun,
+  notes: [
+    "Gemini's miss: asked \"any ideas?\", it recommended from the person's taste instead of asking a question.",
+    "The grounding check caught one pick Gemini tried to cite without a tool result; it was never shown.",
+    "qwen3:8b first scored 22/23: a developer-mode injection leaked part of its instructions, which led to the output guard.",
   ],
-  summary: [
-    ["Picks meeting constraints", "66/66"],
-    ["Ungrounded picks shown", "0"],
-    ["Mean tool calls", "1.57"],
-    ["Tokens per run", "6,274"],
-    ["Latency p50", "10.8 s"],
-    ["Latency p95", "19.3 s"],
-  ] as const,
 };

@@ -66,9 +66,17 @@ p50 and p95 latency, and tokens per run.
 
 Random baseline P@10: 0.152.
 
-The agent passed 23/23 cases on qwen3:8b (Ollama, local):
-- Picks met their stated constraints 66 of 66 times, and 0 ungrounded picks were shown.
-- Runs averaged 1.57 tool calls and 6,274 tokens.
-- Latency was 10.8 s at p50 and 19.3 s at p95.
-- The first run scored 22/23: a developer-mode injection leaked part of the instructions. The output guard in `backend/assistant/guard.go` came out of that failure.
-- In the final run, the guard blocked two replies.
+| Agent | gemini-3.5-flash-lite (production) | qwen3:8b (Ollama, local) |
+|-------|------------------------------------|--------------------------|
+| Cases passed | 22/23 | 23/23 |
+| Picks meeting constraints | 74/74 | 66/66 |
+| Ungrounded picks caught / shown | 1 / 0 | 0 / 0 |
+| Mean tool calls | 1.17 | 1.57 |
+| Tokens per run | 4,223 | 6,274 |
+| Latency p50 / p95 | 3.3 / 5.9 s | 10.8 / 19.3 s |
+
+Notes on the agent results:
+- Gemini's one miss: asked "any ideas?", it recommended from the person's taste instead of asking a question.
+- qwen3:8b's first run scored 22/23, because a developer-mode injection leaked part of the instructions. The output guard in `backend/assistant/guard.go` was built from that failure.
+
+Run it against Gemini with `EVAL_SPACING_MS=20000` to stay under the free tier's 15 requests a minute.

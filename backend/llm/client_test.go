@@ -61,6 +61,7 @@ func TestComplete(t *testing.T) {
 		},
 		{name: "rate limit maps to ErrRateLimited", status: http.StatusTooManyRequests, body: `{"error":{"message":"quota"}}`, wantErr: ErrRateLimited},
 		{name: "surfaces provider errors", status: http.StatusBadRequest, body: `{"error":{"message":"unknown model"}}`, wantErrMatch: "unknown model"},
+		{name: "surfaces Gemini's array-wrapped errors", status: http.StatusBadRequest, body: `[{"error":{"code":400,"message":"Function call is missing a thought_signature"}}]`, wantErrMatch: "thought_signature"},
 		{name: "rejects empty choices", status: http.StatusOK, body: `{"choices":[]}`, wantErrMatch: "no choices"},
 	}
 
@@ -138,5 +139,34 @@ func TestReasoningEffortOmittedWhenUnset(t *testing.T) {
 	c := NewClient(Config{BaseURL: srv.URL, Model: "qwen3:8b"})
 	if _, err := c.Complete(context.Background(), []Message{{Role: RoleUser, Content: "hi"}}, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestToolCallExtraContentRoundTrips(t *testing.T) {
+	// Gemini returns a thought_signature that must come back on the next turn.
+	reply := `{"choices":[{"message":{"content":null,"tool_calls":[{"id":"c1","type":"function","extra_content":{"google":{"thought_signature":"sig-123"}},"function":{"name":"search_catalog","arguments":"{}"}}]}}]}`
+	c := newTestClient(t, http.StatusOK, reply, nil)
+	first, err := c.Complete(context.Background(), []Message{{Role: RoleUser, Content: "heist"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var echoed string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var raw struct {
+			Messages []json.RawMessage `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&raw)
+		echoed = string(raw.Messages[1])
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"done"}}]}`))
+	}))
+	defer srv.Close()
+	next := NewClient(Config{BaseURL: srv.URL, Model: "gemini"})
+	history := []Message{{Role: RoleUser, Content: "heist"}, first.Message, {Role: RoleTool, ToolCallID: "c1", Content: "{}"}}
+	if _, err := next.Complete(context.Background(), history, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(echoed, `"thought_signature":"sig-123"`) {
+		t.Errorf("assistant turn sent back without the signature: %s", echoed)
 	}
 }

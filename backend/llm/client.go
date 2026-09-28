@@ -41,6 +41,10 @@ type ToolCall struct {
 	ID       string       `json:"id"`
 	Type     string       `json:"type"`
 	Function FunctionCall `json:"function"`
+	// ExtraContent carries provider data that must be echoed back unchanged.
+	// Gemini puts a thought_signature here and rejects the next request
+	// with HTTP 400 if it is missing.
+	ExtraContent json.RawMessage `json:"extra_content,omitempty"`
 }
 
 // FunctionCall names the tool and carries its arguments as a JSON string.
@@ -144,6 +148,25 @@ type chatRequest struct {
 	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
 }
 
+// errorMessage extracts the provider's error text. OpenAI and Ollama return
+// {"error": {...}}; Gemini's compatibility layer wraps it in an array.
+func errorMessage(raw []byte, status int) string {
+	type body struct {
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	var single body
+	if json.Unmarshal(raw, &single) == nil && single.Error != nil && single.Error.Message != "" {
+		return single.Error.Message
+	}
+	var list []body
+	if json.Unmarshal(raw, &list) == nil && len(list) > 0 && list[0].Error != nil && list[0].Error.Message != "" {
+		return list[0].Error.Message
+	}
+	return http.StatusText(status)
+}
+
 type chatResponse struct {
 	Choices []struct {
 		Message struct {
@@ -156,9 +179,6 @@ type chatResponse struct {
 		PromptTokens     int `json:"prompt_tokens"`
 		CompletionTokens int `json:"completion_tokens"`
 	} `json:"usage"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error"`
 }
 
 // thinkBlock matches reasoning some local models inline in their content.
@@ -200,16 +220,12 @@ func (c *Client) Complete(ctx context.Context, messages []Message, tools []Tool)
 		return Completion{}, ErrRateLimited
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return Completion{}, fmt.Errorf("llm: HTTP %d: %s", resp.StatusCode, errorMessage(raw, resp.StatusCode))
+	}
 	var parsed chatResponse
 	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return Completion{}, fmt.Errorf("llm: decoding response (HTTP %d): %w", resp.StatusCode, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		msg := http.StatusText(resp.StatusCode)
-		if parsed.Error != nil && parsed.Error.Message != "" {
-			msg = parsed.Error.Message
-		}
-		return Completion{}, fmt.Errorf("llm: HTTP %d: %s", resp.StatusCode, msg)
+		return Completion{}, fmt.Errorf("llm: decoding response: %w", err)
 	}
 	if len(parsed.Choices) == 0 {
 		return Completion{}, errors.New("llm: response had no choices")

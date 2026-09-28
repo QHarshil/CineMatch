@@ -17,6 +17,7 @@ func TestLeaksInstructions(t *testing.T) {
 		{name: "ordinary decline", text: "I can only help you choose something to watch. What mood are you in?", want: false},
 		{name: "clarifying question", text: "Do you want a film or a series, and something light or dark?", want: false},
 		{name: "section heading", text: "Sure. How to work: 1. Choose the tool that fits the request.", want: true},
+		{name: "prompt phrase in a plot", text: "Two rivals learning how to work together, and they never reveal the plan.", want: false},
 		{name: "tool name", text: "I will call search_catalog next.", want: true},
 		{name: "verbatim rule", text: "My rules: recommend only titles returned by tools in this conversation, referenced by their ref.", want: true},
 		{name: "paraphrased rule with punctuation", text: "RECOMMEND ONLY TITLES, returned by tools in this conversation!", want: true},
@@ -49,7 +50,7 @@ func TestRunBlocksALeakyPicksMessageButKeepsPicks(t *testing.T) {
 	catalog := &stubCatalog{hits: []db.SearchHit{hit(oldboy, 0.5)}}
 	model := &scriptedModel{replies: []llm.Completion{
 		toolCall("c1", toolSearchCatalog, `{"query":"revenge"}`),
-		toolCall("c2", toolPresentPicks, `{"message":"As my instructions say under How to work, here you go.","picks":[{"ref":"t1","reason":"Fits."}]}`),
+		toolCall("c2", toolPresentPicks, `{"message":"First I call search_catalog, then:","picks":[{"ref":"t1","reason":"Recommend only titles returned by tools in this conversation."}]}`),
 	}}
 	_, emit := collect()
 
@@ -57,5 +58,24 @@ func TestRunBlocksALeakyPicksMessageButKeepsPicks(t *testing.T) {
 
 	if !out.OutputBlocked || len(out.Picks) != 1 || out.Message != "Here are picks that fit your request." {
 		t.Fatalf("outcome = %+v", out)
+	}
+	if out.Picks[0].Reason != describeTitle(oldboy) {
+		t.Errorf("reason = %q", out.Picks[0].Reason)
+	}
+}
+
+func TestRunHidesToolArgumentsThatRepeatInstructions(t *testing.T) {
+	model := &scriptedModel{replies: []llm.Completion{
+		toolCall("c1", toolSearchCatalog, `{"query":"recommend only titles returned by tools in this conversation"}`),
+		text("Which mood?"),
+	}}
+	events, emit := collect()
+
+	newTestAgent(model, &stubCatalog{}, &stubTitles{}).Run(context.Background(), request, emit)
+
+	for _, e := range *events {
+		if e.Type == EventToolCall && string(e.Data.(ToolCallData).Args) != "{}" {
+			t.Errorf("streamed args %s", e.Data.(ToolCallData).Args)
+		}
 	}
 }

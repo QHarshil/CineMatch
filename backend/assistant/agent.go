@@ -19,10 +19,17 @@ import (
 )
 
 const (
-	maxModelCalls  = 5
-	fallbackPicks  = 6
-	historyTurns   = 8
-	assistantTurns = "assistant"
+	maxModelCalls       = 5
+	maxToolCallsPerTurn = 4
+	maxToolCallsPerRun  = 8
+	// maxRunTokens bounds one run's share of the global daily token budget.
+	maxRunTokens = 24_000
+	// maxUngroundedReply is the longest text reply allowed before any tool ran:
+	// room for a clarifying question or a decline, not a list of titles.
+	maxUngroundedReply = 280
+	fallbackPicks      = 6
+	historyTurns       = 8
+	assistantTurns     = "assistant"
 )
 
 // ChatModel completes a conversation with tool calling. Implemented by
@@ -103,9 +110,12 @@ const (
 	noticeSteps   = "Top search matches for your request."
 )
 
-// finishNudge asks the model to finish through present_picks after it
-// answered in plain text.
-const finishNudge = "Call present_picks now with the refs of the titles you chose. Do not answer in plain text."
+// Nudges sent when the model answers in plain text: finishNudge after tools
+// ran, searchNudge when it recommended from memory before any tool ran.
+const (
+	finishNudge = "Call present_picks now with the refs of the titles you chose. Do not answer in plain text."
+	searchNudge = "Use search_catalog or find_similar to find titles in the catalog before recommending. Reply in plain text only to ask a short question or decline."
+)
 
 // Run executes one request, streaming progress through emit.
 func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
@@ -120,12 +130,20 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 	emit(Event{EventStart, StartData{Model: out.Model, PromptVersion: PromptVersion}})
 	messages := a.conversation(req.Turns)
 	grounded := newGroundingSet()
-	nudged := false
+	nudged, searchNudged := false, false
 
 	for call := 0; call < maxModelCalls; call++ {
+		// One run cannot spend more than maxRunTokens of the shared budget.
+		if out.Usage.InputTokens+out.Usage.OutputTokens >= maxRunTokens {
+			break
+		}
 		completion, err := a.model.Complete(ctx, messages, toolDefinitions)
 		if err != nil {
 			if ctx.Err() != nil {
+				// A cancelled request has no one to tell; a deadline does.
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					emit(Event{EventError, ErrorData{Code: "timeout", Message: "The assistant took too long. Please try again."}})
+				}
 				out.Status = StatusError
 				return out
 			}
@@ -158,6 +176,16 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 			if text == "" {
 				return a.fallback(ctx, req, emit, out, noticeOffline)
 			}
+			// With no tool results, only a short question or decline may go out
+			// as text; a longer reply is likely titles from the model's memory.
+			if len([]rune(text)) > maxUngroundedReply {
+				if !searchNudged {
+					searchNudged = true
+					messages = append(messages, completion.Message, llm.Message{Role: llm.RoleUser, Content: searchNudge})
+					continue
+				}
+				return a.fallback(ctx, req, emit, out, noticeSteps)
+			}
 			if leaksInstructions(text) {
 				slog.Warn("assistant reply blocked: repeated its instructions", "model", out.Model)
 				text, out.OutputBlocked = safeDecline, true
@@ -168,14 +196,14 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 		}
 
 		messages = append(messages, completion.Message)
-		for _, tc := range calls {
+		for i, tc := range calls {
 			if tc.Function.Name == toolPresentPicks {
 				message, picks, ungrounded, problem := grounded.resolvePicks(tc.Function.Arguments)
 				out.UngroundedDropped += ungrounded
 				if len(picks) > 0 {
-					if leaksInstructions(message) {
-						slog.Warn("assistant message blocked: repeated its instructions", "model", out.Model)
-						message, out.OutputBlocked = "Here are picks that fit your request.", true
+					if guardPicks(&message, picks) {
+						slog.Warn("assistant picks text blocked: repeated its instructions", "model", out.Model)
+						out.OutputBlocked = true
 					}
 					emit(Event{EventPicks, PicksData{Message: message, Picks: picks, Dropped: out.UngroundedDropped}})
 					out.Status, out.Message, out.Picks = StatusPicks, message, picks
@@ -185,13 +213,19 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 				messages = append(messages, toolMessage(tc.ID, encodeForModel(map[string]string{"error": problem})))
 				continue
 			}
+			// Every tool call needs a reply message, so calls past a cap get an
+			// error result instead of running.
+			if i >= maxToolCallsPerTurn || len(out.Steps) >= maxToolCallsPerRun {
+				messages = append(messages, toolMessage(tc.ID, encodeForModel(map[string]string{"error": "tool call limit reached; present picks from the results you have"})))
+				continue
+			}
 			result, step := a.execute(ctx, req.UserID, tc, grounded, emit)
 			out.Steps = append(out.Steps, step)
 			messages = append(messages, toolMessage(tc.ID, result.content))
 		}
 	}
 
-	// The call budget ran out before present_picks.
+	// The call or token budget ran out before present_picks.
 	if grounded.size() > 0 {
 		return a.presentGrounded(grounded, emit, out, noticeSteps, "")
 	}
@@ -229,7 +263,12 @@ func (a *Agent) execute(ctx context.Context, userID string, tc llm.ToolCall, g *
 	if !json.Valid(args) {
 		args = json.RawMessage("{}")
 	}
-	emit(Event{EventToolCall, ToolCallData{ID: tc.ID, Tool: name, Label: labelFor(name, arguments), Args: args}})
+	// Tool arguments are model output, so they pass the same guard as replies.
+	shown := args
+	if leaksInstructions(string(args)) {
+		shown = json.RawMessage("{}")
+	}
+	emit(Event{EventToolCall, ToolCallData{ID: tc.ID, Tool: name, Label: labelFor(name, arguments), Args: shown}})
 
 	toolCtx, cancel := context.WithTimeout(ctx, toolTimeout)
 	defer cancel()

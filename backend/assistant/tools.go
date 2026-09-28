@@ -496,12 +496,40 @@ var (
 )
 
 // redactForAudit masks emails and phone numbers in tool arguments before they
-// are stored, since search queries are built from what the person typed.
+// are stored, since search queries are built from what the person typed. It
+// also drops NUL characters, which Postgres jsonb rejects; a rejected write
+// would lose the run's audit record.
 func redactForAudit(arguments string) json.RawMessage {
-	redacted := emailPattern.ReplaceAllString(arguments, "[email]")
-	redacted = phonePattern.ReplaceAllString(redacted, "[phone]")
-	if !json.Valid([]byte(redacted)) {
+	var parsed any
+	if err := json.Unmarshal([]byte(arguments), &parsed); err != nil {
 		return json.RawMessage(`{}`)
 	}
-	return json.RawMessage(redacted)
+	clean, err := json.Marshal(scrubStrings(parsed))
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return clean
+}
+
+// scrubStrings redacts and strips NULs from every string in a decoded JSON
+// value. Decoding already turned lone UTF-16 surrogates into U+FFFD.
+func scrubStrings(v any) any {
+	switch x := v.(type) {
+	case string:
+		x = strings.ReplaceAll(x, "\x00", "")
+		x = emailPattern.ReplaceAllString(x, "[email]")
+		return phonePattern.ReplaceAllString(x, "[phone]")
+	case []any:
+		for i := range x {
+			x[i] = scrubStrings(x[i])
+		}
+		return x
+	case map[string]any:
+		for k := range x {
+			x[k] = scrubStrings(x[k])
+		}
+		return x
+	default:
+		return v
+	}
 }

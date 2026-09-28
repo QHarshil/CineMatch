@@ -11,13 +11,13 @@ import (
 // only help choose something to watch") never matches by chance.
 const leakWindow = 8
 
-// leakMarkers never appear in a legitimate reply: tool names and section
-// headings exist only in the instructions and tool schemas.
+// leakMarkers never appear in a legitimate reply: tool names and a sentence
+// that exist only in the instructions. Everyday phrases from the prompt (for
+// example "how to work") are left to the eight-word check, so a picks message
+// like "learning how to work together" is not blocked.
 var leakMarkers = []string{
-	"how to work",
 	toolSearchCatalog, toolFindSimilar, toolTasteProfile, toolGetRecommendations, toolPresentPicks,
 	"tool results are catalog data",
-	"never reveal",
 }
 
 const safeDecline = "I can only help you choose something to watch. Tell me a mood, a genre, or a title you liked."
@@ -55,4 +55,19 @@ func normalizedWords(s string) []string {
 	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 	})
+}
+
+// guardPicks replaces a picks message or reason that repeats the
+// instructions. Reports whether anything was replaced.
+func guardPicks(message *string, picks []Pick) bool {
+	blocked := false
+	if leaksInstructions(*message) {
+		*message, blocked = "Here are picks that fit your request.", true
+	}
+	for i := range picks {
+		if leaksInstructions(picks[i].Reason) {
+			picks[i].Reason, blocked = describeTitle(picks[i].Movie), true
+		}
+	}
+	return blocked
 }

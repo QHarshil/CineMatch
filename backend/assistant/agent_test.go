@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -393,5 +394,92 @@ func TestRunPresentsMentionedTitlesWhenTheModelKeepsAnsweringInText(t *testing.T
 
 	if out.Status != StatusFallback || out.Picks[0].Movie.Title != "Mother" || len(out.Picks) != 2 {
 		t.Fatalf("outcome = %+v", out)
+	}
+}
+
+func TestRunCapsToolCalls(t *testing.T) {
+	var burst []llm.ToolCall
+	for i := 0; i < maxToolCallsPerTurn+2; i++ {
+		burst = append(burst, llm.ToolCall{ID: fmt.Sprintf("c%d", i), Type: "function", Function: llm.FunctionCall{Name: toolSearchCatalog, Arguments: `{"query":"revenge"}`}})
+	}
+	many := llm.Completion{Message: llm.Message{Role: llm.RoleAssistant, ToolCalls: burst}, Usage: llm.Usage{InputTokens: 100, OutputTokens: 20}}
+	model := &scriptedModel{replies: []llm.Completion{many, many, many}}
+	catalog := &stubCatalog{hits: []db.SearchHit{hit(oldboy, 0.5)}}
+	_, emit := collect()
+
+	out := newTestAgent(model, catalog, &stubTitles{}).Run(context.Background(), request, emit)
+
+	if len(catalog.queries) != maxToolCallsPerRun || len(out.Steps) != maxToolCallsPerRun {
+		t.Fatalf("ran %d searches, %d steps", len(catalog.queries), len(out.Steps))
+	}
+	// Every call still gets a reply, or the provider rejects the next request.
+	second := model.received[1]
+	replies := 0
+	for _, m := range second {
+		if m.Role == llm.RoleTool {
+			replies++
+		}
+	}
+	if replies != len(burst) {
+		t.Errorf("tool replies = %d, want %d", replies, len(burst))
+	}
+}
+
+func TestRunStopsAtTheRunTokenLimit(t *testing.T) {
+	heavy := toolCall("c1", toolSearchCatalog, `{"query":"revenge"}`)
+	heavy.Usage = llm.Usage{InputTokens: maxRunTokens, OutputTokens: 10}
+	model := &scriptedModel{replies: []llm.Completion{heavy, heavy}}
+	catalog := &stubCatalog{hits: []db.SearchHit{hit(oldboy, 0.5)}}
+	_, emit := collect()
+
+	out := newTestAgent(model, catalog, &stubTitles{}).Run(context.Background(), request, emit)
+
+	if len(model.received) != 1 || out.Status != StatusFallback || len(out.Picks) != 1 {
+		t.Fatalf("calls %d, outcome %+v", len(model.received), out)
+	}
+}
+
+func TestRunDoesNotSendLongUngroundedText(t *testing.T) {
+	fromMemory := text("You would like " + strings.Repeat("Oldboy, Mother, The Handmaiden, Memories of Murder, ", 8))
+	tests := []struct {
+		name       string
+		replies    []llm.Completion
+		wantStatus string
+	}{
+		{name: "searches after the nudge", replies: []llm.Completion{fromMemory, toolCall("c1", toolSearchCatalog, `{"query":"revenge"}`), toolCall("c2", toolPresentPicks, `{"message":"Try these.","picks":[{"ref":"t1","reason":"Fits."}]}`)}, wantStatus: StatusPicks},
+		{name: "falls back when it keeps answering", replies: []llm.Completion{fromMemory, fromMemory}, wantStatus: StatusFallback},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			model := &scriptedModel{replies: tc.replies}
+			catalog := &stubCatalog{hits: []db.SearchHit{hit(oldboy, 0.5)}}
+			_, emit := collect()
+
+			out := newTestAgent(model, catalog, &stubTitles{}).Run(context.Background(), request, emit)
+
+			if out.Status != tc.wantStatus || len(out.Picks) != 1 {
+				t.Fatalf("outcome = %+v", out)
+			}
+			if last := model.received[1][len(model.received[1])-1]; last.Content != searchNudge {
+				t.Errorf("second call ended with %q", last.Content)
+			}
+		})
+	}
+}
+
+func TestRunReportsATimeout(t *testing.T) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	model := &scriptedModel{errs: []error{context.DeadlineExceeded}}
+	events, emit := collect()
+
+	out := newTestAgent(model, &stubCatalog{}, &stubTitles{}).Run(ctx, request, emit)
+
+	if out.Status != StatusError {
+		t.Fatalf("status = %q", out.Status)
+	}
+	last := (*events)[len(*events)-1]
+	if last.Type != EventError || last.Data.(ErrorData).Code != "timeout" {
+		t.Errorf("last event = %+v", last)
 	}
 }

@@ -86,6 +86,9 @@ func TestRedactForAudit(t *testing.T) {
 	if string(redactForAudit(`not json`)) != `{}` {
 		t.Error("invalid JSON should become {}")
 	}
+	if got := string(redactForAudit(`{"query":"heist\u0000film","genres":["Crime\u0000"]}`)); got != `{"genres":["Crime"],"query":"heistfilm"}` {
+		t.Errorf("NUL not stripped: %s", got)
+	}
 }
 
 func TestCleanText(t *testing.T) {

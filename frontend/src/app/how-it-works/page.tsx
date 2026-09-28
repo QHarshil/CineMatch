@@ -3,6 +3,7 @@ import { PipelineDiagram } from "./pipeline-diagram";
 import { SimilarMoviesDemo } from "./similar-movies-demo";
 import { SectionReveal } from "./section-reveal";
 import { AiLayer } from "./ai-layer";
+import { RANKER_EVAL } from "@/lib/eval-results";
 import {
   Database,
   Cpu,
@@ -19,7 +20,7 @@ import Link from "next/link";
 export const metadata = {
   title: "How It Works",
   description:
-    "A technical deep-dive into how CineMatch builds personalized movie recommendations using vector search and learned ranking.",
+    "How CineMatch retrieves and ranks titles: pgvector retrieval, a LambdaMART re-ranker, hybrid search, and a grounded assistant, with the evals behind each.",
 };
 
 const MOVIE_FIELDS = "id, title, poster_path" as const;
@@ -43,46 +44,41 @@ async function fetchSeedMovies() {
 const FEATURE_WEIGHTS = [
   { name: "Cosine Similarity", weight: 0.50, description: "How close the movie is to the user's taste in embedding space" },
   { name: "Vote Quality", weight: 0.25, description: "TMDB community rating, normalized to a 0-1 scale" },
-  { name: "Log Popularity", weight: 0.15, description: "Logarithmic popularity prevents blockbusters from drowning everything" },
+  { name: "Log Popularity", weight: 0.15, description: "Log scale keeps blockbusters from dominating" },
   { name: "Genre Overlap", weight: 0.10, description: "Fraction of the movie's genres matching the user's preferences" },
 ];
 
-const EVAL_RESULTS = [
-  { model: "Popularity Baseline", ndcg: 0.72, mrr: 0.88, hitRate: 1.0 },
-  { model: "Vector Retrieval Only", ndcg: 0.80, mrr: 0.94, hitRate: 1.0 },
-  { model: "Linear Re-ranker", ndcg: 0.80, mrr: 0.95, hitRate: 1.0 },
-  { model: "LambdaMART Re-ranker", ndcg: 0.81, mrr: 1.0, hitRate: 1.0 },
-];
+const EVAL_RESULTS = RANKER_EVAL.models;
 
 const TECH_STACK = [
   {
     name: "Go",
     role: "API Backend",
-    reason: "Fast compilation, small binaries, and a concurrency model that handles high-throughput ranking calls without framework overhead.",
+    reason: "Small static binary on Cloud Run. The API streams assistant runs as server-sent events and calls the ranker and the model provider concurrently with request deadlines.",
     icon: Zap,
   },
   {
     name: "Python FastAPI",
     role: "Ranking Service",
-    reason: "The ML ecosystem lives in Python. FastAPI gives type-safe endpoints with Pydantic validation and sub-millisecond overhead.",
+    reason: "LightGBM and the eval pipeline are Python, so the ranker is too. Pydantic validates every request; re-ranking 50 candidates takes about 0.9 ms at p95.",
     icon: Cpu,
   },
   {
     name: "Supabase + pgvector",
     role: "Database & Vector Search",
-    reason: "Postgres with pgvector replaces separate Elasticsearch and Redis instances. HNSW indexes give sub-50ms kNN queries at this scale.",
+    reason: "Vectors, full text, trigrams, and app data in one Postgres. An HNSW kNN query over the catalog runs in about 12 ms.",
     icon: Database,
   },
   {
     name: "OpenAI Embeddings",
     role: "Representation Layer",
-    reason: "text-embedding-3-small produces 1536-dim vectors from movie metadata. One API call per movie, stored once, queried forever.",
+    reason: "text-embedding-3-small embeds each title and overview once at seeding time; search queries use the same model, cached and capped per day.",
     icon: Layers,
   },
   {
     name: "Next.js",
     role: "Frontend",
-    reason: "Server components for SEO-critical pages, client components for interactivity. Deployed on Vercel with edge caching.",
+    reason: "Server components render catalog pages; client components run the assistant stream, search, and motion. Deployed on Vercel.",
     icon: Globe,
   },
   {
@@ -100,7 +96,7 @@ const TECH_STACK = [
   {
     name: "LightGBM",
     role: "Learned Ranking",
-    reason: "LambdaMART objective directly optimizes NDCG. Trains in seconds on interaction data, inference in microseconds.",
+    reason: "LambdaMART optimizes NDCG directly, and its SHAP values explain each pick on For You.",
     icon: BarChart3,
   },
 ];
@@ -110,22 +106,19 @@ export default async function HowItWorksPage() {
 
   return (
     <article className="min-h-screen font-serif">
-      {/* ── Hero ─────────────────────────────────────────────────── */}
       <header className="px-4 pb-20 pt-32">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="eyebrow mb-6 text-primary">Engineering deep dive</p>
+          <p className="eyebrow mb-6 text-primary">How it works</p>
           <h1 className="mb-6 font-heading text-3xl font-semibold uppercase leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
             How CineMatch builds recommendations
           </h1>
           <p className="mx-auto max-w-xl text-lg leading-relaxed text-muted-foreground">
-            A two-stage pipeline that combines vector similarity search with a
-            learned ranking model to surface titles you will actually want to
-            watch.
+            A two-stage pipeline pairs vector similarity search with a learned
+            ranking model, and a grounded assistant sits on top.
           </p>
         </div>
       </header>
 
-      {/* ── Section 1: Pipeline Overview ─────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <SectionHeading
@@ -134,17 +127,15 @@ export default async function HowItWorksPage() {
             subtitle="The two-stage pipeline"
           />
           <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
-            Every recommendation request flows through two stages. First, we
-            cast a wide net using vector search to find movies that are
-            semantically close to the user&apos;s taste. Then, a scoring model
-            re-ranks those candidates using richer signals to surface the
-            best results.
+            Every recommendation request runs two stages. Vector search
+            retrieves 50 candidates close to the user&apos;s taste, then a
+            ranking model re-orders them using quality, popularity, and era
+            signals.
           </p>
           <PipelineDiagram />
         </div>
       </SectionReveal>
 
-      {/* ── Section 2: Retrieval ──────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
           <SectionHeading
@@ -155,11 +146,9 @@ export default async function HowItWorksPage() {
           <div className="mb-12 grid gap-12 md:grid-cols-2">
             <div className="space-y-5">
               <p className="leading-relaxed text-muted-foreground">
-                Every movie is converted into a 1536-dimensional embedding using
-                OpenAI&apos;s text-embedding-3-small model. The input
-                combines the movie&apos;s plot summary, genres, release year,
-                and key metadata into a single dense vector that captures
-                its semantic identity.
+                Every title is embedded once with OpenAI&apos;s
+                text-embedding-3-small model, from its title and overview,
+                into a 1536-dimensional vector.
               </p>
               <p className="leading-relaxed text-muted-foreground">
                 User preferences are encoded the same way, built from the
@@ -169,8 +158,8 @@ export default async function HowItWorksPage() {
               <p className="leading-relaxed text-muted-foreground">
                 Finding candidates is a nearest-neighbor search: we use
                 pgvector&apos;s HNSW index to find the 50 movies with the
-                highest cosine similarity to the user&apos;s embedding. This
-                runs in under 50ms, even across the full catalog.
+                highest cosine similarity to the user&apos;s embedding, in about
+                12 ms. Titles the user already rated are excluded.
               </p>
             </div>
             <div className="space-y-4">
@@ -205,7 +194,6 @@ export default async function HowItWorksPage() {
             </div>
           </div>
 
-          {/* Interactive demo */}
           <div className="mt-16">
             <h3 className="mb-2 font-heading text-2xl font-semibold uppercase tracking-tight">
               Try it yourself
@@ -220,7 +208,6 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* ── Section 3: Ranking ───────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
           <SectionHeading
@@ -231,11 +218,9 @@ export default async function HowItWorksPage() {
           <p className="mb-12 max-w-2xl leading-relaxed text-muted-foreground">
             Raw similarity is not enough. A movie can be close in embedding
             space but poorly rated, or popular but not to the user&apos;s
-            taste. The ranking stage combines multiple signals into a single
-            score that balances relevance, quality, and diversity.
+            taste. The ranking stage combines those signals into one score.
           </p>
 
-          {/* Feature weights */}
           <div className="mb-12 border border-border bg-wash p-6 sm:p-8">
             <p className="eyebrow mb-6 text-primary">Scoring weights</p>
             <div className="space-y-5">
@@ -279,7 +264,6 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* ── Section 4: Evaluation ────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
           <SectionHeading
@@ -288,7 +272,6 @@ export default async function HowItWorksPage() {
             subtitle="Measuring recommendation quality"
           />
 
-          {/* Metric definitions */}
           <div className="mb-12 grid gap-6 sm:grid-cols-3">
             <MetricCard
               name="NDCG@10"
@@ -296,15 +279,14 @@ export default async function HowItWorksPage() {
             />
             <MetricCard
               name="MRR"
-              definition="How quickly a user finds something they want. It measures the average rank of the first relevant result across all users."
+              definition="How soon the first relevant title appears: the mean of 1 / rank of the first hit across users."
             />
             <MetricCard
               name="Hit Rate@10"
-              definition="The simplest test: does the top-10 list contain at least one movie the user would actually enjoy?"
+              definition="Whether the top 10 contains at least one title the user rated highly."
             />
           </div>
 
-          {/* Results table */}
           <div className="overflow-x-auto border border-border">
             <table className="w-full min-w-[28rem] text-sm">
               <thead>
@@ -366,14 +348,13 @@ export default async function HowItWorksPage() {
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Evaluated on 40 held-out synthetic users with 1,695 interactions
-            across 494 movies. Synthetic users have non-linear taste profiles
+            over a 494-title snapshot of the catalog. Synthetic users have non-linear taste profiles
             (favourite era, vote-average sweet spot, genre-dependent recency)
             with Gaussian noise to simulate realistic behavior.
           </p>
         </div>
       </SectionReveal>
 
-      {/* ── Section 5: AI layer ───────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
           <SectionHeading number="05" title="The AI layer" subtitle="A grounded, audited agent" />
@@ -381,7 +362,6 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* ── Section 6: Cold Start ────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-3xl">
           <SectionHeading
@@ -391,37 +371,28 @@ export default async function HowItWorksPage() {
           />
           <div className="space-y-6 leading-relaxed text-muted-foreground">
             <p>
-              A new user has no interaction history, which means no user
-              embedding and no signal for the ranking model. Rather than
-              showing nothing, the pipeline falls back gracefully through
-              three tiers:
+              A new user has no likes yet, so there is no taste vector to
+              search with. The feed switches over as soon as there is one:
             </p>
           </div>
 
           <div className="mt-10 space-y-6">
             <ColdStartTier
-              stage="0 interactions"
-              label="Popularity Fallback"
-              description="The system returns the most popular, highest-rated movies across all genres. No personalization, but the recommendations are still high quality."
-              blend="100% popular"
+              stage="No likes yet"
+              label="Popular titles"
+              description="The feed shows the most popular titles. The assistant still works, since search needs no history."
+              blend="source: popular"
             />
             <ColdStartTier
-              stage="1-5 interactions"
-              label="Content-Based Filtering"
-              description="After a few likes or watches, the system builds a preliminary user embedding from the movies' own embeddings. Cosine similarity retrieval begins, blended with popular results."
-              blend="60% popular, 40% personalized"
-            />
-            <ColdStartTier
-              stage="6+ interactions"
-              label="Full Pipeline"
-              description="With enough signal, the two-stage pipeline activates fully. The user embedding stabilizes, and the ranking model has enough context to re-score candidates meaningfully."
-              blend="100% personalized"
+              stage="One like or watch"
+              label="Full pipeline"
+              description="Each like or watch rebuilds the taste vector as a recency-weighted mean of liked titles' embeddings, and the two-stage pipeline takes over."
+              blend="source: personalized"
             />
           </div>
         </div>
       </SectionReveal>
 
-      {/* ── Section 7: Tech Stack ────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
           <SectionHeading number="07" title="Tech stack" subtitle="Built with" />
@@ -463,10 +434,8 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* Spacer for footer breathing room */}
       <div className="h-20" />
 
-      {/* Inline keyframes for the demo animation */}
       <style>{`
         @keyframes fadeSlideIn {
           from {
@@ -483,7 +452,6 @@ export default async function HowItWorksPage() {
   );
 }
 
-/* ── Sub-components ──────────────────────────────────────────────── */
 
 function SectionHeading({
   number,

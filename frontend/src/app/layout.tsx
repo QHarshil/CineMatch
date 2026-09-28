@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     template: "%s · CineMatch",
   },
   description:
-    "A two-stage recommendation engine that learns your taste, retrieves with pgvector, and re-ranks with LambdaMART to surface films and series you will love.",
+    "A film and TV recommender with a grounded AI assistant: hybrid search over the catalog, pgvector retrieval, and a LambdaMART re-ranker.",
 };
 
 export default function RootLayout({

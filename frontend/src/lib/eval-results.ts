@@ -10,6 +10,12 @@ export const RANKER_EVAL = {
   lambdamartNdcg10: 0.814,
   liftOverPopularity: 14,
   rerankP95Ms: 0.9,
+  models: [
+    { model: "Popularity Baseline", ndcg: 0.716, mrr: 0.875, hitRate: 1.0 },
+    { model: "Vector Retrieval Only", ndcg: 0.798, mrr: 0.938, hitRate: 1.0 },
+    { model: "Linear Re-ranker", ndcg: 0.795, mrr: 0.95, hitRate: 1.0 },
+    { model: "LambdaMART Re-ranker", ndcg: 0.814, mrr: 0.988, hitRate: 1.0 },
+  ],
 };
 
 export const SEARCH_EVAL = {

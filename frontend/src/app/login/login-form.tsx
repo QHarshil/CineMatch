@@ -52,8 +52,6 @@ export function LoginForm() {
       setSent(true);
       startCooldown();
     } catch (err) {
-      // Don't reveal whether email exists; always show generic message
-      // unless it's clearly a client-side error.
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
@@ -131,7 +129,7 @@ export function LoginForm() {
         </form>
 
         <p className="mt-6 border-t border-border pt-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
-          We store your email only as a SHA-256 hash. Zero plaintext PII.
+          CineMatch&apos;s own tables store only a hash of your email.
         </p>
       </div>
     </div>

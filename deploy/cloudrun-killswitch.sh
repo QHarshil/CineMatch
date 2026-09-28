@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Arm the billing kill switch: a Cloud Billing budget publishes to a Pub/Sub
 # topic, and a Cloud Function disables billing on the project once spend passes
-# the budget. This is the only configuration that guarantees a hard $0 ceiling
-# on Cloud Run. Run from the repo root:  bash deploy/cloudrun-killswitch.sh
+# BUDGET_AMOUNT. Billing data can lag, so treat it as a backstop. Run
+# from the repo root:  bash deploy/cloudrun-killswitch.sh
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

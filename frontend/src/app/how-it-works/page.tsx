@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { PipelineDiagram } from "./pipeline-diagram";
 import { SimilarMoviesDemo } from "./similar-movies-demo";
 import { SectionReveal } from "./section-reveal";
+import { AiLayer } from "./ai-layer";
 import {
   Database,
   Cpu,
@@ -10,6 +11,8 @@ import {
   Zap,
   Globe,
   ExternalLink,
+  Bot,
+  FlaskConical,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -81,6 +84,18 @@ const TECH_STACK = [
     role: "Frontend",
     reason: "Server components for SEO-critical pages, client components for interactivity. Deployed on Vercel with edge caching.",
     icon: Globe,
+  },
+  {
+    name: "Tool-calling LLM",
+    role: "Assistant",
+    reason: "Any OpenAI-compatible model plans with read-only tools. Ollama runs it locally; a hosted free tier serves production.",
+    icon: Bot,
+  },
+  {
+    name: "TypeScript evals",
+    role: "Quality gates",
+    reason: "Retrieval and agent evals run through the real API with the same stream parser the frontend uses.",
+    icon: FlaskConical,
   },
   {
     name: "LightGBM",
@@ -358,11 +373,19 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* ── Section 5: Cold Start ────────────────────────────────── */}
+      {/* ── Section 5: AI layer ───────────────────────────────────── */}
+      <SectionReveal className="border-t border-border px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <SectionHeading number="05" title="The AI layer" subtitle="A grounded, audited agent" />
+          <AiLayer />
+        </div>
+      </SectionReveal>
+
+      {/* ── Section 6: Cold Start ────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-3xl">
           <SectionHeading
-            number="05"
+            number="06"
             title="Cold start"
             subtitle="What happens for new users"
           />
@@ -398,10 +421,10 @@ export default async function HowItWorksPage() {
         </div>
       </SectionReveal>
 
-      {/* ── Section 6: Tech Stack ────────────────────────────────── */}
+      {/* ── Section 7: Tech Stack ────────────────────────────────── */}
       <SectionReveal className="border-t border-border px-4 py-20">
         <div className="mx-auto max-w-4xl">
-          <SectionHeading number="06" title="Tech stack" subtitle="Built with" />
+          <SectionHeading number="07" title="Tech stack" subtitle="Built with" />
           <div className="mb-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {TECH_STACK.map((t) => (
               <div

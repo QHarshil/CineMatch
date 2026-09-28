@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchRecommendations } from "@/lib/api";
 import { ScrollRow } from "@/components/scroll-row";
-import type { Movie } from "@/types/movie";
+import type { Movie, RecommendationExplanation } from "@/types/movie";
+import { PickExplanation } from "@/components/pick-explanation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
@@ -47,6 +48,7 @@ export default function ForYouPage() {
   const [popular, setPopular] = useState<Movie[]>([]);
   const [becauseYouLiked, setBecauseYouLiked] = useState<BecauseYouLikedSection[]>([]);
   const [source, setSource] = useState("");
+  const [explanations, setExplanations] = useState<Record<string, RecommendationExplanation>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoProfile, setDemoProfile] = useState<string | null>(null);
@@ -142,6 +144,7 @@ export default function ForYouPage() {
       if (recResult) {
         setTopPicks(recResult.movies);
         setSource(recResult.source);
+        setExplanations(recResult.explanations ?? {});
       }
       setPopular(popularResult);
       setBecauseYouLiked(likedSections);
@@ -318,6 +321,16 @@ export default function ForYouPage() {
         {isDemoMode ? "Demo recommendations" : "For you"}
       </h1>
 
+      {!isDemoMode && (
+        <p className="mb-8 font-serif text-muted-foreground">
+          Ranked by the two-stage recommender, with the reason under each pick. Want something specific?{" "}
+          <Link href="/assistant" className="text-primary underline-offset-4 hover:underline">
+            Ask the assistant
+          </Link>
+          .
+        </p>
+      )}
+
       {isDemoMode && (
         <p className="mb-8 font-serif text-muted-foreground">
           Showing recommendations for the{" "}
@@ -354,6 +367,7 @@ export default function ForYouPage() {
           <ScrollRow
             title={isDemoMode ? "Top Picks" : "Top Picks for You"}
             movies={topPicks}
+            renderBelow={isDemoMode ? undefined : (movie) => <PickExplanation explanation={explanations[movie.id]} />}
           />
         </div>
       )}

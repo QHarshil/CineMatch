@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { Movie } from "@/types/movie";
@@ -10,9 +10,11 @@ interface ScrollRowProps {
   title: string;
   movies: Movie[];
   seeAllHref?: string;
+  /** Extra content under each card, such as why it was recommended. */
+  renderBelow?: (movie: Movie) => ReactNode;
 }
 
-export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
+export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -85,6 +87,7 @@ export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
         {/* Scroll container */}
         <div
           ref={scrollRef}
+          data-lenis-prevent-horizontal
           className="flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide"
         >
           {movies.map((movie) => (
@@ -93,6 +96,7 @@ export function ScrollRow({ title, movies, seeAllHref }: ScrollRowProps) {
               className="w-[140px] shrink-0 snap-start sm:w-[160px] lg:w-[180px]"
             >
               <MovieCard movie={movie} />
+              {renderBelow?.(movie)}
             </div>
           ))}
         </div>

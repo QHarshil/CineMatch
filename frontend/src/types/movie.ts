@@ -36,11 +36,27 @@ export interface DiscoverResponse {
   retrieval: RetrievalMode;
 }
 
+/** A ranker feature that raised a pick's score, with its SHAP contribution. */
+export interface RankingFactor {
+  feature: "similarity" | "vote_average" | "log_popularity" | "decade" | "is_recent";
+  contribution: number;
+}
+
+/** Why a title was recommended. */
+export interface RecommendationExplanation {
+  /** Cosine similarity to the taste vector. */
+  similarity: number;
+  because_you_liked?: { id: string; title: string; similarity: number };
+  factors?: RankingFactor[];
+}
+
 /** GET /recommend response from the Go backend. */
 export interface RecommendResponse {
   movies: Movie[];
   source: "personalized" | "popular" | "similarity_fallback";
   model_version?: string;
+  /** Keyed by movie ID; absent for popular feeds. */
+  explanations?: Record<string, RecommendationExplanation>;
 }
 
 /** Interaction types the user can record. */

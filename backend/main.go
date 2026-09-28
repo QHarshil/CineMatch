@@ -94,6 +94,7 @@ func main() {
 		}))
 	assistantLimits := handlers.AssistantLimits{
 		UserDailyRuns:     envInt("ASSISTANT_USER_DAILY_RUNS", 25),
+		GuestDailyRuns:    envInt("ASSISTANT_GUEST_DAILY_RUNS", 8),
 		GlobalDailyRuns:   envInt("ASSISTANT_DAILY_RUNS", 1000),
 		GlobalDailyTokens: envInt("ASSISTANT_DAILY_TOKENS", 2_000_000),
 	}

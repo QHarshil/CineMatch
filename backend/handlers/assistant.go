@@ -51,8 +51,17 @@ type AssistantStore interface {
 // answers, from search alone.
 type AssistantLimits struct {
 	UserDailyRuns     int
+	GuestDailyRuns    int // anonymous sessions are free to create, so they get fewer runs
 	GlobalDailyRuns   int
 	GlobalDailyTokens int
+}
+
+// runsFor returns the caller's daily run limit.
+func (l AssistantLimits) runsFor(ctx context.Context) int {
+	if middleware.IsGuestFromContext(ctx) {
+		return l.GuestDailyRuns
+	}
+	return l.UserDailyRuns
 }
 
 func (l AssistantLimits) modelBudgetSpent(u db.AssistantUsage) bool {
@@ -107,9 +116,10 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 			writeError(w, http.StatusServiceUnavailable, "assistant is temporarily unavailable")
 			return
 		}
-		if usage.UserRuns >= limits.UserDailyRuns {
+		dailyRuns := limits.runsFor(r.Context())
+		if usage.UserRuns >= dailyRuns {
 			writeJSON(w, http.StatusTooManyRequests, quotaError{
-				Error:    fmt.Sprintf("daily limit of %d assistant requests reached", limits.UserDailyRuns),
+				Error:    fmt.Sprintf("daily limit of %d assistant requests reached", dailyRuns),
 				ResetsAt: resetsAt.Format(time.RFC3339),
 			})
 			return
@@ -158,7 +168,7 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 			Model:          outcome.Model,
 			Usage:          outcome.Usage,
 			LatencyMS:      latency,
-			RemainingToday: max(0, limits.UserDailyRuns-usage.UserRuns-1),
+			RemainingToday: max(0, dailyRuns-usage.UserRuns-1),
 		}})
 		slog.Info("assistant run",
 			"run_id", runID,
@@ -168,6 +178,7 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 			"tool_calls", len(outcome.Steps),
 			"picks", len(outcome.Picks),
 			"ungrounded_dropped", outcome.UngroundedDropped,
+			"output_blocked", outcome.OutputBlocked,
 			"input_tokens", outcome.Usage.InputTokens,
 			"output_tokens", outcome.Usage.OutputTokens,
 			"latency_ms", latency,
@@ -198,10 +209,11 @@ func GetAssistantUsage(runner AssistantRunner, store AssistantStore, limits Assi
 			writeError(w, http.StatusServiceUnavailable, "assistant is temporarily unavailable")
 			return
 		}
+		dailyRuns := limits.runsFor(r.Context())
 		writeJSON(w, http.StatusOK, assistantUsageResponse{
 			Used:           usage.UserRuns,
-			Limit:          limits.UserDailyRuns,
-			Remaining:      max(0, limits.UserDailyRuns-usage.UserRuns),
+			Limit:          dailyRuns,
+			Remaining:      max(0, dailyRuns-usage.UserRuns),
 			ResetsAt:       resetsAt.Format(time.RFC3339),
 			ModelAvailable: runner.ModelName() != "none" && !limits.modelBudgetSpent(usage),
 		})
@@ -289,6 +301,7 @@ func auditRecord(runID, userID, requestID string, turns []assistant.Turn, out as
 		Steps:             steps,
 		PickIDs:           pickIDs,
 		UngroundedDropped: out.UngroundedDropped,
+		OutputBlocked:     out.OutputBlocked,
 		InputTokens:       out.Usage.InputTokens,
 		OutputTokens:      out.Usage.OutputTokens,
 		LatencyMS:         latencyMS,

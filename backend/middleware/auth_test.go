@@ -114,3 +114,39 @@ func TestRequireAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestRequireAuthMarksGuestSessions(t *testing.T) {
+	const secret = "test-secret"
+	for _, tc := range []struct {
+		name      string
+		anonymous any
+		wantGuest bool
+	}{
+		{name: "anonymous sign-in", anonymous: true, wantGuest: true},
+		{name: "email sign-in", anonymous: false, wantGuest: false},
+		{name: "claim absent", anonymous: nil, wantGuest: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			claims := jwt.MapClaims{"sub": "11111111-1111-1111-1111-111111111111", "exp": time.Now().Add(time.Hour).Unix()}
+			if tc.anonymous != nil {
+				claims["is_anonymous"] = tc.anonymous
+			}
+			signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var gotGuest bool
+			handler := middleware.RequireAuth(secret)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				gotGuest = middleware.IsGuestFromContext(r.Context())
+			}))
+			req := httptest.NewRequest(http.MethodGet, "/assistant/usage", nil)
+			req.Header.Set("Authorization", "Bearer "+signed)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if gotGuest != tc.wantGuest {
+				t.Errorf("guest = %v, want %v", gotGuest, tc.wantGuest)
+			}
+		})
+	}
+}

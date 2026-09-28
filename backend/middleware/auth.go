@@ -20,7 +20,16 @@ import (
 
 type contextKey string
 
-const contextKeyUserID contextKey = "userID"
+const (
+	contextKeyUserID contextKey = "userID"
+	contextKeyGuest  contextKey = "guest"
+)
+
+// identity is what a verified token says about the caller.
+type identity struct {
+	userID string
+	guest  bool // Supabase anonymous sign-in; gets a smaller assistant quota
+}
 
 // jwksCache holds the parsed JWKS keys fetched from Supabase.
 // Refreshed at most once per hour to avoid hitting the JWKS endpoint on every request.
@@ -49,13 +58,14 @@ func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			userID, err := verifySupabaseJWT(token, jwtSecret)
+			who, err := verifySupabaseJWT(token, jwtSecret)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), contextKeyUserID, userID)
+			ctx := context.WithValue(r.Context(), contextKeyUserID, who.userID)
+			ctx = context.WithValue(ctx, contextKeyGuest, who.guest)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -66,6 +76,17 @@ func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
 func UserIDFromContext(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(contextKeyUserID).(string)
 	return id, ok && id != ""
+}
+
+// IsGuestFromContext reports whether the caller signed in anonymously.
+func IsGuestFromContext(ctx context.Context) bool {
+	guest, _ := ctx.Value(contextKeyGuest).(bool)
+	return guest
+}
+
+// WithGuest marks ctx as an anonymous session, for handler tests.
+func WithGuest(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKeyGuest, true)
 }
 
 // WithUserID returns a copy of ctx with the given userID injected.
@@ -89,15 +110,15 @@ func extractBearerToken(r *http.Request) (string, bool) {
 	return token, token != ""
 }
 
-// verifySupabaseJWT validates a Supabase JWT and returns the subject (user UUID).
+// verifySupabaseJWT validates a Supabase JWT and returns the caller's identity.
 // Tries ES256 verification via JWKS first (current Supabase signing), then falls
 // back to HS256 with the project's JWT secret (legacy signing).
-func verifySupabaseJWT(tokenString, hmacSecret string) (string, error) {
+func verifySupabaseJWT(tokenString, hmacSecret string) (identity, error) {
 	// Try ES256 via JWKS (current Supabase default)
 	if globalJWKS.jwksURL != "" {
-		userID, err := verifyES256(tokenString)
+		who, err := verifyES256(tokenString)
 		if err == nil {
-			return userID, nil
+			return who, nil
 		}
 	}
 
@@ -105,7 +126,7 @@ func verifySupabaseJWT(tokenString, hmacSecret string) (string, error) {
 	return verifyHS256(tokenString, hmacSecret)
 }
 
-func verifyES256(tokenString string) (string, error) {
+func verifyES256(tokenString string) (identity, error) {
 	parsed, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
@@ -121,12 +142,12 @@ func verifyES256(tokenString string) (string, error) {
 		return key, nil
 	}, jwt.WithValidMethods([]string{"ES256"}))
 	if err != nil {
-		return "", err
+		return identity{}, err
 	}
-	return extractSubject(parsed)
+	return extractIdentity(parsed)
 }
 
-func verifyHS256(tokenString, secret string) (string, error) {
+func verifyHS256(tokenString, secret string) (identity, error) {
 	parsed, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
@@ -134,21 +155,22 @@ func verifyHS256(tokenString, secret string) (string, error) {
 		return []byte(secret), nil
 	}, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
-		return "", err
+		return identity{}, err
 	}
-	return extractSubject(parsed)
+	return extractIdentity(parsed)
 }
 
-func extractSubject(parsed *jwt.Token) (string, error) {
+func extractIdentity(parsed *jwt.Token) (identity, error) {
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok || !parsed.Valid {
-		return "", jwt.ErrTokenInvalidClaims
+		return identity{}, jwt.ErrTokenInvalidClaims
 	}
 	sub, err := claims.GetSubject()
 	if err != nil || sub == "" {
-		return "", jwt.ErrTokenInvalidClaims
+		return identity{}, jwt.ErrTokenInvalidClaims
 	}
-	return sub, nil
+	guest, _ := claims["is_anonymous"].(bool)
+	return identity{userID: sub, guest: guest}, nil
 }
 
 // getKey returns the ECDSA public key for the given kid, fetching JWKS if stale.

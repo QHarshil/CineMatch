@@ -49,7 +49,7 @@ func (s *stubAssistantStore) InsertAssistantRun(_ context.Context, run db.Assist
 	return s.insertErr
 }
 
-var testLimits = handlers.AssistantLimits{UserDailyRuns: 5, GlobalDailyRuns: 100, GlobalDailyTokens: 50000}
+var testLimits = handlers.AssistantLimits{UserDailyRuns: 5, GuestDailyRuns: 2, GlobalDailyRuns: 100, GlobalDailyTokens: 50000}
 
 type sseEvent struct {
 	name string
@@ -252,5 +252,19 @@ func TestGetAssistantUsage(t *testing.T) {
 				t.Errorf("resets_at %q: %v", body.ResetsAt, err)
 			}
 		})
+	}
+}
+
+func TestGuestsGetTheSmallerDailyLimit(t *testing.T) {
+	store := &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 2}}
+	req := httptest.NewRequest(http.MethodPost, "/assistant", strings.NewReader(`{"messages":[{"role":"user","content":"hi"}]}`))
+	ctx := middleware.WithUserID(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	req = req.WithContext(middleware.WithGuest(ctx))
+	rec := httptest.NewRecorder()
+
+	handlers.RunAssistant(&stubRunner{model: "m"}, store, testLimits)(rec, req)
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429 at the guest limit", rec.Code)
 	}
 }

@@ -28,9 +28,10 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{ReplaceAttr: cloudLoggingAttr})))
 
-	// Cloud Run injects env vars directly, so a missing .env is expected there.
-	if err := godotenv.Load(); err != nil {
-		slog.Info("no .env file found, reading environment variables directly")
+	// The repo-root .env is shared with scripts/. Cloud Run injects env vars
+	// directly, so a missing file is expected there.
+	if err := godotenv.Load("../.env"); err != nil {
+		slog.Info("no ../.env found, reading environment variables directly")
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")

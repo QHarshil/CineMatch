@@ -20,8 +20,7 @@ import (
 )
 
 func main() {
-	// In production (Railway), env vars are injected directly.
-	// godotenv.Load is a no-op if .env is absent, which is expected in production.
+	// Cloud Run injects env vars directly, so a missing .env is expected there.
 	if err := godotenv.Load(); err != nil {
 		slog.Info("no .env file found, reading environment variables directly")
 	}
@@ -109,7 +108,7 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Capture SIGINT/SIGTERM so Railway can shut down the container cleanly.
+	// Cloud Run sends SIGTERM before stopping an instance; drain in-flight requests.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

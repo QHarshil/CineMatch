@@ -76,8 +76,7 @@ func WithUserID(ctx context.Context, userID string) context.Context {
 }
 
 // extractBearerToken parses "Bearer <token>" from the Authorization header.
-// Falls back to X-Authorization because Railway's CDN edge (Fastly) strips
-// the standard Authorization header on proxied requests.
+// Falls back to X-Authorization for proxies that strip the standard header.
 func extractBearerToken(r *http.Request) (string, bool) {
 	header := r.Header.Get("Authorization")
 	if header == "" {

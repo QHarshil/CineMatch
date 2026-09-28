@@ -11,7 +11,7 @@ on:
   workflow_dispatch: {} # allow manual runs from the Actions tab
 
 jobs:
-  seed-recent:
+  refresh:
     runs-on: ubuntu-latest
     defaults:
       run:

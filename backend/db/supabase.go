@@ -112,6 +112,22 @@ func (c *SupabaseClient) doDelete(ctx context.Context, path string, params url.V
 	return c.execute(req, nil)
 }
 
+// doPatch updates the rows matched by params.
+func (c *SupabaseClient) doPatch(ctx context.Context, path string, params url.Values, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshalling patch payload for %s: %w", path, err)
+	}
+	endpoint := c.baseURL + path + "?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("building PATCH request for %s: %w", path, err)
+	}
+	c.injectAuthHeaders(req)
+	req.Header.Set("Prefer", "return=minimal")
+	return c.execute(req, nil)
+}
+
 // doUpsert performs an authenticated POST with merge-duplicates resolution.
 // Used for tables with unique constraints where we want insert-or-update semantics.
 func (c *SupabaseClient) doUpsert(ctx context.Context, path string, payload any) error {

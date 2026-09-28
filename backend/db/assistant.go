@@ -10,26 +10,6 @@ import (
 	"time"
 )
 
-// AssistantRun is one audited assistant request, written to assistant_runs.
-type AssistantRun struct {
-	ID                string          `json:"id"`
-	UserID            string          `json:"user_id"`
-	RequestID         string          `json:"request_id,omitempty"`
-	PromptVersion     string          `json:"prompt_version"`
-	Model             string          `json:"model"`
-	Status            string          `json:"status"`
-	InputSHA256       string          `json:"input_sha256"`
-	InputChars        int             `json:"input_chars"`
-	Steps             json.RawMessage `json:"steps"`
-	PickIDs           []string        `json:"pick_ids"`
-	UngroundedDropped int             `json:"ungrounded_dropped"`
-	OutputBlocked     bool            `json:"output_blocked"`
-	IPHash            string          `json:"ip_hash,omitempty"`
-	InputTokens       int             `json:"input_tokens"`
-	OutputTokens      int             `json:"output_tokens"`
-	LatencyMS         int             `json:"latency_ms"`
-}
-
 // AssistantUsage totals assistant activity since a cutoff.
 type AssistantUsage struct {
 	UserRuns    int `json:"user_runs"`
@@ -38,16 +18,81 @@ type AssistantUsage struct {
 	TotalTokens int `json:"total_tokens"`
 }
 
-// InsertAssistantRun appends an audit row.
-func (c *SupabaseClient) InsertAssistantRun(ctx context.Context, run AssistantRun) error {
-	if run.PickIDs == nil {
-		run.PickIDs = []string{}
+// RunReservation starts an audited run if the caller is under its limits.
+type RunReservation struct {
+	RunID         string
+	UserID        string
+	IPHash        string
+	Since         time.Time
+	UserLimit     int
+	IPLimit       int
+	RequestID     string
+	PromptVersion string
+	Model         string
+	InputSHA256   string
+	InputChars    int
+}
+
+// ReservationResult says whether the run may start and the usage it saw.
+// Reason is "user" or "network" when a limit was reached.
+type ReservationResult struct {
+	Allowed bool   `json:"allowed"`
+	Reason  string `json:"reason"`
+	AssistantUsage
+}
+
+// ReserveAssistantRun counts the run and inserts its "running" audit row in
+// one locked transaction (reserve_assistant_run), so parallel requests cannot
+// all pass the limit check.
+func (c *SupabaseClient) ReserveAssistantRun(ctx context.Context, r RunReservation) (ReservationResult, error) {
+	payload := map[string]any{
+		"p_run_id":         r.RunID,
+		"p_user_id":        r.UserID,
+		"p_ip_hash":        r.IPHash,
+		"p_since":          r.Since.UTC().Format(time.RFC3339),
+		"p_user_limit":     r.UserLimit,
+		"p_ip_limit":       r.IPLimit,
+		"p_request_id":     r.RequestID,
+		"p_prompt_version": r.PromptVersion,
+		"p_model":          r.Model,
+		"p_input_sha256":   r.InputSHA256,
+		"p_input_chars":    r.InputChars,
 	}
-	if len(run.Steps) == 0 {
-		run.Steps = json.RawMessage("[]")
+	var rows []ReservationResult
+	if err := c.CallRPC(ctx, "reserve_assistant_run", payload, &rows); err != nil {
+		return ReservationResult{}, fmt.Errorf("reserve_assistant_run rpc: %w", err)
 	}
-	if err := c.doPost(ctx, "/rest/v1/assistant_runs", run, nil); err != nil {
-		return fmt.Errorf("inserting assistant run: %w", err)
+	if len(rows) == 0 {
+		return ReservationResult{}, fmt.Errorf("reserve_assistant_run returned no row")
+	}
+	return rows[0], nil
+}
+
+// AssistantRunResult is the outcome written to a reserved run.
+type AssistantRunResult struct {
+	Status            string          `json:"status"`
+	Model             string          `json:"model"`
+	Steps             json.RawMessage `json:"steps"`
+	PickIDs           []string        `json:"pick_ids"`
+	UngroundedDropped int             `json:"ungrounded_dropped"`
+	OutputBlocked     bool            `json:"output_blocked"`
+	InputTokens       int             `json:"input_tokens"`
+	OutputTokens      int             `json:"output_tokens"`
+	LatencyMS         int             `json:"latency_ms"`
+}
+
+// FinishAssistantRun records the outcome on a reserved run.
+func (c *SupabaseClient) FinishAssistantRun(ctx context.Context, runID string, result AssistantRunResult) error {
+	if result.PickIDs == nil {
+		result.PickIDs = []string{}
+	}
+	if len(result.Steps) == 0 {
+		result.Steps = json.RawMessage("[]")
+	}
+	params := url.Values{}
+	params.Set("id", "eq."+runID)
+	if err := c.doPatch(ctx, "/rest/v1/assistant_runs", params, result); err != nil {
+		return fmt.Errorf("finishing assistant run %s: %w", runID, err)
 	}
 	return nil
 }

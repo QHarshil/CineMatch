@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -39,11 +40,12 @@ type AssistantRunner interface {
 	ModelName() string
 }
 
-// AssistantStore records runs and reports usage. Implemented by
+// AssistantStore reserves, finishes, and counts audited runs. Implemented by
 // db.SupabaseClient.
 type AssistantStore interface {
 	AssistantUsageSince(ctx context.Context, userID, ipHash string, since time.Time) (db.AssistantUsage, error)
-	InsertAssistantRun(ctx context.Context, run db.AssistantRun) error
+	ReserveAssistantRun(ctx context.Context, r db.RunReservation) (db.ReservationResult, error)
+	FinishAssistantRun(ctx context.Context, runID string, result db.AssistantRunResult) error
 }
 
 // AssistantLimits caps use per UTC day. Per-user runs keep one account from
@@ -63,9 +65,15 @@ type AssistantLimits struct {
 }
 
 // ipHash returns the keyed hash that identifies a network in the audit log.
+// IPv6 is grouped by /64, the block a single subscriber usually holds, so
+// rotating addresses inside it does not reset the network limit.
 func (l AssistantLimits) ipHash(r *http.Request) string {
+	network := r.RemoteAddr
+	if ip := net.ParseIP(r.RemoteAddr); ip != nil && ip.To4() == nil {
+		network = ip.Mask(net.CIDRMask(64, 128)).String() + "/64"
+	}
 	mac := hmac.New(sha256.New, l.IPHashKey)
-	mac.Write([]byte(r.RemoteAddr))
+	mac.Write([]byte(network))
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
@@ -102,7 +110,8 @@ type DoneData struct {
 
 // RunAssistant handles POST /assistant and streams the run as server-sent
 // events: start, tool_call, tool_result, then picks or message, then done.
-// Quota checks fail closed: if usage cannot be read, no model call is made.
+// The run is reserved (counted) before it starts; if that fails, no model
+// call is made.
 func RunAssistant(runner AssistantRunner, store AssistantStore, limits AssistantLimits) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := middleware.UserIDFromContext(r.Context())
@@ -123,28 +132,37 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 		}
 
 		dayStart, resetsAt := utcDay(time.Now())
-		ipHash := limits.ipHash(r)
-		usage, err := store.AssistantUsageSince(r.Context(), userID, ipHash, dayStart)
+		dailyRuns := limits.runsFor(r.Context())
+		prompt := turns[len(turns)-1].Content
+		sum := sha256.Sum256([]byte(prompt))
+		runID := newRunID()
+		reservation, err := store.ReserveAssistantRun(r.Context(), db.RunReservation{
+			RunID:         runID,
+			UserID:        userID,
+			IPHash:        limits.ipHash(r),
+			Since:         dayStart,
+			UserLimit:     dailyRuns,
+			IPLimit:       limits.IPDailyRuns,
+			RequestID:     chimw.GetReqID(r.Context()),
+			PromptVersion: assistant.PromptVersion,
+			Model:         runner.ModelName(),
+			InputSHA256:   hex.EncodeToString(sum[:]),
+			InputChars:    len([]rune(prompt)),
+		})
 		if err != nil {
-			slog.Error("assistant usage check failed", "error", err)
+			slog.Error("assistant run reservation failed", "error", err)
 			writeError(w, http.StatusServiceUnavailable, "assistant is temporarily unavailable")
 			return
 		}
-		dailyRuns := limits.runsFor(r.Context())
-		if usage.UserRuns >= dailyRuns {
-			writeJSON(w, http.StatusTooManyRequests, quotaError{
-				Error:    fmt.Sprintf("daily limit of %d assistant requests reached", dailyRuns),
-				ResetsAt: resetsAt.Format(time.RFC3339),
-			})
+		if !reservation.Allowed {
+			msg := fmt.Sprintf("daily limit of %d assistant requests reached", dailyRuns)
+			if reservation.Reason == "network" {
+				msg = "daily assistant limit reached for this network"
+			}
+			writeJSON(w, http.StatusTooManyRequests, quotaError{Error: msg, ResetsAt: resetsAt.Format(time.RFC3339)})
 			return
 		}
-		if usage.IPRuns >= limits.IPDailyRuns {
-			writeJSON(w, http.StatusTooManyRequests, quotaError{
-				Error:    "daily assistant limit reached for this network",
-				ResetsAt: resetsAt.Format(time.RFC3339),
-			})
-			return
-		}
+		usage := reservation.AssistantUsage
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -174,12 +192,10 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 		}, emit)
 		latency := int(time.Since(started).Milliseconds())
 
-		runID := newRunID()
-		record := auditRecord(runID, userID, chimw.GetReqID(r.Context()), turns, outcome, latency)
-		record.IPHash = ipHash
-		// Record the run even if the client disconnected mid-stream.
+		// The reservation already counts this run; a failed update only loses
+		// the outcome. Write it even if the client disconnected mid-stream.
 		auditCtx, cancelAudit := context.WithTimeout(context.WithoutCancel(r.Context()), auditWriteTimeout)
-		if err := store.InsertAssistantRun(auditCtx, record); err != nil {
+		if err := store.FinishAssistantRun(auditCtx, runID, runResult(outcome, latency)); err != nil {
 			slog.Error("assistant audit write failed", "run_id", runID, "error", err)
 		}
 		cancelAudit()
@@ -290,10 +306,10 @@ func validateTurns(turns []assistant.Turn) ([]assistant.Turn, error) {
 	return cleaned[start:], nil
 }
 
-// cleanTurn strips HTML tags and control characters, keeping line breaks.
+// cleanTurn drops control characters, keeping line breaks. Chat text is only
+// rendered as plain text, so angle brackets ("under <2h") are left alone.
 func cleanTurn(s string) string {
-	s = sanitizeString(s)
-	return strings.Map(func(r rune) rune {
+	s = strings.Map(func(r rune) rune {
 		if r == '\n' {
 			return r
 		}
@@ -302,13 +318,11 @@ func cleanTurn(s string) string {
 		}
 		return r
 	}, s)
+	return strings.TrimSpace(s)
 }
 
-// auditRecord builds the assistant_runs row. The prompt is stored only as a
-// SHA-256 hash and a length.
-func auditRecord(runID, userID, requestID string, turns []assistant.Turn, out assistant.Outcome, latencyMS int) db.AssistantRun {
-	prompt := turns[len(turns)-1].Content
-	sum := sha256.Sum256([]byte(prompt))
+// runResult is the outcome written to the reserved audit row.
+func runResult(out assistant.Outcome, latencyMS int) db.AssistantRunResult {
 	steps, err := json.Marshal(out.Steps)
 	if err != nil || out.Steps == nil {
 		steps = []byte("[]")
@@ -317,15 +331,9 @@ func auditRecord(runID, userID, requestID string, turns []assistant.Turn, out as
 	for i, p := range out.Picks {
 		pickIDs[i] = p.Movie.ID
 	}
-	return db.AssistantRun{
-		ID:                runID,
-		UserID:            userID,
-		RequestID:         requestID,
-		PromptVersion:     assistant.PromptVersion,
-		Model:             out.Model,
+	return db.AssistantRunResult{
 		Status:            out.Status,
-		InputSHA256:       hex.EncodeToString(sum[:]),
-		InputChars:        len([]rune(prompt)),
+		Model:             out.Model,
 		Steps:             steps,
 		PickIDs:           pickIDs,
 		UngroundedDropped: out.UngroundedDropped,

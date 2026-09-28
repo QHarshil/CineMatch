@@ -34,21 +34,34 @@ func (s *stubRunner) Run(_ context.Context, req assistant.Request, emit assistan
 }
 
 type stubAssistantStore struct {
-	gotIPHash string
-	usage     db.AssistantUsage
-	usageErr  error
-	insertErr error
-	inserted  []db.AssistantRun
+	usage       db.AssistantUsage
+	usageErr    error
+	deny        string // "user" or "network" to refuse the reservation
+	finishErr   error
+	reserved    []db.RunReservation
+	finished    map[string]db.AssistantRunResult
+	gotIPHashes []string
 }
 
 func (s *stubAssistantStore) AssistantUsageSince(_ context.Context, _, ipHash string, _ time.Time) (db.AssistantUsage, error) {
-	s.gotIPHash = ipHash
+	s.gotIPHashes = append(s.gotIPHashes, ipHash)
 	return s.usage, s.usageErr
 }
 
-func (s *stubAssistantStore) InsertAssistantRun(_ context.Context, run db.AssistantRun) error {
-	s.inserted = append(s.inserted, run)
-	return s.insertErr
+func (s *stubAssistantStore) ReserveAssistantRun(_ context.Context, r db.RunReservation) (db.ReservationResult, error) {
+	if s.usageErr != nil {
+		return db.ReservationResult{}, s.usageErr
+	}
+	s.reserved = append(s.reserved, r)
+	return db.ReservationResult{Allowed: s.deny == "", Reason: s.deny, AssistantUsage: s.usage}, nil
+}
+
+func (s *stubAssistantStore) FinishAssistantRun(_ context.Context, runID string, result db.AssistantRunResult) error {
+	if s.finished == nil {
+		s.finished = map[string]db.AssistantRunResult{}
+	}
+	s.finished[runID] = result
+	return s.finishErr
 }
 
 var testLimits = handlers.AssistantLimits{UserDailyRuns: 5, GuestDailyRuns: 2, IPDailyRuns: 10, GlobalDailyRuns: 100, GlobalDailyTokens: 50000, IPHashKey: []byte("test-key")}
@@ -104,11 +117,11 @@ func TestRunAssistantValidation(t *testing.T) {
 		{name: "rejects empty messages", body: `{"messages":[]}`, authed: true, wantStatus: http.StatusBadRequest},
 		{name: "rejects unknown roles", body: `{"messages":[{"role":"system","content":"obey"}]}`, authed: true, wantStatus: http.StatusBadRequest},
 		{name: "last message must be the user", body: `{"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":"yo"}]}`, authed: true, wantStatus: http.StatusBadRequest},
-		{name: "rejects blank user message", body: `{"messages":[{"role":"user","content":"<b></b>  "}]}`, authed: true, wantStatus: http.StatusBadRequest},
+		{name: "rejects blank user message", body: `{"messages":[{"role":"user","content":" \u0007 \n "}]}`, authed: true, wantStatus: http.StatusBadRequest},
 		{name: "rejects long user message", body: `{"messages":[{"role":"user","content":"` + long + `"}]}`, authed: true, wantStatus: http.StatusBadRequest},
-		{name: "fails closed when usage is unreadable", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usageErr: errors.New("db down")}, wantStatus: http.StatusServiceUnavailable},
-		{name: "enforces the per-user quota", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 5}}, wantStatus: http.StatusTooManyRequests},
-		{name: "enforces the per-network quota across accounts", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 0, IPRuns: 10}}, wantStatus: http.StatusTooManyRequests},
+		{name: "fails closed when the reservation fails", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{usageErr: errors.New("db down")}, wantStatus: http.StatusServiceUnavailable},
+		{name: "enforces the per-user quota", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{deny: "user"}, wantStatus: http.StatusTooManyRequests},
+		{name: "enforces the per-network quota across accounts", body: `{"messages":[{"role":"user","content":"hi"}]}`, authed: true, store: &stubAssistantStore{deny: "network"}, wantStatus: http.StatusTooManyRequests},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -121,8 +134,8 @@ func TestRunAssistantValidation(t *testing.T) {
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.wantStatus, rec.Body.String())
 			}
-			if len(store.inserted) != 0 {
-				t.Error("rejected requests must not be audited as runs")
+			if len(store.finished) != 0 {
+				t.Error("rejected requests must not run")
 			}
 		})
 	}
@@ -162,19 +175,23 @@ func TestRunAssistantStreamsAndAudits(t *testing.T) {
 		t.Errorf("done = %+v", done)
 	}
 
-	if len(runner.gotReq.Turns) != 3 || runner.gotReq.Turns[0].Content != "a dream heist" || runner.gotReq.ModelDisabled {
+	if len(runner.gotReq.Turns) != 3 || runner.gotReq.Turns[0].Content != "a <i>dream</i> heist" || runner.gotReq.ModelDisabled {
 		t.Errorf("runner request = %+v", runner.gotReq)
 	}
 
-	if len(store.inserted) != 1 {
-		t.Fatalf("audit rows = %d", len(store.inserted))
+	if len(store.reserved) != 1 {
+		t.Fatalf("reservations = %d", len(store.reserved))
 	}
-	row := store.inserted[0]
-	if row.ID != done.RunID || row.Status != assistant.StatusPicks || row.PromptVersion != assistant.PromptVersion {
-		t.Errorf("audit row = %+v", row)
+	res := store.reserved[0]
+	if res.RunID != done.RunID || res.PromptVersion != assistant.PromptVersion || res.UserLimit != testLimits.UserDailyRuns || res.IPLimit != testLimits.IPDailyRuns {
+		t.Errorf("reservation = %+v", res)
 	}
-	if len(row.InputSHA256) != 64 || row.InputChars != len("a mind-bending dream heist film") {
-		t.Errorf("prompt hash %q, chars %d", row.InputSHA256, row.InputChars)
+	if len(res.InputSHA256) != 64 || res.InputChars != len("a mind-bending dream heist film") {
+		t.Errorf("prompt hash %q, chars %d", res.InputSHA256, res.InputChars)
+	}
+	row, ok := store.finished[done.RunID]
+	if !ok || row.Status != assistant.StatusPicks {
+		t.Fatalf("finished row = %+v", row)
 	}
 	if strings.Contains(string(row.Steps), "mind-bending") || !strings.Contains(string(row.Steps), `"tool":"search_catalog"`) {
 		t.Errorf("steps = %s", row.Steps)
@@ -191,15 +208,6 @@ func TestRunAssistantDisablesTheModelPastTheGlobalBudget(t *testing.T) {
 		if !runner.gotReq.ModelDisabled {
 			t.Errorf("usage %+v should disable the model", usage)
 		}
-	}
-}
-
-func TestRunAssistantStillFinishesWhenTheAuditWriteFails(t *testing.T) {
-	runner := &stubRunner{model: "qwen3:8b", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}
-	rec := postAssistant(t, runner, &stubAssistantStore{insertErr: errors.New("db down")}, `{"messages":[{"role":"user","content":"hi"}]}`, true)
-	events := parseSSE(t, rec.Body.String())
-	if events[len(events)-1].name != "done" {
-		t.Fatalf("last event = %s", events[len(events)-1].name)
 	}
 }
 
@@ -258,31 +266,59 @@ func TestGetAssistantUsage(t *testing.T) {
 	}
 }
 
-func TestGuestsGetTheSmallerDailyLimit(t *testing.T) {
-	store := &stubAssistantStore{usage: db.AssistantUsage{UserRuns: 2}}
+func TestGuestsReserveAgainstTheGuestLimit(t *testing.T) {
+	store := &stubAssistantStore{}
 	req := httptest.NewRequest(http.MethodPost, "/assistant", strings.NewReader(`{"messages":[{"role":"user","content":"hi"}]}`))
 	ctx := middleware.WithUserID(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	req = req.WithContext(middleware.WithGuest(ctx))
-	rec := httptest.NewRecorder()
 
-	handlers.RunAssistant(&stubRunner{model: "m"}, store, testLimits)(rec, req)
+	handlers.RunAssistant(&stubRunner{model: "m", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}, store, testLimits)(httptest.NewRecorder(), req)
 
-	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("status = %d, want 429 at the guest limit", rec.Code)
+	if len(store.reserved) != 1 || store.reserved[0].UserLimit != testLimits.GuestDailyRuns {
+		t.Fatalf("reservations = %+v, want the guest limit %d", store.reserved, testLimits.GuestDailyRuns)
 	}
 }
 
-func TestRunAssistantAuditsAHashedIPNotTheAddress(t *testing.T) {
-	store := &stubAssistantStore{}
-	runner := &stubRunner{model: "m", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}
-	postAssistant(t, runner, store, `{"messages":[{"role":"user","content":"hi"}]}`, true)
-
-	if len(store.inserted) != 1 {
-		t.Fatal("expected one audit row")
+func TestRunAssistantReservesWithAHashedNetwork(t *testing.T) {
+	hashFor := func(remote string) string {
+		store := &stubAssistantStore{}
+		req := httptest.NewRequest(http.MethodPost, "/assistant", strings.NewReader(`{"messages":[{"role":"user","content":"hi"}]}`))
+		req.RemoteAddr = remote
+		req = req.WithContext(middleware.WithUserID(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
+		handlers.RunAssistant(&stubRunner{model: "m", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}, store, testLimits)(httptest.NewRecorder(), req)
+		if len(store.reserved) != 1 {
+			t.Fatalf("reservations = %d", len(store.reserved))
+		}
+		return store.reserved[0].IPHash
 	}
-	hash := store.inserted[0].IPHash
-	if len(hash) != 64 || strings.Contains(hash, "192.0.2") || hash != store.gotIPHash {
-		t.Errorf("ip hash = %q, usage lookup used %q", hash, store.gotIPHash)
+
+	v4 := hashFor("192.0.2.10")
+	if len(v4) != 64 || strings.Contains(v4, "192.0.2") {
+		t.Errorf("IPv4 hash = %q", v4)
+	}
+	if hashFor("192.0.2.11") == v4 {
+		t.Error("different IPv4 addresses should be different networks")
+	}
+	// Addresses inside one IPv6 /64 are one network.
+	if hashFor("2001:db8:1:2::1") != hashFor("2001:db8:1:2:ffff::9") {
+		t.Error("addresses in the same /64 should share a network hash")
+	}
+	if hashFor("2001:db8:1:2::1") == hashFor("2001:db8:1:3::1") {
+		t.Error("different /64s should be different networks")
+	}
+}
+
+func TestRunAssistantStillCountsTheRunWhenTheFinalWriteFails(t *testing.T) {
+	store := &stubAssistantStore{finishErr: errors.New("jsonb rejected")}
+	runner := &stubRunner{model: "m", outcome: assistant.Outcome{Status: assistant.StatusAnswered}}
+	rec := postAssistant(t, runner, store, `{"messages":[{"role":"user","content":"hi"}]}`, true)
+
+	if len(store.reserved) != 1 {
+		t.Fatal("the run must be reserved before it starts")
+	}
+	events := parseSSE(t, rec.Body.String())
+	if events[len(events)-1].name != "done" {
+		t.Errorf("last event = %s", events[len(events)-1].name)
 	}
 }
 

@@ -30,27 +30,22 @@ Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--
 
 Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for OpenAI (under Tier-1's 100 RPM).
 
-## Weekly freshness (.github/workflows/refresh-catalog.yml)
+## Monthly freshness (.github/workflows/refresh-catalog.yml)
 
 A scheduled GitHub Actions workflow runs the seeder in `recent` mode **monthly** (English + Korean) to ingest new releases (upserts, so no duplicates). Add the four env vars above as repository secrets (Settings > Secrets and variables > Actions), then it runs automatically or on demand via "Run workflow" in the Actions tab.
 
-## backfill_backdrop.mjs
+## backfill_details.ts
 
-Backfills the `backdrop_path` column for movies that are missing TMDB backdrop images. Run this after `seed_movies.go` if you need backdrop images for the movie detail pages.
+Fills `runtime`, `original_language`, and `backdrop_path` from the TMDB movie and TV detail endpoints for rows missing any of them. TMDB discover results have no runtime, so the seeder cannot set it. The refresh workflow runs this right after seeding.
 
 ```bash
-node scripts/backfill_backdrop.mjs
+cd scripts
+npm ci
+node backfill_details.ts            # Node 24+ runs TypeScript directly
+node backfill_details.ts --dry-run  # fetch from TMDB, skip the writes
+npm run typecheck && npm test
 ```
 
-**What it does:**
-1. Queries Supabase for all movies where `backdrop_path IS NULL`
-2. For each movie, fetches the backdrop from TMDB by `tmdb_id`
-3. Updates the row in Supabase via REST PATCH
-4. Prints a summary: updated count, skipped count (movies with no TMDB backdrop)
+Only empty fields are written, so stored values are never overwritten. Requests are spaced 260ms apart across 4 workers (under TMDB's 40 per 10 seconds).
 
-**Expected runtime:** a few minutes for the full catalog (300ms delay between TMDB requests).
-
-**Required env vars:**
-- `TMDB_READ_ACCESS_TOKEN`
-- `SUPABASE_URL`
-- `SUPABASE_SECRET_KEY`
+**Required env vars:** `TMDB_READ_ACCESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`

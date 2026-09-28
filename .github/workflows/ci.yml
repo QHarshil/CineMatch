@@ -38,6 +38,14 @@ jobs:
           cache-dependency-path: scripts/go.sum
       - run: go vet ./...
       - run: go test ./...
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
 
   ranker:
     runs-on: ubuntu-latest

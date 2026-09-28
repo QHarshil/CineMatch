@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAssistant } from "@/hooks/use-assistant";
@@ -110,14 +110,13 @@ export function AssistantView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // A prompt handed over from the landing page fills the composer and waits
   // for the person to send it, so a shared link cannot spend their quota.
   const [draft] = useState(() => searchParams.get("q")?.slice(0, 800) ?? "");
   useEffect(() => {
-    if (searchParams.has("q")) router.replace("/assistant");
-  }, [searchParams, router]);
+    if (searchParams.has("q")) window.history.replaceState(null, "", "/assistant");
+  }, [searchParams]);
 
   const latest = exchanges.at(-1);
   useEffect(() => {

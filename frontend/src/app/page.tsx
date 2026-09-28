@@ -2,6 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { LandingHero } from "@/components/landing-hero";
+import { AssistantStory } from "@/components/landing/assistant-story";
+import { MetricsBand, type Metric } from "@/components/landing/metrics-band";
+import { ProductionGrid } from "@/components/landing/production-grid";
+import { SplitHeading } from "@/components/motion/split-heading";
+import { ASSISTANT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
 import { ScrollRow } from "@/components/scroll-row";
 import { CodeTyper } from "@/components/code-typer";
 import { discoverTitles } from "@/lib/api";
@@ -58,27 +63,45 @@ async function fetchDemoHits(): Promise<SearchHit[]> {
   }
 }
 
-function catalogFeatures(movieCount: number, seriesCount: number) {
-  const catalog =
-    movieCount > 0
-      ? `${movieCount.toLocaleString("en-US")} films and ${seriesCount.toLocaleString("en-US")} series, embedded and refreshed monthly from TMDB.`
-      : "Films and series, embedded and refreshed monthly from TMDB.";
-  return [
-    { title: "Movies and TV", body: catalog },
-    {
-      title: "Search by meaning",
-      body: "Describe a mood or a plot. Vector, keyword, and title matches are fused with reciprocal rank fusion.",
-    },
-    {
-      title: "Ranks in milliseconds",
-      body: "A LambdaMART model re-orders the 50 candidates with p95 latency near 0.9 ms.",
-    },
-    {
-      title: "Honest metrics",
-      body: "NDCG@10 0.81 on held-out users, a 14% lift over a popularity baseline.",
-    },
-  ];
-}
+// Measured results; see src/lib/eval-results.ts for where each comes from.
+const METRICS: Metric[] = [
+  {
+    value: RANKER_EVAL.lambdamartNdcg10,
+    decimals: 3,
+    label: "NDCG@10, LambdaMART",
+    detail: `Re-ranker on held-out users, up ${RANKER_EVAL.liftOverPopularity}% on a popularity baseline.`,
+  },
+  {
+    value: RANKER_EVAL.rerankP95Ms,
+    decimals: 1,
+    suffix: " ms",
+    label: "p95 re-rank latency",
+    detail: "Stage-two scoring of 50 candidates, measured locally.",
+  },
+  {
+    value: SEARCH_EVAL.modes[2].descriptionP10,
+    decimals: 2,
+    label: "P@10, hybrid search",
+    detail: `Paraphrased descriptions scored by genre, ${(SEARCH_EVAL.modes[2].descriptionP10 / SEARCH_EVAL.randomP10).toFixed(1)}x a random ranking.`,
+  },
+  {
+    value: SEARCH_EVAL.modes[2].titleMrr,
+    decimals: 2,
+    label: "MRR@10, title lookups",
+    detail: `Exact titles and typos. Keyword-only search scores ${SEARCH_EVAL.modes[0].descriptionP10.toFixed(2)} on descriptions.`,
+  },
+  {
+    value: ASSISTANT_EVAL.passed,
+    suffix: `/${ASSISTANT_EVAL.cases}`,
+    label: "Agent eval cases passed",
+    detail: `Constraints, named titles, taste, vague and off-topic requests, and prompt injection, on ${ASSISTANT_EVAL.model}.`,
+  },
+  {
+    value: 0,
+    label: "Ungrounded picks shown",
+    detail: "The server rejects any title a tool did not return, by construction.",
+  },
+];
 
 async function fetchHomeData() {
   const supabase = await createSupabaseServerClient();
@@ -92,7 +115,10 @@ async function fetchHomeData() {
     supabase
       .from("movies")
       .select(MOVIE_FIELDS)
-      .order("vote_average", { ascending: false })
+      // Titles with a handful of votes top a raw rating sort, so rank the
+      // well-rated ones by popularity instead.
+      .gte("vote_average", 7.5)
+      .order("popularity", { ascending: false })
       .limit(20),
     supabase
       .from("movies")
@@ -131,7 +157,6 @@ export default async function HomePage() {
     // Supabase unavailable: render the pitch without catalog rows.
   }
   const demoHits = await demoHitsPromise;
-  const features = catalogFeatures(movieCount, seriesCount);
 
   const featured =
     trending.find((m) => m.backdrop_path && m.vote_average >= 7) ??
@@ -148,7 +173,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl border-x border-border">
-      <LandingHero />
+      <LandingHero catalogSize={movieCount + seriesCount} />
 
       {/* See it in action */}
       <section className="halftone border-t border-border bg-wash">
@@ -185,23 +210,42 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Why it works */}
+      {/* Inside the assistant */}
       <section className="border-t border-border">
-        <div className="px-6 pt-12 lg:px-8">
-          <p className="eyebrow text-primary">Why it works</p>
+        <div className="px-6 pb-10 pt-14 lg:px-8">
+          <p className="eyebrow text-primary">Inside the assistant</p>
+          <SplitHeading
+            text="One request, five steps, every one on the record."
+            className="mt-4 max-w-3xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
+          />
         </div>
-        <div className="mt-6 grid gap-px border-t border-border bg-border sm:grid-cols-2">
-          {features.map((feature) => (
-            <div key={feature.title} className="bg-background p-6 lg:p-8">
-              <h3 className="font-heading text-lg font-semibold uppercase tracking-wide text-foreground">
-                {feature.title}
-              </h3>
-              <p className="mt-2 font-serif leading-relaxed text-muted-foreground">
-                {feature.body}
-              </p>
-            </div>
-          ))}
+        <div className="border-t border-border">
+          <AssistantStory />
         </div>
+      </section>
+
+      {/* Measured results */}
+      <section className="border-t border-border">
+        <div className="px-6 pb-10 pt-14 lg:px-8">
+          <p className="eyebrow text-primary">Measured, not claimed</p>
+          <SplitHeading
+            text="Every number comes from an eval you can rerun."
+            className="mt-4 max-w-3xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
+          />
+        </div>
+        <MetricsBand metrics={METRICS} />
+      </section>
+
+      {/* Engineering */}
+      <section className="border-t border-border">
+        <div className="px-6 pb-10 pt-14 lg:px-8">
+          <p className="eyebrow text-primary">Built like production</p>
+          <SplitHeading
+            text="The parts you do not see in a demo."
+            className="mt-4 max-w-3xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
+          />
+        </div>
+        <ProductionGrid />
       </section>
 
       {/* Catalog */}

@@ -1,100 +1,115 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
-import { TypingText } from "@/components/typing-text";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
+import { SplitHeading } from "@/components/motion/split-heading";
+import { ScrambleCycle } from "@/components/motion/scramble-cycle";
+import { VantaNet } from "@/components/motion/vanta-net";
 
-// The pipeline the engine actually runs, shown as the editorial "setup steps".
-const STEPS = [
-  {
-    n: "01",
-    name: "Profile",
-    stage: "your taste",
-    command: "taste = embed(your_likes)",
-    delay: 250,
-  },
-  {
-    n: "02",
-    name: "Retrieve",
-    stage: "pgvector kNN",
-    command: "candidates = pgvector.knn(taste, k=50)",
-    delay: 1600,
-  },
-  {
-    n: "03",
-    name: "Re-rank",
-    stage: "lambdaMART",
-    command: "picks = lambdaMART.rank(candidates)",
-    delay: 3500,
-  },
+const EXAMPLES = [
+  "a slow-burn sci-fi that makes me think",
+  "something like Parasite, but a series",
+  "a Korean thriller under two hours",
+  "a cozy animated film for a rainy night",
 ];
 
-export function LandingHero() {
-  const { user, loading } = useAuth();
+const QUICK_PROMPTS = ["Movies like Prisoners", "A horror movie from 2022 or later", "Something based on what I like"];
 
-  const primaryCta =
-    !loading && user
-      ? { href: "/for-you", label: "Open your picks" }
-      : { href: "/login", label: "Start matching" };
+export function LandingHero({ catalogSize }: { catalogSize: number }) {
+  const router = useRouter();
+  const [prompt, setPrompt] = useState("");
+
+  function ask(text: string) {
+    const q = text.trim();
+    if (q) router.push(`/assistant?q=${encodeURIComponent(q)}`);
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    ask(prompt);
+  }
+
+  const size = catalogSize > 0 ? catalogSize.toLocaleString("en-US") : "1,800+";
 
   return (
-    <section className="px-6 pb-16 pt-28 text-center lg:pt-32">
-      <div className="mx-auto max-w-3xl">
+    <section className="relative overflow-hidden">
+      <VantaNet className="absolute inset-0" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.7)_45%,rgba(255,255,255,0)_75%)]"
+      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
+
+      <div className="relative z-10 px-6 pb-24 pt-32 text-center lg:pt-40">
         <p className="eyebrow text-muted-foreground">
-          Two-stage engine
+          Applied AI
           <span className="mx-2 text-primary">/</span>
-          pgvector + LambdaMART
+          hybrid retrieval
+          <span className="mx-2 text-primary">/</span>
+          grounded agent
         </p>
 
-        <h1 className="mt-6 font-heading text-3xl font-semibold uppercase leading-[1.06] tracking-tight text-foreground sm:text-5xl sm:leading-[1.02] lg:text-7xl">
-          Recommendations that learn{" "}
-          <span className="text-primary">your taste.</span>
-        </h1>
+        <SplitHeading
+          as="h1"
+          immediate
+          text="Describe a mood. Get a film that exists."
+          className="mx-auto mt-6 max-w-4xl font-heading text-4xl font-semibold uppercase leading-[1.02] tracking-tight text-foreground sm:text-6xl lg:text-7xl"
+        />
 
         <p className="mx-auto mt-6 max-w-2xl font-serif text-lg leading-relaxed text-muted-foreground">
-          Not another row of what is trending. CineMatch builds a profile from
-          what you watch, retrieves the closest titles with a pgvector index,
-          and re-ranks them with a learned model so the next pick fits you, not
-          the crowd.
+          CineMatch pairs a two-stage recommender with a grounded AI assistant. It searches {size} films and series by
+          meaning, re-ranks with LambdaMART, and can only recommend titles it actually retrieved.
         </p>
-      </div>
 
-      {/* The pipeline, typed out as setup steps */}
-      <div className="mx-auto mt-12 max-w-2xl space-y-4 text-left">
-        {STEPS.map((step) => (
-          <div key={step.n}>
-            <div className="eyebrow mb-2 flex items-center justify-between text-muted-foreground">
-              <span>
-                {step.n}. {step.name}
-              </span>
-              <span className="text-primary/60">{step.stage}</span>
-            </div>
-            <div className="border border-border bg-wash px-4 py-3 font-mono text-sm text-foreground">
-              <span className="select-none text-primary">$ </span>
-              <TypingText
-                text={step.command}
-                speed={42}
-                startDelay={step.delay}
-                startOnVisible={false}
+        <form onSubmit={submit} className="mx-auto mt-10 max-w-2xl">
+          <label htmlFor="hero-prompt" className="sr-only">
+            Describe what you want to watch
+          </label>
+          <div className="flex items-stretch border border-primary/50 bg-background shadow-[0_18px_50px_-20px_rgba(47,84,255,0.35)] transition-colors focus-within:border-primary">
+            <div className="relative flex-1">
+              <input
+                id="hero-prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                autoComplete="off"
+                className="h-14 w-full bg-transparent px-5 font-serif text-lg text-foreground focus:outline-none"
               />
+              {prompt === "" && (
+                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-5 flex items-center font-serif text-lg text-muted-foreground">
+                  <ScrambleCycle phrases={EXAMPLES} />
+                </span>
+              )}
             </div>
+            <button
+              type="submit"
+              className="eyebrow flex items-center gap-2 bg-primary px-5 text-primary-foreground transition-colors hover:bg-primary/90 sm:px-7"
+            >
+              Ask <ArrowRight className="size-3.5" aria-hidden="true" />
+            </button>
           </div>
-        ))}
-      </div>
+        </form>
 
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href={primaryCta.href}
-          className="eyebrow bg-primary px-6 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          {primaryCta.label}
-        </Link>
-        <Link
-          href="/how-it-works"
-          className="eyebrow border border-border px-6 py-3 text-foreground transition-colors hover:border-primary hover:text-primary"
-        >
-          See how it works
-        </Link>
+        <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
+          {QUICK_PROMPTS.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => ask(q)}
+              className="border border-border bg-background/80 px-3 py-1.5 font-mono text-xs text-muted-foreground backdrop-blur transition-colors hover:border-primary hover:text-primary"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-10 font-mono text-[11px] text-muted-foreground">
+          No account needed to try it.{" "}
+          <Link href="/how-it-works" className="text-primary underline-offset-4 hover:underline">
+            See how it works
+          </Link>
+        </p>
       </div>
     </section>
   );

@@ -33,7 +33,9 @@ describe("HomePage", () => {
     vi.mocked(discoverTitles).mockResolvedValue({ retrieval: "hybrid", results: [inception] });
     render(await HomePage());
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/recommendations that learn/i);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/describe a mood/i);
+    expect(screen.getByLabelText("Describe what you want to watch")).toBeInTheDocument();
+    expect(screen.getByText("Agent eval cases passed")).toBeInTheDocument();
     expect(screen.getByText(/1\s+Inception\s+cos 0\.52/)).toBeInTheDocument();
     expect(screen.getByText("Trending Now")).toBeInTheDocument();
     expect(screen.getAllByText("Arrival").length).toBeGreaterThan(0);

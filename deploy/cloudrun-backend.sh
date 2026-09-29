@@ -53,19 +53,22 @@ done
 
 ENV_FILE="$(mktemp)"
 trap 'rm -f "$ENV_FILE"' EXIT
-cat > "$ENV_FILE" <<EOF
-JWT_SECRET: "$JWT_SECRET"
-SUPABASE_URL: "$SUPABASE_URL"
-SUPABASE_SECRET_KEY: "$SUPABASE_SECRET_KEY"
-RANKER_URL: "$RANKER_URL"
-ALLOWED_ORIGINS: "$ALLOWED_ORIGINS"
-RATE_LIMIT_RPM: "60"
-TRUSTED_PROXY_HOPS: "1"
-EOF
+# Single-quoted YAML reads every character literally except ', which is doubled.
+add_env() {
+  local quote="'"
+  printf "%s: '%s'\n" "$1" "${2//$quote/$quote$quote}" >> "$ENV_FILE"
+}
+add_env JWT_SECRET "$JWT_SECRET"
+add_env SUPABASE_URL "$SUPABASE_URL"
+add_env SUPABASE_SECRET_KEY "$SUPABASE_SECRET_KEY"
+add_env RANKER_URL "$RANKER_URL"
+add_env ALLOWED_ORIGINS "$ALLOWED_ORIGINS"
+add_env RATE_LIMIT_RPM 60
+add_env TRUSTED_PROXY_HOPS 1
 # Optional keys are written only when set, so each feature stays off otherwise.
 add_optional() {
   if [[ -n "$2" ]]; then
-    echo "$1: \"$2\"" >> "$ENV_FILE"
+    add_env "$1" "$2"
   fi
 }
 add_optional OMDB_API_KEY "$OMDB_API_KEY"

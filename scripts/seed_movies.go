@@ -37,9 +37,11 @@ import (
 )
 
 const (
-	tmdbBaseURL    = "https://api.themoviedb.org/3"
-	openAIBaseURL  = "https://api.openai.com/v1"
-	embeddingModel = "text-embedding-3-small"
+	tmdbBaseURL   = "https://api.themoviedb.org/3"
+	openAIBaseURL = "https://api.openai.com/v1"
+	// defaultEmbeddingModel must match the backend's embed.DefaultModel. Both
+	// read EMBED_MODEL, so catalog and query vectors come from one model.
+	defaultEmbeddingModel = "text-embedding-3-small"
 
 	tmdbPageSize = 20
 
@@ -142,12 +144,16 @@ func main() {
 	}
 
 	cfg := struct {
-		tmdbToken, openAIKey, supabaseURL, supabaseKey string
+		tmdbToken, openAIKey, embedModel, supabaseURL, supabaseKey string
 	}{
 		tmdbToken:   os.Getenv("TMDB_READ_ACCESS_TOKEN"),
 		openAIKey:   os.Getenv("OPENAI_API_KEY"),
+		embedModel:  os.Getenv("EMBED_MODEL"),
 		supabaseURL: os.Getenv("SUPABASE_URL"),
 		supabaseKey: os.Getenv("SUPABASE_SECRET_KEY"),
+	}
+	if cfg.embedModel == "" {
+		cfg.embedModel = defaultEmbeddingModel
 	}
 	if cfg.tmdbToken == "" || cfg.openAIKey == "" || cfg.supabaseURL == "" || cfg.supabaseKey == "" {
 		slog.Error("missing required env vars",
@@ -180,7 +186,7 @@ func main() {
 
 	embeddingLimiter := rate.NewLimiter(rate.Limit(openAIRPM)/60, 1)
 	slog.Info("generating embeddings", "workers", embedWorkers, "rpm_limit", openAIRPM, "items", len(items))
-	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, items, genreMap, embeddingLimiter)
+	rows, embedErrors := generateEmbeddings(client, cfg.openAIKey, cfg.embedModel, items, genreMap, embeddingLimiter)
 	if embedErrors > 0 {
 		slog.Warn("some embeddings failed", "failed", embedErrors, "succeeded", len(rows))
 	}
@@ -339,7 +345,7 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
 // The shared limiter holds all workers to openAIRPM.
 // Returns completed rows and the count of items that failed embedding.
-func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
+func generateEmbeddings(client *http.Client, apiKey, model string, items []tmdbItem, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
 	results := make(chan embedResult, len(items))
 	sem := make(chan struct{}, embedWorkers)
 	var wg sync.WaitGroup
@@ -357,7 +363,7 @@ func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, ge
 				return
 			}
 
-			embedding, err := callOpenAIEmbedding(client, apiKey, buildEmbeddingText(item.displayTitle(), item.Overview))
+			embedding, err := callOpenAIEmbedding(client, apiKey, model, buildEmbeddingText(item.displayTitle(), item.Overview))
 			if err != nil {
 				results <- embedResult{err: fmt.Errorf("%s %d %q: %w", item.mediaType, item.ID, item.displayTitle(), err)}
 				return
@@ -399,8 +405,8 @@ func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, ge
 }
 
 // callOpenAIEmbedding sends one embedding request to the OpenAI API.
-func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, error) {
-	body, err := json.Marshal(map[string]string{"model": embeddingModel, "input": text})
+func callOpenAIEmbedding(client *http.Client, apiKey, model, text string) ([]float64, error) {
+	body, err := json.Marshal(map[string]string{"model": model, "input": text})
 	if err != nil {
 		return nil, fmt.Errorf("marshalling embedding request: %w", err)
 	}

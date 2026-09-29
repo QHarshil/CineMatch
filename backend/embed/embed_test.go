@@ -43,7 +43,7 @@ func TestClientEmbed(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewClient("test-key")
+			c := NewClient("test-key", DefaultModel)
 			c.baseURL = srv.URL
 			vec, err := c.Embed(context.Background(), "slow-burn sci-fi")
 
@@ -59,7 +59,7 @@ func TestClientEmbed(t *testing.T) {
 			if len(vec) != Dimensions {
 				t.Errorf("len = %d, want %d", len(vec), Dimensions)
 			}
-			if gotReq.Model != Model || gotReq.Input != "slow-burn sci-fi" {
+			if gotReq.Model != DefaultModel || gotReq.Input != "slow-burn sci-fi" {
 				t.Errorf("request = %+v", gotReq)
 			}
 		})
@@ -67,7 +67,7 @@ func TestClientEmbed(t *testing.T) {
 }
 
 func TestClientEmbedRequiresKey(t *testing.T) {
-	if _, err := NewClient("").Embed(context.Background(), "x"); err == nil {
+	if _, err := NewClient("", DefaultModel).Embed(context.Background(), "x"); err == nil {
 		t.Fatal("expected an error without an API key")
 	}
 }

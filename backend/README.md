@@ -24,6 +24,7 @@ Environment variables, read from the repo-root `.env` or the shell:
 | `RATE_LIMIT_RPM` | no | `60` |
 | `OMDB_API_KEY` | no | - (IMDb/Rotten Tomatoes ratings are hidden if unset) |
 | `OPENAI_API_KEY` | no | - (query embeddings for `/discover`; search runs keyword-only if unset) |
+| `EMBED_MODEL` | no | `text-embedding-3-small`; must match the model that embedded the catalog |
 | `EMBED_DAILY_LIMIT` | no | `5000` upstream embedding calls per instance per UTC day |
 | `LLM_BASE_URL` | no | - (OpenAI-compatible chat API, e.g. `http://localhost:11434/v1`; the assistant answers from search alone if unset) |
 | `LLM_MODEL` | no | - (e.g. `qwen3:8b` on Ollama) |

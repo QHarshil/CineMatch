@@ -74,7 +74,7 @@ func main() {
 	// use OpenAI. Without a key, search runs keyword and title matching only.
 	var queryEmbedder embed.Embedder
 	if openAIKey := os.Getenv("OPENAI_API_KEY"); openAIKey != "" {
-		queryEmbedder = embed.NewBudgeted(embed.NewClient(openAIKey), envInt("EMBED_DAILY_LIMIT", 5000), 1000)
+		queryEmbedder = embed.NewBudgeted(embed.NewClient(openAIKey, envString("EMBED_MODEL", embed.DefaultModel)), envInt("EMBED_DAILY_LIMIT", 5000), 1000)
 	} else {
 		slog.Info("OPENAI_API_KEY not set, search runs keyword-only")
 	}
@@ -183,6 +183,14 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server stopped cleanly")
+}
+
+// envString reads a setting, falling back to def when unset.
+func envString(name, def string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return def
 }
 
 // envInt reads a positive integer setting, falling back to def when unset or

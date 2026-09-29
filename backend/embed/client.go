@@ -1,6 +1,7 @@
 // Package embed turns search text into vectors in the catalog's embedding
-// space. The catalog was embedded with OpenAI text-embedding-3-small, so query
-// vectors must come from the same model for cosine similarity to mean anything.
+// space. Query vectors must come from the model that embedded the catalog for
+// cosine similarity to mean anything, so the backend and the seeder read the
+// same EMBED_MODEL setting.
 package embed
 
 import (
@@ -15,8 +16,8 @@ import (
 )
 
 const (
-	// Model matches the model the seeder used for the catalog.
-	Model = "text-embedding-3-small"
+	// DefaultModel is the model the catalog was embedded with.
+	DefaultModel = "text-embedding-3-small"
 	// Dimensions is the vector size stored in movies.embedding.
 	Dimensions = 1536
 
@@ -32,15 +33,17 @@ type Embedder interface {
 // Client calls the OpenAI embeddings endpoint.
 type Client struct {
 	apiKey     string
+	model      string
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewClient returns a client with a 5-second timeout, so a slow upstream
-// degrades search to keyword matching instead of stalling the request.
-func NewClient(apiKey string) *Client {
+// NewClient returns a client for model with a 5-second timeout, so a slow
+// upstream degrades search to keyword matching instead of stalling the request.
+func NewClient(apiKey, model string) *Client {
 	return &Client{
 		apiKey:     apiKey,
+		model:      model,
 		baseURL:    defaultBaseURL,
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 	}
@@ -70,7 +73,7 @@ func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 		text = string(runes[:maxInputRunes])
 	}
 
-	body, err := json.Marshal(embeddingRequest{Model: Model, Input: text})
+	body, err := json.Marshal(embeddingRequest{Model: c.model, Input: text})
 	if err != nil {
 		return nil, fmt.Errorf("embed: encoding request: %w", err)
 	}

@@ -3,19 +3,14 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	chiCors "github.com/go-chi/cors"
 )
 
-// CORSHandler returns a CORS middleware driven by the ALLOWED_ORIGINS env var.
-// Origins are comma-separated (e.g. "http://localhost:3000,https://cinematch.harshilc.com").
+// CORSHandler returns a CORS middleware that allows the given origins.
 // Wildcards are intentionally excluded to prevent credential leakage from authenticated routes.
-func CORSHandler() func(http.Handler) http.Handler {
-	raw := os.Getenv("ALLOWED_ORIGINS")
-	origins := parseOrigins(raw)
-
+func CORSHandler(origins []string) func(http.Handler) http.Handler {
 	return chiCors.Handler(chiCors.Options{
 		AllowedOrigins:   origins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -26,7 +21,10 @@ func CORSHandler() func(http.Handler) http.Handler {
 	})
 }
 
-func parseOrigins(raw string) []string {
+// ParseOrigins splits a comma-separated origin list such as
+// "http://localhost:3000,https://cinematch.harshilc.com", dropping trailing
+// slashes browsers never send.
+func ParseOrigins(raw string) []string {
 	var origins []string
 	for _, o := range strings.Split(raw, ",") {
 		trimmed := strings.TrimSpace(o)

@@ -114,8 +114,8 @@ func main() {
 	r.Use(custommw.ClientIP(envInt("TRUSTED_PROXY_HOPS", 0)))
 	r.Use(custommw.StructuredLogger())
 	r.Use(middleware.Recoverer)
-	r.Use(custommw.CORSHandler())
-	r.Use(custommw.RateLimiter())
+	r.Use(custommw.CORSHandler(custommw.ParseOrigins(os.Getenv("ALLOWED_ORIGINS"))))
+	r.Use(custommw.RateLimiter(envInt("RATE_LIMIT_RPM", 60)))
 	r.Use(custommw.SecurityHeaders())
 	r.Use(custommw.RequireJSONContentType())
 	r.Use(custommw.MaxBodySize(10 * 1024)) // 10KB global body limit
@@ -134,7 +134,7 @@ func main() {
 	// Authenticated endpoints: require a valid Supabase JWT.
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
-		r.Use(custommw.RequireAuth(jwtSecret))
+		r.Use(custommw.RequireAuth(jwtSecret, custommw.SupabaseJWKSURL(os.Getenv("SUPABASE_URL"))))
 		r.With(custommw.RecommendRateLimiter()).Get("/recommend", handlers.RecommendForUser(supabase, movieRanker, popularCache))
 		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.ToggleInteraction(supabase))
 		r.Get("/interactions", handlers.GetMovieInteractionState(supabase))

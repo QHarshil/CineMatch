@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseOrigins_TrimsTrailingSlash(t *testing.T) {
-	origins := parseOrigins("https://cinematch.harshilc.com/ , http://localhost:3000/")
+	origins := ParseOrigins("https://cinematch.harshilc.com/ , http://localhost:3000/")
 	want := []string{"https://cinematch.harshilc.com", "http://localhost:3000"}
 
 	if len(origins) != len(want) {
@@ -19,14 +19,14 @@ func TestParseOrigins_TrimsTrailingSlash(t *testing.T) {
 }
 
 func TestParseOrigins_DefaultsToLocalhost(t *testing.T) {
-	origins := parseOrigins("")
+	origins := ParseOrigins("")
 	if len(origins) != 1 || origins[0] != "http://localhost:3000" {
 		t.Errorf("got %v, want [http://localhost:3000]", origins)
 	}
 }
 
 func TestParseOrigins_HandlesWhitespace(t *testing.T) {
-	origins := parseOrigins("  https://example.com  ,  https://other.com  ")
+	origins := ParseOrigins("  https://example.com  ,  https://other.com  ")
 	want := []string{"https://example.com", "https://other.com"}
 
 	if len(origins) != len(want) {

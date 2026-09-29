@@ -2,22 +2,14 @@ package middleware
 
 import (
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/httprate"
 )
 
-// RateLimiter enforces a per-IP limit from RATE_LIMIT_RPM (default 60) and
-// returns 429 with Retry-After past it.
-func RateLimiter() func(http.Handler) http.Handler {
-	rpm := 60
-	if raw := os.Getenv("RATE_LIMIT_RPM"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			rpm = n
-		}
-	}
+// RateLimiter enforces rpm requests per minute per IP and returns 429 with
+// Retry-After past it.
+func RateLimiter(rpm int) func(http.Handler) http.Handler {
 	return httprate.LimitByIP(rpm, time.Minute)
 }
 

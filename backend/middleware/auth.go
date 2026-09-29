@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -46,14 +45,23 @@ type jwksCache struct {
 // signature. Supabase access tokens always carry this audience and an expiry.
 var tokenRules = []jwt.ParserOption{jwt.WithAudience("authenticated"), jwt.WithExpirationRequired()}
 
-var globalJWKS = &jwksCache{}
+// SupabaseJWKSURL returns the JWKS endpoint of a Supabase project, or "" when
+// the project URL is unset.
+func SupabaseJWKSURL(projectURL string) string {
+	if projectURL == "" {
+		return ""
+	}
+	return strings.TrimRight(projectURL, "/") + "/auth/v1/.well-known/jwks.json"
+}
 
 // RequireAuth returns a middleware that verifies Supabase JWTs and injects the user UUID
-// into the request context. Supports both HS256 (legacy) and ES256 (current Supabase signing).
-func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
-	supabaseURL := os.Getenv("SUPABASE_URL")
-	if supabaseURL != "" {
-		globalJWKS.jwksURL = strings.TrimRight(supabaseURL, "/") + "/auth/v1/.well-known/jwks.json"
+// into the request context. Tokens are checked against the ES256 keys at jwksURL
+// (current Supabase signing) and then against jwtSecret with HS256 (legacy
+// signing). An empty jwksURL accepts HS256 only.
+func RequireAuth(jwtSecret, jwksURL string) func(http.Handler) http.Handler {
+	var jwks *jwksCache
+	if jwksURL != "" {
+		jwks = &jwksCache{jwksURL: jwksURL}
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -64,7 +72,7 @@ func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			who, err := verifySupabaseJWT(token, jwtSecret)
+			who, err := verifySupabaseJWT(token, jwtSecret, jwks)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return
@@ -119,9 +127,9 @@ func extractBearerToken(r *http.Request) (string, bool) {
 // verifySupabaseJWT validates a Supabase JWT and returns the caller's identity.
 // Tries ES256 verification via JWKS first (current Supabase signing), then falls
 // back to HS256 with the project's JWT secret (legacy signing).
-func verifySupabaseJWT(tokenString, hmacSecret string) (identity, error) {
-	if globalJWKS.jwksURL != "" {
-		who, err := verifyES256(tokenString)
+func verifySupabaseJWT(tokenString, hmacSecret string, jwks *jwksCache) (identity, error) {
+	if jwks != nil {
+		who, err := verifyES256(tokenString, jwks)
 		if err == nil {
 			return who, nil
 		}
@@ -130,7 +138,7 @@ func verifySupabaseJWT(tokenString, hmacSecret string) (identity, error) {
 	return verifyHS256(tokenString, hmacSecret)
 }
 
-func verifyES256(tokenString string) (identity, error) {
+func verifyES256(tokenString string, jwks *jwksCache) (identity, error) {
 	parsed, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
@@ -139,7 +147,7 @@ func verifyES256(tokenString string) (identity, error) {
 		if kid == "" {
 			return nil, fmt.Errorf("missing kid in token header")
 		}
-		key, err := globalJWKS.getKey(kid)
+		key, err := jwks.getKey(kid)
 		if err != nil {
 			return nil, err
 		}

@@ -95,7 +95,7 @@ func TestRequireAuth(t *testing.T) {
 					w.WriteHeader(http.StatusOK)
 				})
 
-				handler := middleware.RequireAuth(testJWTSecret)(next)
+				handler := middleware.RequireAuth(testJWTSecret, "")(next)
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				req.Header.Set("X-Authorization", tc.authHeader)
 				rec := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestRequireAuth(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := middleware.RequireAuth(testJWTSecret)(next)
+			handler := middleware.RequireAuth(testJWTSecret, "")(next)
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)
@@ -157,7 +157,7 @@ func TestRequireAuthMarksGuestSessions(t *testing.T) {
 			}
 
 			var gotGuest bool
-			handler := middleware.RequireAuth(secret)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			handler := middleware.RequireAuth(secret, "")(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				gotGuest = middleware.IsGuestFromContext(r.Context())
 			}))
 			req := httptest.NewRequest(http.MethodGet, "/assistant/usage", nil)

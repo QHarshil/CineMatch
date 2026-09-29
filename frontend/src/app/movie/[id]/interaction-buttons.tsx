@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { toggleInteraction, fetchInteractionState, submitRating, RateLimitError } from "@/lib/api";
 import { useToast } from "@/components/toast";
-import { Heart, ThumbsDown, Eye, Bookmark, Star } from "lucide-react";
+import { Heart, ThumbsDown, Eye, EyeOff, Star } from "lucide-react";
 import Link from "next/link";
 import type { InteractionType } from "@/types/movie";
 
@@ -16,7 +16,7 @@ const INTERACTIONS: {
   { type: "like", label: "Like", icon: Heart },
   { type: "dislike", label: "Dislike", icon: ThumbsDown },
   { type: "watch", label: "Watched", icon: Eye },
-  { type: "skip", label: "Watchlist", icon: Bookmark },
+  { type: "skip", label: "Not interested", icon: EyeOff },
 ];
 
 const COOLDOWN_MS = 500;

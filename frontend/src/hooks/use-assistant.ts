@@ -39,10 +39,11 @@ export function useAssistant(token: string | undefined) {
     async (prompt: string) => {
       const text = prompt.trim();
       if (!token || !text || sendingRef.current) return;
-      sendingRef.current = true;
 
       const id = crypto.randomUUID();
       const turns = toTurns(historyRef.current, text);
+      // Set after the setup above, so a throw there cannot leave it stuck.
+      sendingRef.current = true;
       const update = (fn: (ex: Exchange) => Exchange) =>
         setExchanges((all) => all.map((ex) => (ex.id === id ? fn(ex) : ex)));
       setExchanges((all) => [...all, newExchange(id, text)]);

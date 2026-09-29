@@ -45,8 +45,7 @@ const (
 
 	// 5 concurrent workers; actual request rate is throttled to openAIRPM below.
 	embedWorkers = 5
-	// Stay at 80 RPM, safely under Tier-1's 100 RPM hard limit, with headroom
-	// for occasional retries and other API activity on the same key.
+	// 80 RPM leaves room for retries and other traffic on the same key.
 	openAIRPM       = 80
 	upsertBatchSize = 50
 
@@ -338,7 +337,7 @@ func tmdbGET(client *http.Client, token, path string, params map[string]string) 
 }
 
 // generateEmbeddings fans out embedding generation across embedWorkers goroutines.
-// The shared limiter enforces openAIRPM so we never exceed Tier-1 rate limits.
+// The shared limiter holds all workers to openAIRPM.
 // Returns completed rows and the count of items that failed embedding.
 func generateEmbeddings(client *http.Client, apiKey string, items []tmdbItem, genreMap map[int]string, limiter *rate.Limiter) ([]movieRow, int) {
 	results := make(chan embedResult, len(items))
@@ -439,8 +438,8 @@ func callOpenAIEmbedding(client *http.Client, apiKey, text string) ([]float64, e
 }
 
 // upsertMovies sends rows to Supabase in batches, using (tmdb_id, media_type) as
-// the conflict target so re-running the seeder updates existing rows rather than
-// duplicating them. Requires the composite unique index from the media_type migration.
+// the conflict target so re-running the seeder updates existing rows. Requires the
+// composite unique index from the media_type migration.
 func upsertMovies(client *http.Client, supabaseURL, serviceKey string, rows []movieRow) (int, error) {
 	total := 0
 	for i := 0; i < len(rows); i += upsertBatchSize {

@@ -213,7 +213,7 @@ export default async function HomePage() {
 
       <section className="border-t border-border">
         <div className="px-6 pb-10 pt-14 lg:px-8">
-          <p className="eyebrow text-primary">Measured, not claimed</p>
+          <p className="eyebrow text-primary">Evaluation</p>
           <SplitHeading
             text="Every number comes from an eval you can rerun."
             className="mt-4 max-w-3xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
@@ -224,9 +224,9 @@ export default async function HomePage() {
 
       <section className="border-t border-border">
         <div className="px-6 pb-10 pt-14 lg:px-8">
-          <p className="eyebrow text-primary">Built like production</p>
+          <p className="eyebrow text-primary">Production</p>
           <SplitHeading
-            text="The parts you do not see in a demo."
+            text="Budgets, audits, and fallbacks on every request."
             className="mt-4 max-w-3xl font-heading text-3xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-4xl"
           />
         </div>

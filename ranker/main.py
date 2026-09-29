@@ -5,8 +5,8 @@ using either feature-linear-v1 (explicit weights) or lambdamart-v1 (learned
 LightGBM model). The Go backend selects the model via the `model` field in
 the RankRequest body.
 
-Internal service only, not exposed to the browser. The Go backend calls
-POST /rank after match_movies returns Stage-1 candidates.
+Only the Go backend calls it, with POST /rank after match_movies returns
+Stage-1 candidates. The service holds no data.
 """
 
 import logging

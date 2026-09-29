@@ -68,8 +68,8 @@ func GetMovieRatings(querier DBQuerier, fetcher RatingsFetcher, cache RatingsCac
 	}
 }
 
-// ratingsOrEmpty unwraps a possibly-nil Ratings into a value, so the response is
-// always a JSON object ({"imdb_rating":null,"rt_rating":null}) rather than null.
+// ratingsOrEmpty unwraps a possibly-nil Ratings, so the response is always a
+// JSON object such as {"imdb_rating":null,"rt_rating":null}.
 func ratingsOrEmpty(r *omdb.Ratings) omdb.Ratings {
 	if r == nil {
 		return omdb.Ratings{}

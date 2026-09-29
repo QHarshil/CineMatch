@@ -87,7 +87,7 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
 
           {exchange.status === "fallback" && (
             <p className="eyebrow inline-flex items-center gap-2 border border-amber/60 bg-amber/10 px-2.5 py-1 text-[#8a5a00]">
-              Search results, not the model
+              Search fallback
             </p>
           )}
         </div>

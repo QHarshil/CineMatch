@@ -12,7 +12,7 @@ const ITEMS = [
   {
     icon: ShieldCheck,
     title: "Grounded by construction",
-    body: "Picks are checked against tool results on the server. A title no tool returned is dropped and counted, never shown.",
+    body: "Picks are checked against tool results on the server. A title no tool returned is dropped and counted in the audit log.",
   },
   {
     icon: Plug,
@@ -22,7 +22,7 @@ const ITEMS = [
   {
     icon: Gauge,
     title: "Budgets that fail closed",
-    body: "Per-user daily limits, a global token cap, and an embedding call cap. If usage cannot be checked, no model call is made.",
+    body: "Each run is counted against per-user and per-network limits before it starts, under a database lock. If that fails, no model call is made.",
   },
   {
     icon: FileClock,

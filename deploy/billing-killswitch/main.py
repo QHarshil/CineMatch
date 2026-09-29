@@ -7,8 +7,8 @@ reads each notification and, once spend passes the budget, disables billing on
 the project, which stops every billable service.
 
 Disabling billing affects the whole project, so run CineMatch in its own
-dedicated GCP project. Re-enabling billing is a manual step (by design: the site
-goes offline rather than charging you).
+dedicated GCP project. Re-enabling billing is manual, so the site stays offline
+until you relink it.
 """
 
 import base64

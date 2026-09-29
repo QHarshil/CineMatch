@@ -35,7 +35,7 @@ const STEPS: Step[] = [
   {
     n: "01",
     title: "Plan",
-    body: "The model reads the request and chooses tools. Constraints like a series or under two hours become filters, never search words, so they hold exactly.",
+    body: "The model reads the request and chooses tools. Constraints like a series or under two hours become filters, so every pick meets them.",
     visual: (
       <Panel label="tool_call">
         <p className="text-muted-foreground">&quot;a Korean thriller series, not too long&quot;</p>

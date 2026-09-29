@@ -21,7 +21,7 @@ export async function createSupabaseServerClient() {
           try {
             cookieStore.set(name, value, options);
           } catch {
-            // Server Components cannot set cookies; the middleware refreshes them.
+            // Server Components cannot set cookies. The browser client refreshes the session.
           }
         }
       },

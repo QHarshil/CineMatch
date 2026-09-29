@@ -30,17 +30,14 @@ const SUMMARY_ROWS: Array<[string, (run: AgentEvalRun) => string]> = [
 
 const GUARDRAILS = [
   ["Read-only tools", "The agent cannot write. Likes change only when the person clicks."],
-  ["Grounding by ref", "Picks are validated against tool results on the server, not trusted from the model."],
-  ["Output guard", "Tool names, headings, and any eight-word run of the instructions are blocked."],
+  ["Grounding by ref", "The server checks every pick against the tool results before it is shown."],
+  ["Output guard", "Replies, pick reasons, and trace labels that copy eight words of the instructions are replaced."],
   [
     "Budgets",
-    "Per-user and guest daily limits, a global token cap, and an embedding cap. Past the cap, answers come from search.",
+    "Per-user, guest, and per-network daily limits, counted before a run starts. A global token cap and an embedding cap; past a cap, answers come from search.",
   ],
   ["Privacy", "Prompts are stored as SHA-256 hashes. Emails and phone numbers are masked in logged tool arguments."],
-  [
-    "Degradation",
-    "No model, a rate limit, or an outage returns hybrid search results with a notice, never an empty screen.",
-  ],
+  ["Degradation", "No model, a rate limit, or an outage returns hybrid search results with a notice."],
 ];
 
 /**

@@ -41,7 +41,7 @@ def _log_popularity_score(popularity: float) -> float:
 def _genre_overlap(candidate_genres: list[str], preferred_genres: list[str]) -> float:
     """Fraction of candidate genres present in user's preferred set.
 
-    Returns 0.5 when the user has no recorded preferences: neutral, not penalising.
+    Returns 0.5 (neutral) when the user has no recorded preferences.
     """
     if not preferred_genres:
         return 0.5
@@ -68,8 +68,8 @@ def _score_candidate(
     )
 
     # Penalise movies that fall below the user's stated vote threshold.
-    # A 50% penalty rather than a hard cutoff avoids eliminating borderline
-    # movies that score very highly on similarity.
+    # Halving the score keeps a borderline movie with very high similarity in
+    # the results.
     if min_vote > 0.0 and candidate.vote_average < min_vote:
         score *= 0.5
 

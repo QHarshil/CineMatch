@@ -47,7 +47,7 @@ const TECH_STACK = [
     name: "Go",
     role: "API Backend",
     reason:
-      "Small static binary on Cloud Run. The API streams assistant runs as server-sent events and calls the ranker and the model provider concurrently with request deadlines.",
+      "Small static binary on Cloud Run. The API streams assistant runs as server-sent events and gives every ranker, model, and database call a deadline.",
     icon: Zap,
   },
   {
@@ -60,8 +60,7 @@ const TECH_STACK = [
   {
     name: "Supabase + pgvector",
     role: "Database & Vector Search",
-    reason:
-      "Vectors, full text, trigrams, and app data in one Postgres. An HNSW kNN query over the catalog runs in about 12 ms.",
+    reason: "Vectors, full text, trigrams, and app data in one Postgres, with an HNSW index for kNN search.",
     icon: Database,
   },
   {
@@ -143,8 +142,8 @@ export default async function HowItWorksPage() {
               </p>
               <p className="leading-relaxed text-muted-foreground">
                 Finding candidates is a nearest-neighbor search: we use pgvector&apos;s HNSW index to find the 50 movies
-                with the highest cosine similarity to the user&apos;s embedding, in about 12 ms. Titles the user already
-                rated are excluded.
+                with the highest cosine similarity to the user&apos;s embedding. Titles the user already rated are
+                excluded.
               </p>
             </div>
             <div className="space-y-4">

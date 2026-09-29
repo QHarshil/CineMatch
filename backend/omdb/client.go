@@ -93,7 +93,7 @@ func (c *Client) Fetch(ctx context.Context, title string, year int, mediaType st
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("omdb: decoding response: %w", err)
 	}
-	// OMDb signals "no match" with Response:"False" rather than an HTTP error.
+	// OMDb answers "no match" with HTTP 200 and Response:"False".
 	if !strings.EqualFold(body.Response, "True") {
 		return nil, nil
 	}

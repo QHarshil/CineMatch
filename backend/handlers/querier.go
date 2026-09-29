@@ -6,8 +6,8 @@ import (
 	"github.com/harshilc/cinematch-backend/db"
 )
 
-// DBQuerier is satisfied by db.SupabaseClient and can be replaced with test stubs.
-// All handler constructors accept this interface rather than the concrete client.
+// DBQuerier is satisfied by db.SupabaseClient. Handlers take the interface so
+// tests can pass stubs.
 type DBQuerier interface {
 	ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error)
 	GetMovieByID(ctx context.Context, id string) (*db.Movie, error)

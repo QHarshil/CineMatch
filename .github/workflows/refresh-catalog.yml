@@ -17,8 +17,8 @@ jobs:
       run:
         working-directory: scripts
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: scripts/go.mod
           cache-dependency-path: scripts/go.sum
@@ -29,7 +29,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: go run . --media both --mode recent --count 100 --languages en,ko
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Backfill runtime, language, and backdrops

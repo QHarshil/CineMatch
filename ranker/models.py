@@ -55,7 +55,11 @@ class RankRequest(BaseModel):
 
     candidates: Annotated[
         list[CandidateMovie],
-        Field(min_length=1, description="Stage-1 candidates from pgvector kNN."),
+        Field(
+            min_length=1,
+            max_length=200,
+            description="Stage-1 candidates from pgvector kNN (the backend sends 50).",
+        ),
     ]
     user_features: UserFeatures = Field(default_factory=UserFeatures)
     top_n: Annotated[int, Field(ge=1, le=50)] = 20

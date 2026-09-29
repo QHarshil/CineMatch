@@ -363,3 +363,9 @@ def test_linear_ranker_returns_no_factors():
         "/rank", json={"candidates": [candidate], "model": "feature-linear-v1"}
     )
     assert resp.json()["ranked"][0]["factors"] == []
+
+
+def test_post_rank_rejects_more_than_200_candidates():
+    candidate = make_candidate().model_dump()
+    resp = client.post("/rank", json={"candidates": [candidate] * 201})
+    assert resp.status_code == 422

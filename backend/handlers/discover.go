@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -20,8 +19,6 @@ const (
 	discoverMaxGenres    = 5
 	discoverMaxGenreLen  = 40
 )
-
-var languageCodePattern = regexp.MustCompile(`^[a-z]{2}$`)
 
 // TitleSearch runs natural-language retrieval. Implemented by search.Service.
 type TitleSearch interface {
@@ -111,27 +108,27 @@ func parseSearchFilters(r *http.Request) (db.SearchFilters, error) {
 	}
 
 	var err error
-	if f.MinYear, err = boundedIntParam(r, "year_min", 0, 1900, 2100); err != nil {
+	if f.MinYear, err = boundedIntParam(r, "year_min", 0, db.MinFilterYear, db.MaxFilterYear); err != nil {
 		return f, err
 	}
-	if f.MaxYear, err = boundedIntParam(r, "year_max", 0, 1900, 2100); err != nil {
+	if f.MaxYear, err = boundedIntParam(r, "year_max", 0, db.MinFilterYear, db.MaxFilterYear); err != nil {
 		return f, err
 	}
 	if f.MinYear > 0 && f.MaxYear > 0 && f.MinYear > f.MaxYear {
 		return f, errors.New("year_min must not exceed year_max")
 	}
-	if f.MaxRuntime, err = boundedIntParam(r, "runtime_max", 0, 1, 600); err != nil {
+	if f.MaxRuntime, err = boundedIntParam(r, "runtime_max", 0, 1, db.MaxFilterRuntime); err != nil {
 		return f, err
 	}
 	if raw := query.Get("rating_min"); raw != "" {
 		rating, err := strconv.ParseFloat(raw, 64)
-		if err != nil || rating < 0 || rating > 10 {
-			return f, errors.New("rating_min must be a number between 0 and 10")
+		if err != nil || rating < 0 || rating > db.MaxFilterRating {
+			return f, fmt.Errorf("rating_min must be a number between 0 and %g", db.MaxFilterRating)
 		}
 		f.MinRating = rating
 	}
 	if lang := query.Get("lang"); lang != "" {
-		if !languageCodePattern.MatchString(lang) {
+		if !db.IsLanguageCode(lang) {
 			return f, errors.New("lang must be a two-letter ISO 639-1 code")
 		}
 		f.Language = lang

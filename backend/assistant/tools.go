@@ -170,8 +170,6 @@ type searchArgs struct {
 	Limit      flexInt     `json:"limit"`
 }
 
-var languageCode = regexp.MustCompile(`^[a-z]{2}$`)
-
 // languageNames maps names the model may use instead of ISO codes.
 var languageNames = map[string]string{
 	"english": "en", "korean": "ko", "japanese": "ja", "spanish": "es",
@@ -190,26 +188,26 @@ func (a searchArgs) filters() (db.SearchFilters, []string) {
 	}
 	genres, notes := resolveGenres(a.Genres, f.MediaType)
 	f.Genres = genres
-	if y := int(a.MinYear); y >= 1900 && y <= 2100 {
+	if y := int(a.MinYear); y >= db.MinFilterYear && y <= db.MaxFilterYear {
 		f.MinYear = y
 	}
-	if y := int(a.MaxYear); y >= 1900 && y <= 2100 {
+	if y := int(a.MaxYear); y >= db.MinFilterYear && y <= db.MaxFilterYear {
 		f.MaxYear = y
 	}
 	if f.MinYear > 0 && f.MaxYear > 0 && f.MinYear > f.MaxYear {
 		f.MinYear, f.MaxYear = f.MaxYear, f.MinYear
 	}
-	if r := float64(a.MinRating); r > 0 && r <= 10 {
+	if r := float64(a.MinRating); r > 0 && r <= db.MaxFilterRating {
 		f.MinRating = r
 	}
-	if m := int(a.MaxRuntime); m > 0 && m <= 600 {
+	if m := int(a.MaxRuntime); m > 0 && m <= db.MaxFilterRuntime {
 		f.MaxRuntime = m
 	}
 	lang := strings.ToLower(strings.TrimSpace(a.Language))
 	if code, ok := languageNames[lang]; ok {
 		lang = code
 	}
-	if languageCode.MatchString(lang) {
+	if db.IsLanguageCode(lang) {
 		f.Language = lang
 	}
 	return f, notes
@@ -335,9 +333,7 @@ func (a *Agent) searchCatalog(ctx context.Context, arguments string, g *groundin
 // When a short filtered query is exactly a catalog title, that title comes
 // back separately as a seed for find_similar.
 func (a *Agent) namedTitlesOutsideFilters(ctx context.Context, query string, f db.SearchFilters, g *groundingSet) []titleView {
-	filtered := f.MediaType != "" || len(f.Genres) > 0 || f.MinYear > 0 || f.MaxYear > 0 ||
-		f.MinRating > 0 || f.MaxRuntime > 0 || f.Language != ""
-	if !filtered || len(strings.Fields(query)) > 6 {
+	if !f.Active() || len(strings.Fields(query)) > 6 {
 		return nil
 	}
 	named, err := a.titles.TitlesNamed(ctx, query)

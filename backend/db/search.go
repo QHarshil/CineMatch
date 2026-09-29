@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"regexp"
 )
 
 // SearchFilters narrows a hybrid search. Zero values mean no filter.
@@ -15,6 +16,28 @@ type SearchFilters struct {
 	MaxRuntime int     // minutes; titles with unknown runtime are excluded
 	Language   string  // ISO 639-1 original language
 	ExcludeIDs []string
+}
+
+// Filter bounds shared by every caller. The /discover handler rejects values
+// outside them and the assistant drops them, but both use the same range.
+const (
+	MinFilterYear    = 1900
+	MaxFilterYear    = 2100
+	MaxFilterRating  = 10.0
+	MaxFilterRuntime = 600 // minutes
+)
+
+var languageCode = regexp.MustCompile(`^[a-z]{2}$`)
+
+// IsLanguageCode reports whether s is a two-letter ISO 639-1 code, the form
+// original_language is stored in.
+func IsLanguageCode(s string) bool { return languageCode.MatchString(s) }
+
+// Active reports whether any filter the person can ask for is set.
+// ExcludeIDs is bookkeeping, so it does not count.
+func (f SearchFilters) Active() bool {
+	return f.MediaType != "" || len(f.Genres) > 0 || f.MinYear > 0 || f.MaxYear > 0 ||
+		f.MinRating > 0 || f.MaxRuntime > 0 || f.Language != ""
 }
 
 // SearchHit is one hybrid search result plus the evidence behind its rank.

@@ -79,6 +79,8 @@ Response:
 
 `factors` explains each pick. They are LightGBM's SHAP values (`pred_contrib=True`) for the title-level features that raised the score, largest first, at most three. User-level features are the same for every candidate in a request, so they are left out. `feature-linear-v1` returns no factors.
 
+Every `user_features` field is optional. The Go backend sends `user_like_ratio` and `user_interaction_count`, the two lambdamart-v1 uses; `preferred_genres` and `min_vote_preference` only affect feature-linear-v1.
+
 The `model` field selects which ranker to use: `lambdamart-v1` (the production default) or `feature-linear-v1` (the transparent fallback). Both are described under Scoring models below.
 
 ### GET /health

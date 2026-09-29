@@ -86,7 +86,7 @@ func TestClientRank(t *testing.T) {
 		defer srv.Close()
 
 		client := ranker.NewClient(srv.URL)
-		result, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{PreferredGenres: []string{"Action"}, MinVotePref: 7.0})
+		result, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{LikeRatio: 0.6, InteractionCount: 20})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -126,17 +126,17 @@ func TestClientRank(t *testing.T) {
 		}
 	})
 
-	t.Run("passes empty genres as empty array", func(t *testing.T) {
+	t.Run("sends the user features", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				UserFeatures struct {
-					PreferredGenres []string `json:"preferred_genres"`
+					LikeRatio        float64 `json:"user_like_ratio"`
+					InteractionCount int     `json:"user_interaction_count"`
 				} `json:"user_features"`
 			}
 			json.NewDecoder(r.Body).Decode(&body)
-			// nil genres should be serialized as empty array, not null
-			if body.UserFeatures.PreferredGenres == nil {
-				t.Error("preferred_genres should not be null")
+			if body.UserFeatures.LikeRatio != 0.5 || body.UserFeatures.InteractionCount != 12 {
+				t.Errorf("user_features = %+v", body.UserFeatures)
 			}
 			resp := map[string]any{
 				"ranked":        []any{},
@@ -147,7 +147,7 @@ func TestClientRank(t *testing.T) {
 		defer srv.Close()
 
 		client := ranker.NewClient(srv.URL)
-		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{PreferredGenres: []string{}})
+		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{LikeRatio: 0.5, InteractionCount: 12})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

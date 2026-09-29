@@ -56,16 +56,12 @@ type candidateMovie struct {
 }
 
 type userFeatures struct {
-	PreferredGenres      []string `json:"preferred_genres"`
-	MinVotePref          float64  `json:"min_vote_preference"`
-	UserLikeRatio        float64  `json:"user_like_ratio"`
-	UserInteractionCount int      `json:"user_interaction_count"`
+	UserLikeRatio        float64 `json:"user_like_ratio"`
+	UserInteractionCount int     `json:"user_interaction_count"`
 }
 
-// UserContext carries the per-user signals the ranker uses to personalize scoring.
+// UserContext carries the per-user features lambdamart-v1 was trained on.
 type UserContext struct {
-	PreferredGenres  []string
-	MinVotePref      float64
 	LikeRatio        float64
 	InteractionCount int
 }
@@ -100,15 +96,9 @@ func (c *Client) Rank(
 	topN int,
 	user UserContext,
 ) (*RankResponse, error) {
-	genres := user.PreferredGenres
-	if genres == nil {
-		genres = []string{} // serialize as [] not null so Pydantic accepts it
-	}
 	body := rankRequest{
 		Candidates: mapCandidates(candidates),
 		UserFeatures: userFeatures{
-			PreferredGenres:      genres,
-			MinVotePref:          user.MinVotePref,
 			UserLikeRatio:        user.LikeRatio,
 			UserInteractionCount: user.InteractionCount,
 		},

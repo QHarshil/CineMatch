@@ -25,10 +25,10 @@ class UserFeatures(BaseModel):
 
     preferred_genres: list[str] = Field(
         default_factory=list,
-        description="Genres the user has historically liked or watched.",
+        description="Genres the user likes. Used only by feature-linear-v1.",
     )
-    # Normalised vote threshold derived from the user's past ratings.
-    # When present, movies below this threshold are penalised.
+    # Optional. feature-linear-v1 penalises movies rated below it; the Go
+    # backend does not send it.
     min_vote_preference: float = Field(
         default=0.0,
         ge=0.0,

@@ -26,7 +26,7 @@ Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--
 
 **Expected runtime:** 3-5 minutes per ~500 titles (mostly OpenAI rate limiting).
 
-**Required env vars:** `TMDB_READ_ACCESS_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+**Required env vars:** `TMDB_READ_ACCESS_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`. `EMBED_MODEL` (default `text-embedding-3-small`) must match the model the API embeds queries with.
 
 Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for OpenAI, which leaves room for retries.
 

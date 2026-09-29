@@ -28,7 +28,7 @@ python benchmark_latency.py
 Run tests:
 
 ```bash
-python -m pytest tests/ -v             # 23 tests
+python -m pytest tests/ -v             # 26 tests
 ```
 
 Output files:

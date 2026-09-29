@@ -83,6 +83,8 @@ add_optional ASSISTANT_IP_DAILY_RUNS "$(get ASSISTANT_IP_DAILY_RUNS)"
 add_optional ASSISTANT_DAILY_RUNS "$(get ASSISTANT_DAILY_RUNS)"
 add_optional ASSISTANT_DAILY_TOKENS "$(get ASSISTANT_DAILY_TOKENS)"
 add_optional EMBED_DAILY_LIMIT "$(get EMBED_DAILY_LIMIT)"
+add_optional EMBED_MODEL "$(get EMBED_MODEL)"
+add_optional RANKER_MODEL "$(get RANKER_MODEL)"
 
 gcloud run deploy cinematch-backend \
   --source "$REPO_ROOT/backend" \

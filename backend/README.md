@@ -293,4 +293,4 @@ docker build -t cinematch-backend .
 docker run -p 8080:8080 --env-file ../.env cinematch-backend
 ```
 
-Multi-stage build: `golang:1.22-alpine` for compilation, `distroless/static-debian12` for the runtime. The final binary is fully static (CGO disabled), so the runtime image has no shell or package manager.
+Multi-stage build: `golang:1.27.1-alpine` for compilation, `distroless/static-debian13` for the runtime. The final binary is fully static (CGO disabled), so the runtime image has no shell or package manager.

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { fetchMovieById } from "@/lib/api";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { InteractionButtons } from "./interaction-buttons";
-import { SimilarMoviesRow } from "./similar-movies-row";
+import { ScrollRow } from "@/components/scroll-row";
 import { MovieRatings } from "@/components/movie-ratings";
 import type { Movie } from "@/types/movie";
 
@@ -12,23 +12,17 @@ export const dynamic = "force-dynamic";
 const TMDB_POSTER = "https://image.tmdb.org/t/p/w500";
 const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
 
-const MOVIE_FIELDS =
-  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
-
+/** Nearest titles by embedding, the same kNN search the recommender uses. */
 async function fetchSimilarMovies(movie: Movie): Promise<Movie[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    // Find movies sharing at least one genre, similar rating range, exclude self
-    const { data } = await supabase
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .neq("id", movie.id)
-      .overlaps("genres", movie.genres.slice(0, 2))
-      .gte("vote_average", Math.max(0, movie.vote_average - 2))
-      .lte("vote_average", Math.min(10, movie.vote_average + 2))
-      .order("popularity", { ascending: false })
-      .limit(15);
-    return (data ?? []) as Movie[];
+    const { data: seed } = await supabase.from("movies").select("embedding").eq("id", movie.id).single();
+    if (!seed?.embedding) return [];
+    const { data: neighbors } = await supabase.rpc("match_movies", {
+      query_embedding: seed.embedding,
+      match_count: 16,
+    });
+    return ((neighbors ?? []) as Movie[]).filter((m) => m.id !== movie.id).slice(0, 15);
   } catch {
     return [];
   }
@@ -143,7 +137,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
 
       {similarMovies.length > 0 && (
         <div className="mx-auto max-w-7xl px-4 py-10 lg:px-8">
-          <SimilarMoviesRow movies={similarMovies} />
+          <ScrollRow title="Similar Titles" movies={similarMovies} />
         </div>
       )}
     </div>

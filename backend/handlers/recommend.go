@@ -23,6 +23,17 @@ type MovieRanker interface {
 	Rank(ctx context.Context, candidates []db.MovieCandidate, topN int, user ranker.UserContext) (*ranker.RankResponse, error)
 }
 
+// RecommendationStore is the data the pipeline reads. Implemented by
+// db.SupabaseClient.
+type RecommendationStore interface {
+	GetUserEmbedding(ctx context.Context, userID string) ([]float32, error)
+	ListMovies(ctx context.Context, limit, offset int) ([]db.Movie, error)
+	InteractedMovieIDs(ctx context.Context, userID string) (map[string]bool, error)
+	MatchMovies(ctx context.Context, queryEmbedding []float32, limit int) ([]db.MovieCandidate, error)
+	UserInteractionStats(ctx context.Context, userID string) (db.UserStats, error)
+	NearestLikedTitles(ctx context.Context, userID string, movieIDs []string) ([]db.LikedMatch, error)
+}
+
 // Recommendation is a ranked feed plus how it was produced.
 type Recommendation struct {
 	Movies       []db.Movie `json:"movies"`
@@ -64,19 +75,19 @@ func (e pipelineError) Error() string { return string(e) }
 // in their original cosine-similarity order so recommendations stay available.
 // Shared by GET /recommend and the assistant's recommendations tool.
 type RecommendationPipeline struct {
-	querier DBQuerier
-	ranker  MovieRanker
-	cache   PopularCache
+	store  RecommendationStore
+	ranker MovieRanker
+	cache  PopularCache
 }
 
 // NewRecommendationPipeline wires the pipeline's dependencies.
-func NewRecommendationPipeline(querier DBQuerier, movieRanker MovieRanker, cache PopularCache) *RecommendationPipeline {
-	return &RecommendationPipeline{querier: querier, ranker: movieRanker, cache: cache}
+func NewRecommendationPipeline(store RecommendationStore, movieRanker MovieRanker, cache PopularCache) *RecommendationPipeline {
+	return &RecommendationPipeline{store: store, ranker: movieRanker, cache: cache}
 }
 
 // Recommend returns the user's ranked feed.
 func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (Recommendation, error) {
-	embedding, err := p.querier.GetUserEmbedding(ctx, userID)
+	embedding, err := p.store.GetUserEmbedding(ctx, userID)
 	if err != nil {
 		// Supabase unreachable: serve cached popular movies instead of failing.
 		slog.Warn("supabase unreachable for user embedding, serving cached popular", "error", err)
@@ -87,7 +98,7 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 	}
 
 	if embedding == nil {
-		movies, err := p.querier.ListMovies(ctx, recommendedMovieCount, 0)
+		movies, err := p.store.ListMovies(ctx, recommendedMovieCount, 0)
 		if err != nil {
 			slog.Warn("supabase unreachable for cold-start popular, serving cache", "error", err)
 			if cached := p.cache.Get(); cached != nil {
@@ -100,18 +111,18 @@ func (p *RecommendationPipeline) Recommend(ctx context.Context, userID string) (
 
 	// Titles the user already rated sit close to their taste vector and would
 	// crowd the top of the feed, so fetch extra and drop them.
-	seen, err := p.querier.InteractedMovieIDs(ctx, userID)
+	seen, err := p.store.InteractedMovieIDs(ctx, userID)
 	if err != nil {
 		slog.Warn("failed to load interacted titles, not excluding them", "error", err)
 	}
 	fetch := min(retrievalCandidateCount+len(seen), maxRetrievalCount)
-	candidates, err := p.querier.MatchMovies(ctx, embedding, fetch)
+	candidates, err := p.store.MatchMovies(ctx, embedding, fetch)
 	if err != nil {
 		return Recommendation{}, pipelineError("failed to retrieve candidates")
 	}
 	candidates = excludeSeen(candidates, seen, retrievalCandidateCount)
 
-	stats, statsErr := p.querier.UserInteractionStats(ctx, userID)
+	stats, statsErr := p.store.UserInteractionStats(ctx, userID)
 	if statsErr != nil {
 		slog.Warn("failed to load user stats for ranker, using defaults", "error", statsErr)
 		stats = db.UserStats{LikeRatio: 0.5}
@@ -163,7 +174,7 @@ func (p *RecommendationPipeline) explain(ctx context.Context, userID string, can
 		ids[i] = m.ID
 	}
 	liked := map[string]*LikedTitle{}
-	if matches, err := p.querier.NearestLikedTitles(ctx, userID, ids); err != nil {
+	if matches, err := p.store.NearestLikedTitles(ctx, userID, ids); err != nil {
 		slog.Warn("failed to find nearest liked titles", "error", err)
 	} else {
 		for _, m := range matches {
@@ -179,8 +190,7 @@ func (p *RecommendationPipeline) explain(ctx context.Context, userID string, can
 }
 
 // RecommendForUser handles GET /recommend with the two-stage pipeline.
-func RecommendForUser(querier DBQuerier, movieRanker MovieRanker, cache PopularCache) http.HandlerFunc {
-	pipeline := NewRecommendationPipeline(querier, movieRanker, cache)
+func RecommendForUser(pipeline *RecommendationPipeline) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := middleware.UserIDFromContext(r.Context())
 		if !ok {

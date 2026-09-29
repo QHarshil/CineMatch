@@ -19,10 +19,5 @@ type DBQuerier interface {
 	DeleteRating(ctx context.Context, userID, movieID string) error
 	GetUserMovieRating(ctx context.Context, userID, movieID string) (*db.RatingRow, error)
 	CountUserInteractions(ctx context.Context, userID string) (int, error)
-	GetUserEmbedding(ctx context.Context, userID string) ([]float32, error)
-	MatchMovies(ctx context.Context, queryEmbedding []float32, limit int) ([]db.MovieCandidate, error)
 	RefreshUserEmbedding(ctx context.Context, userID string) error
-	UserInteractionStats(ctx context.Context, userID string) (db.UserStats, error)
-	InteractedMovieIDs(ctx context.Context, userID string) (map[string]bool, error)
-	NearestLikedTitles(ctx context.Context, userID string, movieIDs []string) ([]db.LikedMatch, error)
 }

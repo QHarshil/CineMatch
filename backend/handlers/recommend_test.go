@@ -139,7 +139,7 @@ func TestRecommendForUser(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			cache := &stubCache{movies: sampleMovies}
-			handlers.RecommendForUser(q, tc.ranker, cache).ServeHTTP(rec, req)
+			handlers.RecommendForUser(handlers.NewRecommendationPipeline(q, tc.ranker, cache)).ServeHTTP(rec, req)
 
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)

@@ -135,7 +135,7 @@ func main() {
 	// jwtSecret is captured once at startup so every request avoids an os.Getenv call.
 	r.Group(func(r chi.Router) {
 		r.Use(custommw.RequireAuth(jwtSecret, custommw.SupabaseJWKSURL(os.Getenv("SUPABASE_URL"))))
-		r.With(custommw.RecommendRateLimiter()).Get("/recommend", handlers.RecommendForUser(supabase, movieRanker, popularCache))
+		r.With(custommw.RecommendRateLimiter()).Get("/recommend", handlers.RecommendForUser(recommendations))
 		r.With(custommw.WriteRateLimiter()).Post("/interactions", handlers.ToggleInteraction(supabase))
 		r.Get("/interactions", handlers.GetMovieInteractionState(supabase))
 		r.With(custommw.WriteRateLimiter()).Put("/ratings", handlers.RecordRating(supabase))

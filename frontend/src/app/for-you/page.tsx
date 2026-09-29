@@ -50,6 +50,7 @@ export default function ForYouPage() {
   const [source, setSource] = useState("");
   const [explanations, setExplanations] = useState<Record<string, RecommendationExplanation>>({});
   const [loading, setLoading] = useState(false);
+  const [recsLoaded, setRecsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoProfile, setDemoProfile] = useState<string | null>(null);
   const [backdropMovies, setBackdropMovies] = useState<Movie[]>([]);
@@ -120,33 +121,26 @@ export default function ForYouPage() {
     return sections;
   }, []);
 
-  const fetchAuthRecs = useCallback(async () => {
+  useEffect(() => {
     if (!session || fetchedRef.current) return;
     fetchedRef.current = true;
-    setLoading(true);
-    try {
-      const [recResult, popularResult, likedSections] = await Promise.all([
-        fetchRecommendations(session.access_token).catch(() => null),
-        fetchPopularMovies(),
-        fetchBecauseYouLiked(session.user.id).catch(() => [] as BecauseYouLikedSection[]),
-      ]);
-      if (recResult) {
-        setTopPicks(recResult.movies);
-        setSource(recResult.source);
-        setExplanations(recResult.explanations ?? {});
-      }
-      setPopular(popularResult);
-      setBecauseYouLiked(likedSections);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoading(false);
-    }
+    Promise.all([
+      fetchRecommendations(session.access_token).catch(() => null),
+      fetchPopularMovies(),
+      fetchBecauseYouLiked(session.user.id).catch(() => [] as BecauseYouLikedSection[]),
+    ])
+      .then(([recResult, popularResult, likedSections]) => {
+        if (recResult) {
+          setTopPicks(recResult.movies);
+          setSource(recResult.source);
+          setExplanations(recResult.explanations ?? {});
+        }
+        setPopular(popularResult);
+        setBecauseYouLiked(likedSections);
+      })
+      .catch((err: unknown) => setError(String(err)))
+      .finally(() => setRecsLoaded(true));
   }, [session, fetchPopularMovies, fetchBecauseYouLiked]);
-
-  useEffect(() => {
-    if (session) fetchAuthRecs();
-  }, [session, fetchAuthRecs]);
 
   // Poster wall behind the signed-out pitch.
   useEffect(() => {
@@ -186,7 +180,7 @@ export default function ForYouPage() {
   }
 
   const isAuthLoading = authLoading;
-  const isDataLoading = loading;
+  const isDataLoading = loading || (session != null && !recsLoaded);
 
   // Loading skeleton
   if (isAuthLoading || isDataLoading) {

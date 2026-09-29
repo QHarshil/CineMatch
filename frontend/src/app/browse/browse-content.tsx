@@ -68,35 +68,45 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
     return (data ?? []) as Movie[];
   }, []);
 
-  const loadInitial = useCallback(
+  const fetchFirstPage = useCallback(
     async (genre: string, sortKey: SortOption) => {
-      setLoading(true);
-      setHasMore(true);
       try {
         if (isSearchMode) {
           const { results, retrieval: mode } = await discoverTitles(searchQuery, { limit: 40 });
-          setMovies(results);
-          setRetrieval(mode);
-          setHasMore(false);
-        } else {
-          const results = await fetchFromSupabase(genre, sortKey, 0);
-          setMovies(results);
-          setHasMore(results.length === PAGE_SIZE);
+          return { results, mode, more: false };
         }
+        const results = await fetchFromSupabase(genre, sortKey, 0);
+        return { results, mode: null, more: results.length === PAGE_SIZE };
       } catch {
-        setMovies([]);
-        setHasMore(false);
-      } finally {
-        setLoading(false);
+        return { results: [] as Movie[], mode: null, more: false };
       }
     },
     [isSearchMode, searchQuery, fetchFromSupabase],
   );
 
-  // Reload when the search query changes; filter and sort changes load directly.
+  const showFirstPage = useCallback(({ results, mode, more }: Awaited<ReturnType<typeof fetchFirstPage>>) => {
+    setMovies(results);
+    setRetrieval(mode);
+    setHasMore(more);
+    setLoading(false);
+  }, []);
+
+  async function loadInitial(genre: string, sortKey: SortOption) {
+    setLoading(true);
+    showFirstPage(await fetchFirstPage(genre, sortKey));
+  }
+
+  // The page keys this component by query, so each search mounts it fresh in
+  // the loading state; filter and sort changes call loadInitial directly.
   useEffect(() => {
-    loadInitial("All", "popular");
-  }, [loadInitial]);
+    let cancelled = false;
+    fetchFirstPage("All", "popular").then((page) => {
+      if (!cancelled) showFirstPage(page);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchFirstPage, showFirstPage]);
 
   function handleGenreChange(genre: string) {
     setActiveGenre(genre);

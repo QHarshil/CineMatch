@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { toggleInteraction, fetchInteractionState, submitRating, RateLimitError } from "@/lib/api";
 import { useToast } from "@/components/toast";
@@ -32,22 +32,25 @@ export function InteractionButtons({ movieId }: { movieId: string }) {
   const [showAuthHint, setShowAuthHint] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const loadState = useCallback(async () => {
-    if (!session) return;
-    try {
-      const state = await fetchInteractionState(session.access_token, movieId);
-      setActiveTypes(new Set(state.interactions as InteractionType[]));
-      setRating(state.rating ?? 0);
-    } catch {
-      // Silently fail on load; the user can still interact
-    } finally {
-      setLoaded(true);
-    }
-  }, [session, movieId]);
-
   useEffect(() => {
-    loadState();
-  }, [loadState]);
+    if (!session) return;
+    let cancelled = false;
+    fetchInteractionState(session.access_token, movieId)
+      .then((state) => {
+        if (cancelled) return;
+        setActiveTypes(new Set(state.interactions as InteractionType[]));
+        setRating(state.rating ?? 0);
+      })
+      .catch(() => {
+        // The buttons still work without the saved state.
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, movieId]);
 
   async function handleToggle(type: InteractionType) {
     if (!session) {

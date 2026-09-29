@@ -30,5 +30,5 @@ export default async function BrowsePage({ searchParams }: { searchParams: Promi
   const { q } = await searchParams;
   const genres = await fetchGenres();
 
-  return <BrowseContent genres={genres} searchQuery={q ?? ""} />;
+  return <BrowseContent key={q ?? ""} genres={genres} searchQuery={q ?? ""} />;
 }

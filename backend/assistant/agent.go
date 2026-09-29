@@ -95,10 +95,14 @@ func New(model ChatModel, catalog Catalog, titles TitleStore, recs Recommender) 
 	return &Agent{model: model, catalog: catalog, titles: titles, recs: recs, now: time.Now}
 }
 
+// NoModel is the ModelName of an agent without a chat model, which answers
+// from search alone.
+const NoModel = "none"
+
 // ModelName is recorded in the audit log.
 func (a *Agent) ModelName() string {
 	if a.model == nil {
-		return "none"
+		return NoModel
 	}
 	return a.model.Model()
 }

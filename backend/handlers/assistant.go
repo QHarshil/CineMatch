@@ -254,7 +254,7 @@ func GetAssistantUsage(runner AssistantRunner, store AssistantStore, limits Assi
 			Limit:          dailyRuns,
 			Remaining:      remainingRuns(dailyRuns, usage, limits),
 			ResetsAt:       resetsAt.Format(time.RFC3339),
-			ModelAvailable: runner.ModelName() != "none" && !limits.modelBudgetSpent(usage),
+			ModelAvailable: runner.ModelName() != assistant.NoModel && !limits.modelBudgetSpent(usage),
 		})
 	}
 }

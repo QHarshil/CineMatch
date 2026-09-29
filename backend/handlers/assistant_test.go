@@ -242,7 +242,7 @@ func TestGetAssistantUsage(t *testing.T) {
 		{name: "fresh day", model: "qwen3:8b", wantRemaining: 5, wantModel: true},
 		{name: "partly used", model: "qwen3:8b", usage: db.AssistantUsage{UserRuns: 3}, wantRemaining: 2, wantModel: true},
 		{name: "global budget spent", model: "qwen3:8b", usage: db.AssistantUsage{TotalTokens: 60000}, wantRemaining: 5, wantModel: false},
-		{name: "no model configured", model: "none", wantRemaining: 5, wantModel: false},
+		{name: "no model configured", model: assistant.NoModel, wantRemaining: 5, wantModel: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

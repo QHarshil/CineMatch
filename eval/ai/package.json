@@ -12,7 +12,7 @@
     "test": "node --test metrics.test.ts"
   },
   "devDependencies": {
-    "@types/node": "^24",
-    "typescript": "^5"
+    "@types/node": "^24.19.0",
+    "typescript": "^7.0.2"
   }
 }

@@ -172,6 +172,11 @@ export class AssistantRequestError extends Error {
  * Starts an assistant run and yields its events. The JWT is sent in both
  * Authorization and X-Authorization for proxies that strip the former.
  */
+/** The Supabase JWT headers. X-Authorization covers proxies that strip Authorization. */
+export function authHeaders(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}`, "X-Authorization": `Bearer ${token}` };
+}
+
 export async function* streamAssistant(options: {
   apiBase: string;
   token: string;
@@ -180,11 +185,7 @@ export async function* streamAssistant(options: {
 }): AsyncGenerator<AssistantEvent> {
   const res = await fetch(`${options.apiBase}/assistant`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${options.token}`,
-      "X-Authorization": `Bearer ${options.token}`,
-    },
+    headers: { "Content-Type": "application/json", ...authHeaders(options.token) },
     body: JSON.stringify({ messages: options.turns }),
     signal: options.signal,
   });

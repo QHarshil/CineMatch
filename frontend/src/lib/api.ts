@@ -6,6 +6,7 @@ import type {
   RecommendResponse,
   ToggleResponse,
 } from "@/types/movie";
+import { authHeaders } from "./assistant-stream";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -39,14 +40,6 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
-}
-
-/** Attach the Supabase JWT. X-Authorization covers proxies that strip Authorization. */
-function authHeaders(token: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${token}`,
-    "X-Authorization": `Bearer ${token}`,
-  };
 }
 
 export function fetchMovieById(id: string): Promise<Movie> {

@@ -18,7 +18,9 @@ coverage/
 .venv/
 *.egg-info/
 .pytest_cache/
-eval/data/
+# The catalog snapshot is tracked so the ranker eval reproduces from a clone.
+eval/data/*
+!eval/data/movies.parquet
 eval/models/
 eval/results/
 eval/ai/results/

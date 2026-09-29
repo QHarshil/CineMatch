@@ -32,7 +32,7 @@ python -m pytest tests/ -v             # 23 tests
 ```
 
 Output files:
-- `data/movies.parquet`: the catalog snapshot the users are generated against
+- `data/movies.parquet`: the 494-title catalog snapshot the users are generated against (tracked, so the results reproduce from a clone)
 - `data/synthetic_interactions.parquet`: 8,871 interactions across 200 users
 - `data/train.parquet`, `data/test.parquet`: feature-engineered training data
 - `models/lambdamart-v1.txt`: trained LightGBM model

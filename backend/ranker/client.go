@@ -19,22 +19,27 @@ import (
 // Client talks to the Python FastAPI ranker over HTTP.
 type Client struct {
 	baseURL    string
+	model      string
 	httpClient *http.Client
 }
 
-// NewClient creates a ranker client pointing at the given base URL (e.g. "http://localhost:8000").
-// A 5-second timeout prevents a slow ranker from blocking the entire recommend request.
-func NewClient(baseURL string) *Client {
+// NewClient creates a ranker client pointing at the given base URL (e.g. "http://localhost:8000")
+// that requests model. A 5-second timeout prevents a slow ranker from blocking the entire
+// recommend request.
+func NewClient(baseURL, model string) *Client {
 	return &Client{
 		baseURL: baseURL,
+		model:   model,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
 	}
 }
 
-// ModelVersion is the ranker model the backend requests in production.
-const ModelVersion = "lambdamart-v1"
+// DefaultModel is the ranker model the backend requests unless RANKER_MODEL
+// names another. The ranker falls back to feature-linear-v1 when the model it
+// loaded has a different version.
+const DefaultModel = "lambdamart-v1"
 
 // rankRequest mirrors the Python ranker's POST /rank schema.
 type rankRequest struct {
@@ -103,7 +108,7 @@ func (c *Client) Rank(
 			UserInteractionCount: user.InteractionCount,
 		},
 		TopN:  topN,
-		Model: ModelVersion,
+		Model: c.model,
 	}
 
 	payload, err := json.Marshal(body)

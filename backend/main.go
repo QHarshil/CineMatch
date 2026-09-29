@@ -49,7 +49,7 @@ func main() {
 	if rankerURL == "" {
 		rankerURL = "http://localhost:8000"
 	}
-	movieRanker := ranker.NewClient(rankerURL)
+	movieRanker := ranker.NewClient(rankerURL, envString("RANKER_MODEL", ranker.DefaultModel))
 
 	supabase := db.NewSupabaseClient(
 		os.Getenv("SUPABASE_URL"),

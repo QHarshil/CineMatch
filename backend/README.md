@@ -18,6 +18,7 @@ Environment variables, read from the repo-root `.env` or the shell:
 | `SUPABASE_SECRET_KEY` | yes | - |
 | `JWT_SECRET` | yes | - |
 | `RANKER_URL` | no | `http://localhost:8000` |
+| `RANKER_MODEL` | no | `lambdamart-v1`; must match the version of the model the ranker loaded |
 | `PORT` | no | injected by Cloud Run/Render; falls back to `APP_PORT` then `8080` |
 | `APP_PORT` | no | `8080` |
 | `ALLOWED_ORIGINS` | no | `http://localhost:3000` |

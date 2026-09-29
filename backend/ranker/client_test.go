@@ -85,7 +85,7 @@ func TestClientRank(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := ranker.NewClient(srv.URL)
+		client := ranker.NewClient(srv.URL, ranker.DefaultModel)
 		result, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{LikeRatio: 0.6, InteractionCount: 20})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -111,7 +111,7 @@ func TestClientRank(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := ranker.NewClient(srv.URL)
+		client := ranker.NewClient(srv.URL, ranker.DefaultModel)
 		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{})
 		if err == nil {
 			t.Fatal("expected error for 500 response")
@@ -119,24 +119,25 @@ func TestClientRank(t *testing.T) {
 	})
 
 	t.Run("ranker unreachable", func(t *testing.T) {
-		client := ranker.NewClient("http://127.0.0.1:1") // nothing listening
+		client := ranker.NewClient("http://127.0.0.1:1", ranker.DefaultModel) // nothing listening
 		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{})
 		if err == nil {
 			t.Fatal("expected error for unreachable ranker")
 		}
 	})
 
-	t.Run("sends the user features", func(t *testing.T) {
+	t.Run("sends the user features and configured model", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
+				Model        string `json:"model"`
 				UserFeatures struct {
 					LikeRatio        float64 `json:"user_like_ratio"`
 					InteractionCount int     `json:"user_interaction_count"`
 				} `json:"user_features"`
 			}
 			json.NewDecoder(r.Body).Decode(&body)
-			if body.UserFeatures.LikeRatio != 0.5 || body.UserFeatures.InteractionCount != 12 {
-				t.Errorf("user_features = %+v", body.UserFeatures)
+			if body.Model != "lambdamart-v2" || body.UserFeatures.LikeRatio != 0.5 || body.UserFeatures.InteractionCount != 12 {
+				t.Errorf("model %q, user_features %+v", body.Model, body.UserFeatures)
 			}
 			resp := map[string]any{
 				"ranked":        []any{},
@@ -146,7 +147,7 @@ func TestClientRank(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := ranker.NewClient(srv.URL)
+		client := ranker.NewClient(srv.URL, "lambdamart-v2")
 		_, err := client.Rank(context.Background(), testCandidates, 5, ranker.UserContext{LikeRatio: 0.5, InteractionCount: 12})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

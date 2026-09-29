@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAssistant } from "@/hooks/use-assistant";
+import { MAX_TURN_CHARS } from "@/lib/assistant-session";
 import { SplitHeading } from "@/components/motion/split-heading";
 import { AgentTrace } from "./agent-trace";
 import { Composer } from "./composer";
@@ -113,7 +114,7 @@ export function AssistantView() {
 
   // A prompt handed over from the landing page fills the composer and waits
   // for the person to send it, so a shared link cannot spend their quota.
-  const [draft] = useState(() => searchParams.get("q")?.slice(0, 800) ?? "");
+  const [draft] = useState(() => searchParams.get("q")?.slice(0, MAX_TURN_CHARS) ?? "");
   useEffect(() => {
     if (searchParams.has("q")) window.history.replaceState(null, "", "/assistant");
   }, [searchParams]);

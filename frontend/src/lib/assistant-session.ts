@@ -81,7 +81,8 @@ export function applyEvent(exchange: Exchange, event: AssistantEvent): Exchange 
   }
 }
 
-const MAX_TURN_CHARS = 800;
+/** Longest user turn the API accepts (backend/handlers/assistant.go). */
+export const MAX_TURN_CHARS = 800;
 
 /**
  * Rebuilds the conversation the API expects from finished exchanges. The

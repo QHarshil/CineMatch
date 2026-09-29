@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Square } from "lucide-react";
-
-const MAX_CHARS = 800;
+import { MAX_TURN_CHARS as MAX_CHARS } from "@/lib/assistant-session";
 
 interface ComposerProps {
   /** Text to start with, such as a prompt typed on the landing page. */

@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+// Only the dev server's fast refresh needs eval.
+const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `script-src 'self' 'unsafe-inline'${devEval}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https://image.tmdb.org",

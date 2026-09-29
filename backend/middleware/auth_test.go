@@ -17,6 +17,7 @@ func makeSupabaseJWT(t *testing.T, userID string, secret string, expiry time.Dur
 	claims := jwt.MapClaims{
 		"sub":  userID,
 		"role": "authenticated",
+		"aud":  "authenticated",
 		"exp":  time.Now().Add(expiry).Unix(),
 		"iat":  time.Now().Unix(),
 	}
@@ -24,6 +25,15 @@ func makeSupabaseJWT(t *testing.T, userID string, secret string, expiry time.Dur
 	signed, err := token.SignedString([]byte(secret))
 	if err != nil {
 		t.Fatalf("signing test JWT: %v", err)
+	}
+	return signed
+}
+
+func signClaims(t *testing.T, claims jwt.MapClaims) string {
+	t.Helper()
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testJWTSecret))
+	if err != nil {
+		t.Fatal(err)
 	}
 	return signed
 }
@@ -61,6 +71,16 @@ func TestRequireAuth(t *testing.T) {
 		{
 			name:       "wrong secret returns 401",
 			authHeader: "Bearer " + makeSupabaseJWT(t, validUserID, "wrong-secret-padding-padding", time.Hour),
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "token for another audience returns 401",
+			authHeader: "Bearer " + signClaims(t, jwt.MapClaims{"sub": validUserID, "aud": "anon", "exp": time.Now().Add(time.Hour).Unix()}),
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "token without an expiry returns 401",
+			authHeader: "Bearer " + signClaims(t, jwt.MapClaims{"sub": validUserID, "aud": "authenticated"}),
 			wantStatus: http.StatusUnauthorized,
 		},
 	}
@@ -127,7 +147,7 @@ func TestRequireAuthMarksGuestSessions(t *testing.T) {
 		{name: "claim absent", anonymous: nil, wantGuest: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			claims := jwt.MapClaims{"sub": "11111111-1111-1111-1111-111111111111", "exp": time.Now().Add(time.Hour).Unix()}
+			claims := jwt.MapClaims{"sub": "11111111-1111-1111-1111-111111111111", "aud": "authenticated", "exp": time.Now().Add(time.Hour).Unix()}
 			if tc.anonymous != nil {
 				claims["is_anonymous"] = tc.anonymous
 			}

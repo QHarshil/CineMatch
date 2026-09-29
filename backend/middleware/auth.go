@@ -31,14 +31,20 @@ type identity struct {
 	guest  bool // Supabase anonymous sign-in; gets a smaller assistant quota
 }
 
-// jwksCache holds the parsed JWKS keys fetched from Supabase.
-// Refreshed at most once per hour to avoid hitting the JWKS endpoint on every request.
+// jwksCache holds the parsed JWKS keys fetched from Supabase. Keys are
+// refetched after an hour, or sooner for an unknown kid, but at most once a
+// minute, so tokens with made-up kids cannot turn every request into a fetch.
 type jwksCache struct {
-	mu      sync.RWMutex
-	keys    map[string]*ecdsa.PublicKey
-	fetched time.Time
-	jwksURL string
+	mu        sync.RWMutex
+	keys      map[string]*ecdsa.PublicKey
+	fetched   time.Time
+	attempted time.Time
+	jwksURL   string
 }
+
+// tokenRules are the checks every access token must pass besides its
+// signature. Supabase access tokens always carry this audience and an expiry.
+var tokenRules = []jwt.ParserOption{jwt.WithAudience("authenticated"), jwt.WithExpirationRequired()}
 
 var globalJWKS = &jwksCache{}
 
@@ -138,7 +144,7 @@ func verifyES256(tokenString string) (identity, error) {
 			return nil, err
 		}
 		return key, nil
-	}, jwt.WithValidMethods([]string{"ES256"}))
+	}, append(tokenRules, jwt.WithValidMethods([]string{"ES256"}))...)
 	if err != nil {
 		return identity{}, err
 	}
@@ -151,7 +157,7 @@ func verifyHS256(tokenString, secret string) (identity, error) {
 			return nil, jwt.ErrSignatureInvalid
 		}
 		return []byte(secret), nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
+	}, append(tokenRules, jwt.WithValidMethods([]string{"HS256"}))...)
 	if err != nil {
 		return identity{}, err
 	}
@@ -178,10 +184,13 @@ func (j *jwksCache) getKey(kid string) (*ecdsa.PublicKey, error) {
 		j.mu.RUnlock()
 		return key, nil
 	}
+	recent := time.Since(j.attempted) < time.Minute
 	j.mu.RUnlock()
 
-	if err := j.refresh(); err != nil {
-		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
+	if !recent {
+		if err := j.refresh(); err != nil {
+			return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
+		}
 	}
 
 	j.mu.RLock()
@@ -194,6 +203,9 @@ func (j *jwksCache) getKey(kid string) (*ecdsa.PublicKey, error) {
 }
 
 func (j *jwksCache) refresh() error {
+	j.mu.Lock()
+	j.attempted = time.Now()
+	j.mu.Unlock()
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(j.jwksURL)
 	if err != nil {

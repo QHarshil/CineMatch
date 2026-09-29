@@ -3,15 +3,7 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import type { Exchange } from "@/lib/assistant-session";
-import { TOOL_NAMES } from "@/lib/assistant-session";
-
-const TOOLS = [
-  { name: "search_catalog", body: "Hybrid search: embeddings, full text, and titles fused by rank." },
-  { name: "find_similar", body: "Nearest titles to one the person named, with filters." },
-  { name: "get_taste_profile", body: "Recent likes and top genres." },
-  { name: "get_recommendations", body: "The two-stage recommender: pgvector, then LambdaMART." },
-  { name: "present_picks", body: "Ends the run. Only titles a tool returned are accepted." },
-];
+import { TOOLS, toolLabel } from "@/lib/assistant-session";
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -46,10 +38,10 @@ export function AgentTrace({ exchange }: { exchange?: Exchange }) {
           searched, what came back, and what it cost.
         </p>
         <ul className="mt-6 space-y-4">
-          {TOOLS.map((tool) => (
-            <li key={tool.name}>
-              <p className="font-mono text-xs text-primary">{tool.name}</p>
-              <p className="mt-0.5 font-serif text-sm text-muted-foreground">{tool.body}</p>
+          {Object.entries(TOOLS).map(([name, tool]) => (
+            <li key={name}>
+              <p className="font-mono text-xs text-primary">{name}</p>
+              <p className="mt-0.5 font-serif text-sm text-muted-foreground">{tool.description}</p>
             </li>
           ))}
         </ul>
@@ -70,7 +62,7 @@ export function AgentTrace({ exchange }: { exchange?: Exchange }) {
           <li key={step.id} className="relative duration-300 animate-in fade-in">
             <span className="absolute -left-[21px] top-1 size-2.5 border border-primary bg-background" />
             <p className="eyebrow text-primary">
-              {String(i + 1).padStart(2, "0")} {TOOL_NAMES[step.tool] ?? step.tool}
+              {String(i + 1).padStart(2, "0")} {toolLabel(step.tool)}
             </p>
             <pre className="mt-1.5 whitespace-pre-wrap break-words bg-wash px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground">
               {step.tool}({JSON.stringify(step.args, null, 1).replace(/\n\s*/g, " ")})

@@ -114,9 +114,22 @@ export function confidenceOf(similarity: number | undefined): { label: string; l
   return { label: "Loose match", level: 1 };
 }
 
-export const TOOL_NAMES: Record<string, string> = {
-  search_catalog: "Hybrid search",
-  find_similar: "Similar titles",
-  get_taste_profile: "Taste profile",
-  get_recommendations: "Recommender",
+/** Display names and descriptions for the agent's tools, in trace order. */
+export const TOOLS: Record<string, { label: string; description: string }> = {
+  search_catalog: {
+    label: "Hybrid search",
+    description: "Hybrid search: embeddings, full text, and titles fused by rank.",
+  },
+  find_similar: { label: "Similar titles", description: "Nearest titles to one the person named, with filters." },
+  get_taste_profile: { label: "Taste profile", description: "Recent likes and top genres." },
+  get_recommendations: {
+    label: "Recommender",
+    description: "The two-stage recommender: pgvector, then LambdaMART.",
+  },
+  present_picks: { label: "Present picks", description: "Ends the run. Only titles a tool returned are accepted." },
 };
+
+/** The display name for a tool, or its raw name for one the UI does not know. */
+export function toolLabel(name: string): string {
+  return TOOLS[name]?.label ?? name;
+}

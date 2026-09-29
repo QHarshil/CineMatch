@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Heart, Star, ThumbsDown } from "lucide-react";
 import { RateLimitError, toggleInteraction } from "@/lib/api";
-import { confidenceOf, TOOL_NAMES } from "@/lib/assistant-session";
+import { confidenceOf, toolLabel } from "@/lib/assistant-session";
 import type { AssistantPick } from "@/lib/assistant-stream";
 import { useToast } from "@/components/toast";
 import { tmdbImage } from "@/lib/tmdb-image";
@@ -87,8 +87,8 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
             className="flex items-center gap-2"
             title={
               pick.similarity != null
-                ? `Cosine similarity ${pick.similarity.toFixed(2)} from ${TOOL_NAMES[pick.source] ?? pick.source}`
-                : `From ${TOOL_NAMES[pick.source] ?? pick.source}`
+                ? `Cosine similarity ${pick.similarity.toFixed(2)} from ${toolLabel(pick.source)}`
+                : `From ${toolLabel(pick.source)}`
             }
           >
             <span className="flex items-end gap-0.5" aria-hidden="true">

@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
 import type { Exchange, ToolStep } from "@/lib/assistant-session";
-import { TOOL_NAMES } from "@/lib/assistant-session";
+import { toolLabel } from "@/lib/assistant-session";
 import { PickCard } from "./pick-card";
 
 function StepIcon({ status }: { status: ToolStep["status"] }) {
@@ -141,7 +141,7 @@ export function ExchangeView({ exchange, token, onRetry, selected, onSelect }: E
             <span>
               {exchange.steps.length} tool {exchange.steps.length === 1 ? "call" : "calls"}
               {exchange.steps.length > 0 &&
-                `: ${[...new Set(exchange.steps.map((s) => TOOL_NAMES[s.tool] ?? s.tool))].join(", ")}`}
+                `: ${[...new Set(exchange.steps.map((s) => toolLabel(s.tool)))].join(", ")}`}
             </span>
           </p>
         )}

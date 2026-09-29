@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
+import { API_BASE } from "./src/lib/api";
 import { TMDB_DEVICE_SIZES, TMDB_IMAGE_SIZES } from "./src/lib/tmdb-image";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 // Only the dev server's fast refresh needs eval.
 const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
@@ -11,7 +11,7 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https://image.tmdb.org",
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co${apiUrl ? ` ${apiUrl}` : ""}`,
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${API_BASE}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

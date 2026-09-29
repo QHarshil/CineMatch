@@ -1,7 +1,7 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # LightGBM requires libgomp for OpenMP parallelism at runtime.
-# python:3.12-slim doesn't include it, so install before pip.
+# python:3.13-slim does not include it, so install it before pip.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*

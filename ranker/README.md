@@ -138,4 +138,4 @@ docker build -t cinematch-ranker .
 docker run -p 8000:8000 cinematch-ranker
 ```
 
-Base image: `python:3.12-slim`. Cloud Run (or Render) injects the `PORT` env var at runtime, and the trained model is bundled at `model/lambdamart-v1.txt`.
+Base image: `python:3.13-slim`. Cloud Run (or Render) injects the `PORT` env var at runtime, and the trained model is bundled at `model/lambdamart-v1.txt`.

@@ -18,6 +18,8 @@ A film and TV recommender with a grounded AI assistant. Describe a mood or name 
 
 ![Assistant with its agent trace](docs/screenshots/assistant.jpg)
 
+![For You, with the liked title behind each pick](docs/screenshots/for-you.jpg)
+
 ## Architecture
 
 ```mermaid
@@ -95,7 +97,7 @@ You need Go 1.25+, Node 24+, Python 3.12+, a Supabase project, a TMDB read token
 
 1. Apply `migrations/` to Supabase in order.
 2. `cp .env.example .env` and fill in the keys. `JWT_SECRET` is the project's legacy JWT secret (Supabase settings, JWT Keys); the API verifies tokens with the project's JWKS and uses the secret for older HS256 tokens and as the IP hash key. `LLM_*` already point at Ollama.
-3. Seed the catalog: `cd scripts && go run seed_movies.go --media both --count 600`.
+3. Seed the catalog: `cd scripts && go run seed_movies.go --media both --count 700`.
 4. Start each service in its own terminal:
 
 ```bash
@@ -103,6 +105,8 @@ cd backend && go run .                                                        # 
 cd ranker && pip install -r requirements.txt && uvicorn main:app --port 8000  # ranker on :8000
 cd frontend && cp .env.local.example .env.local && npm install && npm run dev # app on :3000
 ```
+
+Before starting the frontend, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable key) in `frontend/.env.local`.
 
 [backend/README.md](backend/README.md) describes every setting, and [DEPLOY.md](DEPLOY.md) covers Cloud Run, Vercel, and choosing a free model provider.
 

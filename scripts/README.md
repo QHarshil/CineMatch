@@ -8,7 +8,7 @@ Populates the Supabase `movies` table with TMDB data (movies and/or TV shows) an
 
 ```bash
 cd scripts
-go run seed_movies.go --media both --count 600                # initial catalog: 600 movies + 600 shows
+go run seed_movies.go --media both --count 700                # initial catalog: 700 movies + 700 shows
 go run seed_movies.go --media movie                           # movies only (default)
 go run seed_movies.go --media both --mode recent --count 100  # newest releases (freshness cron)
 go run seed_movies.go --dry-run                               # fetch + embed, skip the DB write
@@ -28,7 +28,7 @@ Flags: `--media` (`movie` | `tv` | `both`), `--mode` (`popular` | `recent`), `--
 
 **Required env vars:** `TMDB_READ_ACCESS_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
 
-Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for OpenAI (under Tier-1's 100 RPM).
+Rate limiting: 260ms delay between TMDB requests (under 40 req/10s), 80 RPM for OpenAI, which leaves room for retries.
 
 ## Monthly freshness (.github/workflows/refresh-catalog.yml)
 

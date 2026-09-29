@@ -30,23 +30,16 @@ is acceptable for this project. To lock it down later, see "Hardening" below.
 
 ## 1. Deploy the ranker
 
-Cloud Run builds the `ranker/Dockerfile` from source. The trained model ships in
-`ranker/model/lambdamart-v1.txt`, so the container can load it with no extra
-config.
+From the repo root:
 
 ```bash
-cd ranker
-gcloud run deploy cinematch-ranker \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --memory 512Mi \
-  --cpu 1 \
-  --min-instances 0 \
-  --max-instances 2 \
-  --timeout 30 \
-  --set-env-vars APP_ENV=production
+bash deploy/cloudrun-ranker.sh
 ```
+
+Cloud Run builds `ranker/Dockerfile` from source with 512 MiB, at most 2
+instances, a 30-second timeout, and `APP_ENV=production`. The trained model
+ships in `ranker/model/lambdamart-v1.txt`, so the container needs no extra
+config.
 
 Copy the service URL it prints (looks like
 `https://cinematch-ranker-XXXXXXXX-uc.a.run.app`). That is `RANKER_URL` below.
@@ -170,8 +163,8 @@ These caps bound cost in real time. The backstop that guarantees a hard ceiling
 is a budget that disables billing when breached. Run all of this against the
 dedicated CineMatch project.
 
-The script `deploy/cloudrun-killswitch.sh` performs steps 1 to 5 below in one
-go (and falls back to Console instructions for the budget if the CLI form is
+After enabling the APIs in step 1, `deploy/cloudrun-killswitch.sh` runs steps
+2 to 5 (and prints Console instructions for the budget if the CLI form is
 unavailable). The manual steps follow for reference.
 
 ### 1. Enable the APIs the kill switch needs
@@ -197,7 +190,6 @@ gcloud billing budgets create \
   --display-name cinematch \
   --budget-amount 5USD \
   --filter-projects projects/YOUR_PROJECT_ID \
-  --threshold-rule percent=0.5 \
   --threshold-rule percent=0.9 \
   --threshold-rule percent=1.0 \
   --all-updates-rule-pubsub-topic projects/YOUR_PROJECT_ID/topics/cinematch-billing-alerts

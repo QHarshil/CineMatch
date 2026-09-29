@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { posterTitles } from "@/lib/catalog";
 import { PipelineDiagram } from "./pipeline-diagram";
 import { SimilarMoviesDemo } from "./similar-movies-demo";
 import { SectionReveal } from "./section-reveal";
@@ -13,17 +14,9 @@ export const metadata = {
     "How CineMatch retrieves and ranks titles: pgvector retrieval, a LambdaMART re-ranker, hybrid search, and a grounded assistant, with the evals behind each.",
 };
 
-const MOVIE_FIELDS = "id, title, poster_path" as const;
-
 async function fetchSeedMovies() {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .order("popularity", { ascending: false })
-      .limit(30);
-    return (data ?? []).filter((m: { poster_path: string | null }) => m.poster_path);
+    return await posterTitles(await createSupabaseServerClient(), 30);
   } catch {
     return [];
   }

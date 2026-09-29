@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchRecommendations } from "@/lib/api";
 import { ScrollRow } from "@/components/scroll-row";
@@ -11,6 +11,13 @@ import Image from "next/image";
 import { tmdbImage } from "@/lib/tmdb-image";
 import { ArrowRight } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import {
+  becauseYouLiked as fetchBecauseYouLiked,
+  popularTitles,
+  posterTitles,
+  titlesInGenres,
+  type BecauseYouLikedSection,
+} from "@/lib/catalog";
 
 const DEMO_PROFILES = [
   {
@@ -33,14 +40,6 @@ const DEMO_PROFILES = [
   },
 ];
 
-const MOVIE_FIELDS =
-  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
-
-interface BecauseYouLikedSection {
-  likedMovie: Movie;
-  similarMovies: Movie[];
-}
-
 export default function ForYouPage() {
   const { session, loading: authLoading } = useAuth();
   const [topPicks, setTopPicks] = useState<Movie[]>([]);
@@ -52,81 +51,17 @@ export default function ForYouPage() {
   const [recsLoaded, setRecsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoProfile, setDemoProfile] = useState<string | null>(null);
-  const [backdropMovies, setBackdropMovies] = useState<Movie[]>([]);
+  const [backdropMovies, setBackdropMovies] = useState<Pick<Movie, "id" | "title" | "poster_path">[]>([]);
   const supabase = useRef(createSupabaseBrowserClient());
   const fetchedRef = useRef(false);
-
-  const fetchPopularMovies = useCallback(async () => {
-    const { data } = await supabase.current
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .order("popularity", { ascending: false })
-      .limit(20);
-    return (data ?? []) as Movie[];
-  }, []);
-
-  const fetchDemoRecommendations = useCallback(async (genres: string[]) => {
-    const { data } = await supabase.current
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      .overlaps("genres", genres)
-      .order("vote_average", { ascending: false })
-      .limit(20);
-    return (data ?? []) as Movie[];
-  }, []);
-
-  /** Fetch the user's recent liked movies and find similar titles for each. */
-  const fetchBecauseYouLiked = useCallback(async (userId: string): Promise<BecauseYouLikedSection[]> => {
-    const { data: interactions } = await supabase.current
-      .from("interactions")
-      .select("movie_id")
-      .eq("user_id", userId)
-      .eq("type", "like")
-      .order("created_at", { ascending: false })
-      .limit(3);
-
-    if (!interactions || interactions.length === 0) return [];
-
-    const likedMovieIds = interactions.map((i) => i.movie_id as string);
-
-    const { data: likedMovies } = await supabase.current.from("movies").select(MOVIE_FIELDS).in("id", likedMovieIds);
-
-    if (!likedMovies || likedMovies.length === 0) return [];
-
-    const sections: BecauseYouLikedSection[] = [];
-    const seenMovieIds = new Set(likedMovieIds);
-
-    for (const liked of likedMovies as Movie[]) {
-      const topGenres = liked.genres.slice(0, 2);
-      if (topGenres.length === 0) continue;
-
-      const { data: similar } = await supabase.current
-        .from("movies")
-        .select(MOVIE_FIELDS)
-        .neq("id", liked.id)
-        .overlaps("genres", topGenres)
-        .gte("vote_average", Math.max(0, liked.vote_average - 2))
-        .order("popularity", { ascending: false })
-        .limit(20);
-
-      const filtered = ((similar ?? []) as Movie[]).filter((m) => !seenMovieIds.has(m.id));
-      filtered.forEach((m) => seenMovieIds.add(m.id));
-
-      if (filtered.length > 0) {
-        sections.push({ likedMovie: liked, similarMovies: filtered });
-      }
-    }
-
-    return sections;
-  }, []);
 
   useEffect(() => {
     if (!session || fetchedRef.current) return;
     fetchedRef.current = true;
     Promise.all([
       fetchRecommendations(session.access_token).catch(() => null),
-      fetchPopularMovies(),
-      fetchBecauseYouLiked(session.user.id).catch(() => [] as BecauseYouLikedSection[]),
+      popularTitles(supabase.current),
+      fetchBecauseYouLiked(supabase.current, session.user.id).catch(() => [] as BecauseYouLikedSection[]),
     ])
       .then(([recResult, popularResult, likedSections]) => {
         if (recResult) {
@@ -139,21 +74,15 @@ export default function ForYouPage() {
       })
       .catch((err: unknown) => setError(String(err)))
       .finally(() => setRecsLoaded(true));
-  }, [session, fetchPopularMovies, fetchBecauseYouLiked]);
+  }, [session]);
 
   // Poster wall behind the signed-out pitch.
   useEffect(() => {
     if (session || authLoading) return;
     let cancelled = false;
-    supabase.current
-      .from("movies")
-      .select("id,poster_path")
-      .not("poster_path", "is", null)
-      .order("popularity", { ascending: false })
-      .limit(12)
-      .then(({ data }) => {
-        if (!cancelled && data) setBackdropMovies(data as Movie[]);
-      });
+    posterTitles(supabase.current, 12).then((titles) => {
+      if (!cancelled) setBackdropMovies(titles);
+    });
     return () => {
       cancelled = true;
     };
@@ -165,8 +94,8 @@ export default function ForYouPage() {
     setBecauseYouLiked([]);
     try {
       const [demoResult, popularResult] = await Promise.all([
-        fetchDemoRecommendations(profile.genres),
-        fetchPopularMovies(),
+        titlesInGenres(supabase.current, profile.genres),
+        popularTitles(supabase.current),
       ]);
       setTopPicks(demoResult);
       setSource("demo");

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { catalogGenres } from "@/lib/catalog";
 import { BrowseContent } from "./browse-content";
 
 export const dynamic = "force-dynamic";
@@ -10,17 +11,7 @@ export const metadata = {
 
 async function fetchGenres(): Promise<string[]> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.from("movies").select("genres");
-    if (!data) return [];
-
-    const genreSet = new Set<string>();
-    for (const row of data) {
-      if (Array.isArray(row.genres)) {
-        for (const g of row.genres) genreSet.add(g);
-      }
-    }
-    return Array.from(genreSet).sort();
+    return await catalogGenres(await createSupabaseServerClient());
   } catch {
     return [];
   }

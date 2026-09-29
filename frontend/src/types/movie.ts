@@ -17,6 +17,17 @@ export interface Movie {
   original_language?: string;
 }
 
+/** A title returned by the match_movies kNN search, with its cosine similarity to the query. */
+export interface SimilarTitle extends Movie {
+  similarity: number;
+}
+
+/** GET /api/similar, the kNN demo on How It Works. */
+export interface SimilarTitlesResponse {
+  seed: string | null;
+  neighbors: Pick<SimilarTitle, "id" | "title" | "genres" | "vote_average" | "poster_path" | "similarity">[];
+}
+
 /** One GET /discover result. A null rank means that retriever did not return the title. */
 export interface SearchHit extends Movie {
   /** Cosine similarity between the query and the title's embedding. */

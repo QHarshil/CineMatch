@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { fetchMovieById } from "@/lib/api";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { nearestTitles } from "@/lib/catalog";
 import { InteractionButtons } from "./interaction-buttons";
 import { ScrollRow } from "@/components/scroll-row";
 import { MovieRatings } from "@/components/movie-ratings";
@@ -10,17 +11,10 @@ import type { Movie } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
 
-/** Nearest titles by embedding, the same kNN search the recommender uses. */
 async function fetchSimilarMovies(movie: Movie): Promise<Movie[]> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: seed } = await supabase.from("movies").select("embedding").eq("id", movie.id).single();
-    if (!seed?.embedding) return [];
-    const { data: neighbors } = await supabase.rpc("match_movies", {
-      query_embedding: seed.embedding,
-      match_count: 16,
-    });
-    return ((neighbors ?? []) as Movie[]).filter((m) => m.id !== movie.id).slice(0, 15);
+    const { neighbors } = await nearestTitles(await createSupabaseServerClient(), movie.id, 15);
+    return neighbors;
   } catch {
     return [];
   }

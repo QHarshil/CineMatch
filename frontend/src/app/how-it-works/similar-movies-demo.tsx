@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { tmdbImage } from "@/lib/tmdb-image";
 import { Loader2, Search } from "lucide-react";
+import type { SimilarTitlesResponse } from "@/types/movie";
 
 interface SeedMovie {
   id: string;
@@ -11,14 +12,7 @@ interface SeedMovie {
   poster_path: string;
 }
 
-interface Neighbor {
-  id: string;
-  title: string;
-  genres: string[];
-  vote_average: number;
-  poster_path: string;
-  similarity: number;
-}
+type Neighbor = SimilarTitlesResponse["neighbors"][number];
 
 export function SimilarMoviesDemo({ seedMovies }: { seedMovies: SeedMovie[] }) {
   const [selectedId, setSelectedId] = useState("");
@@ -39,7 +33,7 @@ export function SimilarMoviesDemo({ seedMovies }: { seedMovies: SeedMovie[] }) {
     setSearched(true);
 
     fetch(`/api/similar?movieId=${movieId}`, { signal: controller.signal })
-      .then((res) => res.json())
+      .then((res) => res.json() as Promise<Partial<SimilarTitlesResponse>>)
       .then((data) => {
         if (!controller.signal.aborted) setNeighbors(data.neighbors ?? []);
       })

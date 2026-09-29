@@ -10,13 +10,11 @@ import { AGENT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
 import { ScrollRow } from "@/components/scroll-row";
 import { CodeTyper } from "@/components/landing/code-typer";
 import { discoverTitles } from "@/lib/api";
+import { catalogCounts, newestTitles, popularTitles, wellRatedTitles } from "@/lib/catalog";
 import { tmdbImage } from "@/lib/tmdb-image";
 import type { Movie, SearchHit } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
-
-const MOVIE_FIELDS =
-  "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
 
 // The "see it in action" terminal runs this query against the live API.
 const DEMO_QUERY = "mind-bending dream heist";
@@ -107,28 +105,13 @@ const METRICS: Metric[] = [
 async function fetchHomeData() {
   const supabase = await createSupabaseServerClient();
 
-  const [trendingRes, topRatedRes, newReleasesRes, movieCountRes, seriesCountRes] = await Promise.all([
-    supabase.from("movies").select(MOVIE_FIELDS).order("popularity", { ascending: false }).limit(20),
-    supabase
-      .from("movies")
-      .select(MOVIE_FIELDS)
-      // Titles with a handful of votes top a raw rating sort, so rank the
-      // well-rated ones by popularity instead.
-      .gte("vote_average", 7.5)
-      .order("popularity", { ascending: false })
-      .limit(20),
-    supabase.from("movies").select(MOVIE_FIELDS).order("release_year", { ascending: false }).limit(20),
-    supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "movie"),
-    supabase.from("movies").select("id", { count: "exact", head: true }).eq("media_type", "tv"),
+  const [trending, topRated, newReleases, counts] = await Promise.all([
+    popularTitles(supabase),
+    wellRatedTitles(supabase),
+    newestTitles(supabase),
+    catalogCounts(supabase),
   ]);
-
-  return {
-    trending: (trendingRes.data ?? []) as Movie[],
-    topRated: (topRatedRes.data ?? []) as Movie[],
-    newReleases: (newReleasesRes.data ?? []) as Movie[],
-    movieCount: movieCountRes.count ?? 0,
-    seriesCount: seriesCountRes.count ?? 0,
-  };
+  return { trending, topRated, newReleases, movieCount: counts.movies, seriesCount: counts.series };
 }
 
 export default async function HomePage() {

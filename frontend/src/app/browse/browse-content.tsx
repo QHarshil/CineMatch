@@ -6,10 +6,11 @@ import type { Movie, RetrievalMode } from "@/types/movie";
 import { discoverTitles } from "@/lib/api";
 import { MovieCard } from "@/components/movie-card";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { browseTitles, type CatalogSort } from "@/lib/catalog";
 
 const PAGE_SIZE = 30;
 
-type SortOption = "popular" | "top_rated" | "newest" | "a_z";
+type SortOption = CatalogSort;
 
 const SORT_LABELS: Record<SortOption, string> = {
   popular: "Popular",
@@ -22,13 +23,6 @@ const RETRIEVAL_NOTES: Record<RetrievalMode, string> = {
   hybrid: "Matched by meaning, keywords, and title",
   keyword: "Matched by keywords and title",
   cached: "Showing title matches from the offline cache",
-};
-
-const SORT_CONFIG: Record<SortOption, { column: string; ascending: boolean }> = {
-  popular: { column: "popularity", ascending: false },
-  top_rated: { column: "vote_average", ascending: false },
-  newest: { column: "release_year", ascending: false },
-  a_z: { column: "title", ascending: true },
 };
 
 // Card width in the grid below: max-w-7xl, px-4 (px-8 from lg), gap-5, and
@@ -55,23 +49,16 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
 
   const isSearchMode = searchQuery.length > 0;
 
-  const fetchFromSupabase = useCallback(async (genre: string, sortKey: SortOption, offset: number) => {
-    const { column, ascending } = SORT_CONFIG[sortKey];
-    let query = supabase.current
-      .from("movies")
-      .select(
-        "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime",
-      )
-      .order(column, { ascending })
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (genre !== "All") {
-      query = query.contains("genres", [genre]);
-    }
-
-    const { data } = await query;
-    return (data ?? []) as Movie[];
-  }, []);
+  const fetchFromSupabase = useCallback(
+    (genre: string, sortKey: SortOption, offset: number) =>
+      browseTitles(supabase.current, {
+        genre: genre === "All" ? undefined : genre,
+        sort: sortKey,
+        offset,
+        limit: PAGE_SIZE,
+      }),
+    [],
+  );
 
   const fetchFirstPage = useCallback(
     async (genre: string, sortKey: SortOption) => {

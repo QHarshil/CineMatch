@@ -93,7 +93,7 @@ LambdaMART is 14% ahead of popularity on held-out synthetic users, with a 0.9 ms
 
 ## Run it locally
 
-You need Go 1.25+, Node 24+, Python 3.12+, a Supabase project, a TMDB read token, and an OpenAI key for embeddings. For the assistant, install [Ollama](https://ollama.com) and run `ollama pull qwen3:8b`.
+You need Go 1.27+, Node 24+, Python 3.13+, a Supabase project, a TMDB read token, and an OpenAI key for embeddings. For the assistant, install [Ollama](https://ollama.com) and run `ollama pull qwen3:8b`.
 
 1. Apply `migrations/` to Supabase in order.
 2. `cp .env.example .env` and fill in the keys. `JWT_SECRET` is the project's legacy JWT secret (Supabase settings, JWT Keys); the API verifies tokens with the project's JWKS and uses the secret for older HS256 tokens and as the IP hash key. `LLM_*` already point at Ollama.

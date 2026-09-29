@@ -189,7 +189,9 @@ export function AssistantStory() {
       const mm = gsap.matchMedia();
       mm.add(MOTION_OK, () => {
         gsap.utils.toArray<HTMLElement>("[data-visual]", el).forEach((visual) => {
-          gsap.from(visual.querySelectorAll("[data-bar]"), {
+          const bars = visual.querySelectorAll("[data-bar]");
+          if (bars.length === 0) return;
+          gsap.from(bars, {
             scaleX: 0,
             transformOrigin: "left center",
             duration: 0.9,

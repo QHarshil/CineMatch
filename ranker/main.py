@@ -14,7 +14,7 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from models import RankRequest, RankResponse
@@ -28,14 +28,16 @@ IS_PRODUCTION = os.environ.get("APP_ENV", "development") == "production"
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001
+async def lifespan(app: FastAPI):
     logger.info("ranker service starting")
-    model_path = os.environ.get("LAMBDAMART_MODEL_PATH")
+    app.state.lambdamart = None
     try:
-        lambdamart_ranker.load_model(model_path)
-        logger.info("lambdamart-v1 model loaded")
+        app.state.lambdamart = lambdamart_ranker.load_model(
+            os.environ.get("LAMBDAMART_MODEL_PATH")
+        )
+        logger.info("%s model loaded", app.state.lambdamart.version)
     except Exception:
-        logger.warning("lambdamart-v1 model not available, feature-linear-v1 only")
+        logger.exception("LambdaMART model not available, feature-linear-v1 only")
     yield
     logger.info("ranker service shutting down")
 
@@ -51,7 +53,7 @@ app = FastAPI(
 
 
 @app.post("/rank", response_model=RankResponse, summary="Re-rank Stage-1 candidates")
-def rank_candidates(request: RankRequest) -> RankResponse:
+def rank_candidates(request: RankRequest, http: Request) -> RankResponse:
     """Re-score and sort Stage-1 candidates using user preference features.
 
     Called by the Go backend after the match_movies pgvector RPC returns
@@ -74,16 +76,21 @@ def rank_candidates(request: RankRequest) -> RankResponse:
             "has_genre_prefs": bool(request.user_features.preferred_genres),
         },
     )
-    if request.model == "lambdamart-v1":
-        try:
-            return lambdamart_ranker.rank(request)
-        except Exception:
-            # Model missing or scoring failed: fall back to the linear scorer.
-            logger.warning(
-                "lambdamart-v1 scoring failed, falling back to feature-linear-v1"
-            )
-            return linear_ranker.rank(request)
-    return linear_ranker.rank(request)
+    if request.model == linear_ranker.MODEL_VERSION:
+        return linear_ranker.rank(request)
+    model = http.app.state.lambdamart
+    if model is None or request.model != model.version:
+        logger.warning(
+            "model %s requested but %s is loaded, using feature-linear-v1",
+            request.model,
+            model.version if model else "none",
+        )
+        return linear_ranker.rank(request)
+    try:
+        return lambdamart_ranker.rank(request, model)
+    except Exception:
+        logger.exception("%s scoring failed, using feature-linear-v1", model.version)
+        return linear_ranker.rank(request)
 
 
 @app.get("/health", summary="Health check")

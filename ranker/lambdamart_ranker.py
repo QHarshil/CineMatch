@@ -4,8 +4,10 @@ Loads a pre-trained LightGBM LambdaMART model and scores candidates using
 the same feature set used during training (eval/build_training_data.py).
 """
 
+import json
 import math
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import lightgbm as lgb
@@ -20,13 +22,25 @@ from models import (
     UserFeatures,
 )
 
-MODEL_VERSION = "lambdamart-v1"
+DEFAULT_MODEL_VERSION = "lambdamart-v1"
 
 # Title-level columns of the feature vector, in order. The user-level columns
 # that follow are the same for every candidate in a request, so they cannot
 # explain why one title outranks another and are left out of explanations.
 ITEM_FEATURES = ["similarity", "vote_average", "log_popularity", "decade", "is_recent"]
+USER_FEATURES = ["user_like_ratio", "user_interaction_count"]
+# The column order _build_feature_vector produces. load_model checks the model
+# file was trained on exactly this order.
+FEATURE_ORDER = ITEM_FEATURES + USER_FEATURES
 MAX_FACTORS = 3
+
+
+@dataclass(frozen=True)
+class LoadedModel:
+    """A trained booster and the version reported with its rankings."""
+
+    booster: lgb.Booster
+    version: str
 
 
 def _build_feature_vector(candidate: CandidateMovie, user: UserFeatures) -> list[float]:
@@ -51,9 +65,6 @@ def _build_feature_vector(candidate: CandidateMovie, user: UserFeatures) -> list
         user.user_like_ratio,
         float(user.user_interaction_count),
     ]
-
-
-_booster: lgb.Booster | None = None
 
 
 def _resolve_model_path(model_path: str | None) -> str:
@@ -86,19 +97,32 @@ def _resolve_model_path(model_path: str | None) -> str:
     return str(candidates[0])
 
 
-def load_model(model_path: str | None = None) -> lgb.Booster:
-    """Load the LambdaMART model from disk. Caches on first call."""
-    global _booster
-    if _booster is not None:
-        return _booster
+def load_model(model_path: str | None = None) -> LoadedModel:
+    """Load a LambdaMART model and check it expects FEATURE_ORDER.
 
-    _booster = lgb.Booster(model_file=_resolve_model_path(model_path))
-    return _booster
+    The version comes from the metadata file training writes beside the model
+    (lambdamart-v1-meta.json), or the file name when there is none.
+    """
+    path = Path(_resolve_model_path(model_path))
+    booster = lgb.Booster(model_file=str(path))
+    if booster.feature_name() != FEATURE_ORDER:
+        raise ValueError(
+            f"{path.name} expects features {booster.feature_name()}, "
+            f"but the ranker builds {FEATURE_ORDER}"
+        )
+    return LoadedModel(booster=booster, version=_model_version(path))
 
 
-def rank(request: RankRequest) -> RankResponse:
+def _model_version(path: Path) -> str:
+    meta = path.with_name(f"{path.stem}-meta.json")
+    if meta.exists():
+        return json.loads(meta.read_text()).get("model_version", path.stem)
+    return path.stem
+
+
+def rank(request: RankRequest, model: LoadedModel) -> RankResponse:
     """Score candidates with LambdaMART and attach each pick's SHAP factors."""
-    booster = load_model()
+    booster = model.booster
 
     # User-level features arrive on request.user_features from the Go backend;
     # similarity comes from each candidate's Stage-1 retrieval score.
@@ -124,7 +148,7 @@ def rank(request: RankRequest) -> RankResponse:
         for i, (c, s, contrib) in enumerate(top)
     ]
 
-    return RankResponse(ranked=ranked, model_version=MODEL_VERSION)
+    return RankResponse(ranked=ranked, model_version=model.version)
 
 
 def top_factors(contributions: np.ndarray) -> list[RankingFactor]:

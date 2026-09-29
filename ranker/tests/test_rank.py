@@ -18,7 +18,12 @@ from ranker import (
     rank,
 )  # noqa: E402
 
-client = TestClient(app)
+
+@pytest.fixture(scope="module")
+def client():
+    """A client whose lifespan has run, so the LambdaMART model is loaded."""
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 # Fixtures
@@ -172,13 +177,13 @@ def test_rank_single_candidate():
 # Integration tests: HTTP endpoint via TestClient
 
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
 
-def test_post_rank_valid_request():
+def test_post_rank_valid_request(client):
     payload = {
         "candidates": [
             {
@@ -214,7 +219,7 @@ def test_post_rank_valid_request():
     assert body["model_version"] == MODEL_VERSION
 
 
-def test_post_rank_respects_top_n():
+def test_post_rank_respects_top_n(client):
     candidates = [
         {
             "movie_id": f"aaaaaaaa-0000-0000-0000-{i:012d}",
@@ -233,12 +238,12 @@ def test_post_rank_respects_top_n():
     assert len(resp.json()["ranked"]) == 3
 
 
-def test_post_rank_rejects_empty_candidates():
+def test_post_rank_rejects_empty_candidates(client):
     resp = client.post("/rank", json={"candidates": []})
     assert resp.status_code == 422
 
 
-def test_post_rank_rejects_top_n_above_max():
+def test_post_rank_rejects_top_n_above_max(client):
     candidate = {
         "movie_id": "aaaaaaaa-0000-0000-0000-000000000001",
         "title": "Movie",
@@ -253,7 +258,7 @@ def test_post_rank_rejects_top_n_above_max():
     assert resp.status_code == 422
 
 
-def test_post_rank_default_user_features():
+def test_post_rank_default_user_features(client):
     """Endpoint works with no user_features supplied; defaults to neutral scoring."""
     candidate = {
         "movie_id": "aaaaaaaa-0000-0000-0000-000000000001",
@@ -272,7 +277,7 @@ def test_post_rank_default_user_features():
     assert len(resp.json()["ranked"]) == 1
 
 
-def test_post_rank_lambdamart_model():
+def test_post_rank_lambdamart_model(client):
     """Endpoint routes to lambdamart-v1 when model field is set."""
     candidates = [
         {
@@ -310,7 +315,7 @@ def test_post_rank_lambdamart_model():
     assert body["ranked"][0]["movie_id"] == "aaaaaaaa-0000-0000-0000-000000000001"
 
 
-def test_lambdamart_explains_each_pick_with_title_level_factors():
+def test_lambdamart_explains_each_pick_with_title_level_factors(client):
     """Each ranked title carries its positive SHAP contributions, largest first."""
     candidates = [
         {
@@ -347,7 +352,7 @@ def test_lambdamart_explains_each_pick_with_title_level_factors():
         assert {f["feature"] for f in r["factors"]} <= item_features
 
 
-def test_linear_ranker_returns_no_factors():
+def test_linear_ranker_returns_no_factors(client):
     """Explanations come from the learned model only."""
     candidate = {
         "movie_id": "cccccccc-0000-0000-0000-000000000001",
@@ -365,7 +370,7 @@ def test_linear_ranker_returns_no_factors():
     assert resp.json()["ranked"][0]["factors"] == []
 
 
-def test_post_rank_rejects_more_than_200_candidates():
+def test_post_rank_rejects_more_than_200_candidates(client):
     candidate = make_candidate().model_dump()
     resp = client.post("/rank", json={"candidates": [candidate] * 201})
     assert resp.status_code == 422

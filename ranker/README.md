@@ -25,6 +25,8 @@ Environment variables:
 | `APP_ENV` | no | `development` |
 | `LAMBDAMART_MODEL_PATH` | no | bundled `model/lambdamart-v1.txt`, falls back to `../eval/models/` |
 
+The model's version comes from the `<name>-meta.json` file training writes beside it, or the file name. A request for any other version is scored by feature-linear-v1, and startup fails over to feature-linear-v1 if the model's feature names differ from the order the ranker builds.
+
 In production, `APP_ENV=production` disables the `/docs` endpoint.
 
 ## API

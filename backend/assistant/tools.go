@@ -26,9 +26,18 @@ const (
 	toolUnknown = "unknown"
 )
 
-var knownTools = map[string]bool{
-	toolSearchCatalog: true, toolFindSimilar: true, toolTasteProfile: true, toolGetRecommendations: true,
-}
+// knownTools are the tools execute runs, taken from toolDefinitions so a new
+// tool cannot be offered to the model without being runnable. present_picks
+// ends the run in the agent loop instead.
+var knownTools = func() map[string]bool {
+	known := make(map[string]bool, len(toolDefinitions))
+	for _, tool := range toolDefinitions {
+		if tool.Function.Name != toolPresentPicks {
+			known[tool.Function.Name] = true
+		}
+	}
+	return known
+}()
 
 const (
 	defaultSearchLimit = 8

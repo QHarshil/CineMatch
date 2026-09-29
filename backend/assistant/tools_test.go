@@ -1,11 +1,29 @@
 package assistant
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/harshilc/cinematch-backend/llm"
 )
+
+func TestEveryDefinedToolRuns(t *testing.T) {
+	a := newTestAgent(&scriptedModel{}, &stubCatalog{}, &stubTitles{})
+	for _, tool := range toolDefinitions {
+		name := tool.Function.Name
+		if name == toolPresentPicks {
+			continue
+		}
+		call := llm.ToolCall{ID: "c1", Function: llm.FunctionCall{Name: name, Arguments: `{"query":"heist"}`}}
+		result, step := a.execute(context.Background(), "user-1", call, newGroundingSet(), func(Event) {})
+		if step.Tool != name || strings.Contains(result.err, "unknown tool") {
+			t.Errorf("%s: step tool %q, error %q", name, step.Tool, result.err)
+		}
+	}
+}
 
 func TestResolveGenres(t *testing.T) {
 	tests := []struct {

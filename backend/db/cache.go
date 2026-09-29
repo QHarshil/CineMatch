@@ -7,21 +7,26 @@ import (
 	"time"
 )
 
+// PopularLister loads movies in popularity order. Implemented by SupabaseClient.
+type PopularLister interface {
+	ListMovies(ctx context.Context, limit, offset int) ([]Movie, error)
+}
+
 // PopularMoviesCache holds an in-memory copy of the top popular movies.
 // If Supabase becomes unreachable, the Go backend serves this cached snapshot
 // so users still see content instead of an error page.
 type PopularMoviesCache struct {
 	mu     sync.RWMutex
 	movies []Movie
-	client *SupabaseClient
+	source PopularLister
 }
 
-// NewPopularMoviesCache creates a cache that refreshes every refreshInterval.
-// It performs an initial synchronous load so the cache is warm on startup.
-func NewPopularMoviesCache(client *SupabaseClient, refreshInterval time.Duration) *PopularMoviesCache {
-	c := &PopularMoviesCache{client: client}
-	c.refresh()
-	go c.backgroundRefresh(refreshInterval)
+// NewPopularMoviesCache loads the cache once so it is warm on startup, then
+// refreshes it every refreshInterval until ctx is done.
+func NewPopularMoviesCache(ctx context.Context, source PopularLister, refreshInterval time.Duration) *PopularMoviesCache {
+	c := &PopularMoviesCache{source: source}
+	c.refresh(ctx)
+	go c.backgroundRefresh(ctx, refreshInterval)
 	return c
 }
 
@@ -39,11 +44,11 @@ func (c *PopularMoviesCache) Get() []Movie {
 	return out
 }
 
-func (c *PopularMoviesCache) refresh() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (c *PopularMoviesCache) refresh(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	movies, err := c.client.ListMovies(ctx, 50, 0)
+	movies, err := c.source.ListMovies(ctx, 50, 0)
 	if err != nil {
 		slog.Warn("failed to refresh popular movies cache", "error", err)
 		return
@@ -54,10 +59,15 @@ func (c *PopularMoviesCache) refresh() {
 	slog.Info("popular movies cache refreshed", "count", len(movies))
 }
 
-func (c *PopularMoviesCache) backgroundRefresh(interval time.Duration) {
+func (c *PopularMoviesCache) backgroundRefresh(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
-		c.refresh()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.refresh(ctx)
+		}
 	}
 }

@@ -34,6 +34,11 @@ func main() {
 		slog.Info("no ../.env found, reading environment variables directly")
 	}
 
+	// Cloud Run sends SIGTERM before stopping an instance; the context stops
+	// background work and starts draining in-flight requests.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		slog.Error("JWT_SECRET is required but not set")
@@ -53,7 +58,7 @@ func main() {
 
 	// Cache top 50 popular movies in memory, refreshed hourly.
 	// Serves as fallback when Supabase is temporarily unreachable.
-	popularCache := db.NewPopularMoviesCache(supabase, 1*time.Hour)
+	popularCache := db.NewPopularMoviesCache(ctx, supabase, 1*time.Hour)
 
 	// OMDb supplies IMDb / Rotten Tomatoes scores that TMDB lacks. The key is
 	// optional: without it the ratings endpoint returns empty bodies.
@@ -159,10 +164,6 @@ func main() {
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-
-	// Cloud Run sends SIGTERM before stopping an instance; drain in-flight requests.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		slog.Info("cinematch backend ready", "port", port)

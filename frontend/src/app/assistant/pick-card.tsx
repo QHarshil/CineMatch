@@ -8,8 +8,7 @@ import { RateLimitError, toggleInteraction } from "@/lib/api";
 import { confidenceOf, TOOL_NAMES } from "@/lib/assistant-session";
 import type { AssistantPick } from "@/lib/assistant-stream";
 import { useToast } from "@/components/toast";
-
-const POSTER_BASE = "https://image.tmdb.org/t/p/w185";
+import { tmdbImage } from "@/lib/tmdb-image";
 
 type Feedback = "like" | "dislike" | null;
 
@@ -53,7 +52,7 @@ export function PickCard({ pick, token, index }: { pick: AssistantPick; token?: 
       >
         {movie.poster_path ? (
           <Image
-            src={`${POSTER_BASE}${movie.poster_path}`}
+            src={tmdbImage(movie.poster_path)}
             alt={`${movie.title} poster`}
             fill
             sizes="80px"

@@ -7,9 +7,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { searchMovies } from "@/lib/api";
+import { tmdbImage } from "@/lib/tmdb-image";
 import type { Movie } from "@/types/movie";
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w92";
 const DEBOUNCE_MS = 500;
 
 interface SearchBarProps {
@@ -129,7 +129,7 @@ export function SearchBar({ initialQuery = "", variant = "inline" }: SearchBarPr
             >
               {movie.poster_path ? (
                 <Image
-                  src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
+                  src={tmdbImage(movie.poster_path)}
                   alt=""
                   width={32}
                   height={48}

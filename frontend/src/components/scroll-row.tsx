@@ -6,6 +6,9 @@ import Link from "next/link";
 import type { Movie } from "@/types/movie";
 import { MovieCard } from "@/components/movie-card";
 
+// Matches the card widths below: 140px, then 160px from sm, 180px from lg.
+const ROW_CARD_SIZES = "(min-width: 1024px) 180px, (min-width: 640px) 160px, 140px";
+
 interface ScrollRowProps {
   title: string;
   movies: Movie[];
@@ -85,7 +88,7 @@ export function ScrollRow({ title, movies, seeAllHref, renderBelow }: ScrollRowP
         >
           {movies.map((movie) => (
             <div key={movie.id} className="w-[140px] shrink-0 snap-start sm:w-[160px] lg:w-[180px]">
-              <MovieCard movie={movie} />
+              <MovieCard movie={movie} sizes={ROW_CARD_SIZES} />
               {renderBelow?.(movie)}
             </div>
           ))}

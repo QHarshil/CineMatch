@@ -31,6 +31,11 @@ const SORT_CONFIG: Record<SortOption, { column: string; ascending: boolean }> = 
   a_z: { column: "title", ascending: true },
 };
 
+// Card width in the grid below: max-w-7xl, px-4 (px-8 from lg), gap-5, and
+// 2, 3, 4, then 5 columns.
+const GRID_CARD_SIZES =
+  "(min-width: 1280px) 228px, (min-width: 1024px) calc(20vw - 29px), (min-width: 768px) calc(25vw - 23px), (min-width: 640px) calc(33.3vw - 24px), calc(50vw - 26px)";
+
 interface BrowseContentProps {
   genres: string[];
   searchQuery: string;
@@ -213,7 +218,7 @@ export function BrowseContent({ genres, searchQuery }: BrowseContentProps) {
         <>
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {movies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
+              <MovieCard key={movie.id} movie={movie} sizes={GRID_CARD_SIZES} />
             ))}
           </div>
 

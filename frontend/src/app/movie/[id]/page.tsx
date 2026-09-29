@@ -5,12 +5,10 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { InteractionButtons } from "./interaction-buttons";
 import { ScrollRow } from "@/components/scroll-row";
 import { MovieRatings } from "@/components/movie-ratings";
+import { tmdbImage } from "@/lib/tmdb-image";
 import type { Movie } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
-
-const TMDB_POSTER = "https://image.tmdb.org/t/p/w500";
-const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
 
 /** Nearest titles by embedding, the same kNN search the recommender uses. */
 async function fetchSimilarMovies(movie: Movie): Promise<Movie[]> {
@@ -45,9 +43,9 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  const posterUrl = movie.poster_path ? `${TMDB_POSTER}${movie.poster_path}` : null;
+  const posterUrl = movie.poster_path ? tmdbImage(movie.poster_path) : null;
 
-  const backdropUrl = movie.backdrop_path ? `${TMDB_BACKDROP}${movie.backdrop_path}` : null;
+  const backdropUrl = movie.backdrop_path ? tmdbImage(movie.backdrop_path) : null;
 
   const similarMovies = await fetchSimilarMovies(movie);
 
@@ -72,7 +70,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
                 src={posterUrl}
                 alt={`${movie.title} poster`}
                 fill
-                sizes="(max-width: 640px) 160px, 256px"
+                sizes="(min-width: 640px) 256px, 160px"
                 className="object-cover"
                 priority
               />

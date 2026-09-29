@@ -3,17 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
+import { tmdbImage } from "@/lib/tmdb-image";
 import type { Movie } from "@/types/movie";
-
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
 
 interface MovieCardProps {
   movie: Movie;
+  /** The poster's rendered width in the parent layout, as an img sizes value. */
+  sizes: string;
   matchScore?: number;
 }
 
-export function MovieCard({ movie, matchScore }: MovieCardProps) {
-  const posterUrl = movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null;
+export function MovieCard({ movie, sizes, matchScore }: MovieCardProps) {
+  const posterUrl = movie.poster_path ? tmdbImage(movie.poster_path) : null;
 
   const primaryGenre = movie.genres[0] ?? null;
 
@@ -21,13 +22,7 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
     <Link href={`/movie/${movie.id}`} className="group flex flex-col">
       <div className="relative aspect-[2/3] w-full overflow-hidden border border-border bg-muted transition-colors duration-200 group-hover:border-primary">
         {posterUrl ? (
-          <Image
-            src={posterUrl}
-            alt={`${movie.title} poster`}
-            fill
-            sizes="(max-width: 640px) 140px, 180px"
-            className="object-cover"
-          />
+          <Image src={posterUrl} alt={`${movie.title} poster`} fill sizes={sizes} className="object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No poster</div>
         )}

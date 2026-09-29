@@ -10,14 +10,13 @@ import { AGENT_EVAL, RANKER_EVAL, SEARCH_EVAL } from "@/lib/eval-results";
 import { ScrollRow } from "@/components/scroll-row";
 import { CodeTyper } from "@/components/landing/code-typer";
 import { discoverTitles } from "@/lib/api";
+import { tmdbImage } from "@/lib/tmdb-image";
 import type { Movie, SearchHit } from "@/types/movie";
 
 export const dynamic = "force-dynamic";
 
 const MOVIE_FIELDS =
   "id,tmdb_id,media_type,title,overview,genres,release_year,poster_path,backdrop_path,vote_average,popularity,runtime";
-
-const TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
 
 // The "see it in action" terminal runs this query against the live API.
 const DEMO_QUERY = "mind-bending dream heist";
@@ -158,7 +157,7 @@ export default async function HomePage() {
     trending[0] ??
     null;
 
-  const backdropUrl = featured?.backdrop_path ? `${TMDB_BACKDROP_BASE}${featured.backdrop_path}` : null;
+  const backdropUrl = featured?.backdrop_path ? tmdbImage(featured.backdrop_path) : null;
 
   const hasCatalog = trending.length > 0 || topRated.length > 0 || newReleases.length > 0;
 
@@ -189,7 +188,7 @@ export default async function HomePage() {
                 src={backdropUrl}
                 alt=""
                 fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
+                sizes="(min-width: 1152px) 576px, (min-width: 1024px) 50vw, 100vw"
                 className="object-cover opacity-90 mix-blend-luminosity grayscale contrast-[1.05]"
               />
             )}

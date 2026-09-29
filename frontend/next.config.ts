@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { TMDB_DEVICE_SIZES, TMDB_IMAGE_SIZES } from "./src/lib/tmdb-image";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 // Only the dev server's fast refresh needs eval.
@@ -27,14 +28,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // TMDB resizes images on its own CDN, so the loader requests its widths
+  // directly and no image goes through Vercel's optimizer.
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "image.tmdb.org",
-        pathname: "/t/p/**",
-      },
-    ],
+    loader: "custom",
+    loaderFile: "./src/lib/tmdb-image.ts",
+    imageSizes: TMDB_IMAGE_SIZES,
+    deviceSizes: TMDB_DEVICE_SIZES,
   },
   async headers() {
     return [

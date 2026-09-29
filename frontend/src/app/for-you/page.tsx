@@ -8,10 +8,9 @@ import type { Movie, RecommendationExplanation } from "@/types/movie";
 import { PickExplanation } from "@/components/pick-explanation";
 import Link from "next/link";
 import Image from "next/image";
+import { tmdbImage } from "@/lib/tmdb-image";
 import { ArrowRight } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-
-const TMDB_IMAGE = "https://image.tmdb.org/t/p/w342";
 
 const DEMO_PROFILES = [
   {
@@ -213,7 +212,8 @@ export default function ForYouPage() {
           {backdropMovies.map((m) => (
             <div key={m.id} className="relative aspect-[2/3]">
               {m.poster_path && (
-                <Image src={`${TMDB_IMAGE}${m.poster_path}`} alt="" fill sizes="120px" className="object-cover" />
+                // Blurred at 10% opacity, so the smallest poster TMDB serves is enough at any size.
+                <Image src={tmdbImage(m.poster_path, "w154")} alt="" fill unoptimized className="object-cover" />
               )}
             </div>
           ))}

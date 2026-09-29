@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
+import { tmdbImage } from "@/lib/tmdb-image";
 import { Loader2, Search } from "lucide-react";
 
 interface SeedMovie {
@@ -91,7 +92,7 @@ export function SimilarMoviesDemo({ seedMovies }: { seedMovies: SeedMovie[] }) {
             <div className="flex items-center gap-3 border-b border-border pb-4">
               {selected.poster_path && (
                 <Image
-                  src={`https://image.tmdb.org/t/p/w92${selected.poster_path}`}
+                  src={tmdbImage(selected.poster_path)}
                   alt={selected.title}
                   width={36}
                   height={54}
@@ -118,7 +119,7 @@ export function SimilarMoviesDemo({ seedMovies }: { seedMovies: SeedMovie[] }) {
                 <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">#{i + 1}</span>
                 {n.poster_path && (
                   <Image
-                    src={`https://image.tmdb.org/t/p/w92${n.poster_path}`}
+                    src={tmdbImage(n.poster_path)}
                     alt={n.title}
                     width={32}
                     height={48}

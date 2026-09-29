@@ -31,6 +31,9 @@ type RunReservation struct {
 	Model         string
 	InputSHA256   string
 	InputChars    int
+	// TokenHold is counted against the global token cap until the run
+	// finishes, so runs in flight and runs whose final write failed count.
+	TokenHold int
 }
 
 // ReservationResult says whether the run may start and the usage it saw.
@@ -57,6 +60,7 @@ func (c *SupabaseClient) ReserveAssistantRun(ctx context.Context, r RunReservati
 		"p_model":          r.Model,
 		"p_input_sha256":   r.InputSHA256,
 		"p_input_chars":    r.InputChars,
+		"p_token_hold":     r.TokenHold,
 	}
 	var rows []ReservationResult
 	if err := c.CallRPC(ctx, "reserve_assistant_run", payload, &rows); err != nil {

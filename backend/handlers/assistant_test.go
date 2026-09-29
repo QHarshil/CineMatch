@@ -186,6 +186,9 @@ func TestRunAssistantStreamsAndAudits(t *testing.T) {
 	if res.RunID != done.RunID || res.PromptVersion != assistant.PromptVersion || res.UserLimit != testLimits.UserDailyRuns || res.IPLimit != testLimits.IPDailyRuns {
 		t.Errorf("reservation = %+v", res)
 	}
+	if res.TokenHold != assistant.MaxRunTokens {
+		t.Errorf("token hold = %d", res.TokenHold)
+	}
 	if len(res.InputSHA256) != 64 || res.InputChars != len("a mind-bending dream heist film") {
 		t.Errorf("prompt hash %q, chars %d", res.InputSHA256, res.InputChars)
 	}

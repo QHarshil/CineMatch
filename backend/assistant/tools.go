@@ -22,7 +22,13 @@ const (
 	toolTasteProfile       = "get_taste_profile"
 	toolGetRecommendations = "get_recommendations"
 	toolPresentPicks       = "present_picks"
+	// toolUnknown replaces a name the model made up, in events and the audit log.
+	toolUnknown = "unknown"
 )
+
+var knownTools = map[string]bool{
+	toolSearchCatalog: true, toolFindSimilar: true, toolTasteProfile: true, toolGetRecommendations: true,
+}
 
 const (
 	defaultSearchLimit = 8
@@ -439,7 +445,10 @@ func labelFor(name, arguments string) string {
 		var args searchArgs
 		_ = json.Unmarshal([]byte(arguments), &args)
 		f, _ := args.filters()
-		label := fmt.Sprintf("Searching for %q", cleanText(args.Query, 80))
+		label := "Searching the catalog"
+		if q := cleanText(args.Query, 80); q != "" {
+			label = fmt.Sprintf("Searching for %q", q)
+		}
 		var parts []string
 		switch f.MediaType {
 		case "movie":
@@ -486,8 +495,36 @@ func labelFor(name, arguments string) string {
 	case toolGetRecommendations:
 		return "Checking your personalized ranking"
 	default:
-		return "Running " + name
+		return "Calling an unknown tool"
 	}
+}
+
+// argumentText joins the keys and string values of tool arguments, decoded,
+// so the output guard sees the text a person would read.
+func argumentText(arguments string) string {
+	var parsed any
+	if err := json.Unmarshal([]byte(arguments), &parsed); err != nil {
+		return arguments
+	}
+	var parts []string
+	var walk func(v any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case string:
+			parts = append(parts, x)
+		case []any:
+			for _, e := range x {
+				walk(e)
+			}
+		case map[string]any:
+			for k, e := range x {
+				parts = append(parts, k)
+				walk(e)
+			}
+		}
+	}
+	walk(parsed)
+	return strings.Join(parts, " ")
 }
 
 var (
@@ -525,10 +562,11 @@ func scrubStrings(v any) any {
 		}
 		return x
 	case map[string]any:
-		for k := range x {
-			x[k] = scrubStrings(x[k])
+		clean := make(map[string]any, len(x))
+		for k, val := range x {
+			clean[scrubStrings(k).(string)] = scrubStrings(val)
 		}
-		return x
+		return clean
 	default:
 		return v
 	}

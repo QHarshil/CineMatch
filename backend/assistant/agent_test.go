@@ -426,8 +426,9 @@ func TestRunCapsToolCalls(t *testing.T) {
 }
 
 func TestRunStopsAtTheRunTokenLimit(t *testing.T) {
+	// Two calls of 13k input tokens would pass the cap, so the second is skipped.
 	heavy := toolCall("c1", toolSearchCatalog, `{"query":"revenge"}`)
-	heavy.Usage = llm.Usage{InputTokens: maxRunTokens, OutputTokens: 10}
+	heavy.Usage = llm.Usage{InputTokens: 13_000, OutputTokens: 10}
 	model := &scriptedModel{replies: []llm.Completion{heavy, heavy}}
 	catalog := &stubCatalog{hits: []db.SearchHit{hit(oldboy, 0.5)}}
 	_, emit := collect()
@@ -439,8 +440,26 @@ func TestRunStopsAtTheRunTokenLimit(t *testing.T) {
 	}
 }
 
-func TestRunDoesNotSendLongUngroundedText(t *testing.T) {
-	fromMemory := text("You would like " + strings.Repeat("Oldboy, Mother, The Handmaiden, Memories of Murder, ", 8))
+func TestIsQuestionOrDecline(t *testing.T) {
+	tests := []struct {
+		text string
+		want bool
+	}{
+		{"Do you want a film or a series?", true},
+		{"I can only help you choose something to watch.", true},
+		{"Sorry, I only help pick films and shows.", true},
+		{"Try Inception and Interstellar.", false},
+		{strings.Repeat("Is it this one? ", 30), false},
+	}
+	for _, tc := range tests {
+		if got := isQuestionOrDecline(tc.text); got != tc.want {
+			t.Errorf("isQuestionOrDecline(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
+func TestRunDoesNotSendUngroundedTitlesAsText(t *testing.T) {
+	fromMemory := text("Try Inception and Interstellar.")
 	tests := []struct {
 		name       string
 		replies    []llm.Completion

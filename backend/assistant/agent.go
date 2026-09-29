@@ -22,10 +22,11 @@ const (
 	maxModelCalls       = 5
 	maxToolCallsPerTurn = 4
 	maxToolCallsPerRun  = 8
-	// maxRunTokens bounds one run's share of the global daily token budget.
-	maxRunTokens = 24_000
-	// maxUngroundedReply is the longest text reply allowed before any tool ran:
-	// room for a clarifying question or a decline, not a list of titles.
+	// MaxRunTokens bounds one run's share of the global daily token budget.
+	// The handler holds this much of the budget while a run is in flight.
+	MaxRunTokens = 24_000
+	// maxUngroundedReply is the longest text reply allowed before any tool ran,
+	// enough for a clarifying question or a decline.
 	maxUngroundedReply = 280
 	fallbackPicks      = 6
 	historyTurns       = 8
@@ -131,10 +132,13 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 	messages := a.conversation(req.Turns)
 	grounded := newGroundingSet()
 	nudged, searchNudged := false, false
+	lastInput := 0
 
 	for call := 0; call < maxModelCalls; call++ {
-		// One run cannot spend more than maxRunTokens of the shared budget.
-		if out.Usage.InputTokens+out.Usage.OutputTokens >= maxRunTokens {
+		// One run cannot spend more than MaxRunTokens of the shared budget. The
+		// next call resends the whole conversation, so it costs at least as
+		// many input tokens as the last one.
+		if out.Usage.InputTokens+out.Usage.OutputTokens+lastInput > MaxRunTokens {
 			break
 		}
 		completion, err := a.model.Complete(ctx, messages, toolDefinitions)
@@ -158,6 +162,7 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 			return a.fallback(ctx, req, emit, out, notice)
 		}
 		out.Usage.Add(completion.Usage)
+		lastInput = completion.Usage.InputTokens
 
 		calls := completion.Message.ToolCalls
 		if len(calls) == 0 {
@@ -177,8 +182,8 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 				return a.fallback(ctx, req, emit, out, noticeOffline)
 			}
 			// With no tool results, only a short question or decline may go out
-			// as text; a longer reply is likely titles from the model's memory.
-			if len([]rune(text)) > maxUngroundedReply {
+			// as text; anything else likely names titles from the model's memory.
+			if !isQuestionOrDecline(text) {
 				if !searchNudged {
 					searchNudged = true
 					messages = append(messages, completion.Message, llm.Message{Role: llm.RoleUser, Content: searchNudge})
@@ -229,7 +234,7 @@ func (a *Agent) Run(ctx context.Context, req Request, emit Emitter) Outcome {
 	if grounded.size() > 0 {
 		return a.presentGrounded(grounded, emit, out, noticeSteps, "")
 	}
-	return a.fallback(ctx, req, emit, out, noticeOffline)
+	return a.fallback(ctx, req, emit, out, noticeSteps)
 }
 
 // conversation builds the model input: instructions, then recent turns.
@@ -263,12 +268,18 @@ func (a *Agent) execute(ctx context.Context, userID string, tc llm.ToolCall, g *
 	if !json.Valid(args) {
 		args = json.RawMessage("{}")
 	}
-	// Tool arguments are model output, so they pass the same guard as replies.
-	shown := args
-	if leaksInstructions(string(args)) {
-		shown = json.RawMessage("{}")
+	// The name is model output too; an unknown one is never echoed or stored.
+	if !knownTools[name] {
+		name = toolUnknown
 	}
-	emit(Event{EventToolCall, ToolCallData{ID: tc.ID, Tool: name, Label: labelFor(name, arguments), Args: shown}})
+	// Tool arguments are model output, so the label and arguments shown in the
+	// trace pass the same guard as replies. Decoded text is checked because
+	// JSON escapes would hide a copied sentence from the raw string.
+	label, shown := labelFor(name, arguments), args
+	if leaksInstructions(label) || leaksInstructions(argumentText(arguments)) {
+		label, shown = labelFor(name, "{}"), json.RawMessage("{}")
+	}
+	emit(Event{EventToolCall, ToolCallData{ID: tc.ID, Tool: name, Label: label, Args: shown}})
 
 	toolCtx, cancel := context.WithTimeout(ctx, toolTimeout)
 	defer cancel()
@@ -285,7 +296,7 @@ func (a *Agent) execute(ctx context.Context, userID string, tc llm.ToolCall, g *
 	case toolGetRecommendations:
 		result = a.recommendations(toolCtx, userID, g)
 	default:
-		result = errorResult("unknown tool " + name)
+		result = errorResult("unknown tool; use one of the tools provided")
 	}
 	latency := int(time.Since(started).Milliseconds())
 
@@ -295,7 +306,7 @@ func (a *Agent) execute(ctx context.Context, userID string, tc llm.ToolCall, g *
 	}})
 	return result, StepRecord{
 		Tool: name, Args: redactForAudit(string(args)), ResultCount: result.count,
-		LatencyMS: latency, Error: result.err,
+		LatencyMS: latency, Error: cleanText(result.err, 200),
 	}
 }
 
@@ -362,4 +373,17 @@ func preferMentioned(candidates []*groundedTitle, text string) []*groundedTitle 
 		}
 	}
 	return append(mentioned, rest...)
+}
+
+// isQuestionOrDecline reports whether a reply sent before any tool ran is a
+// short clarifying question or the off-topic decline the prompt asks for.
+func isQuestionOrDecline(text string) bool {
+	if len([]rune(text)) > maxUngroundedReply {
+		return false
+	}
+	if strings.Contains(text, "?") {
+		return true
+	}
+	words := " " + strings.Join(normalizedWords(text), " ") + " "
+	return strings.Contains(words, " only help ") || strings.Contains(words, " something to watch ")
 }

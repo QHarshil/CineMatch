@@ -2,6 +2,7 @@ package assistant
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/harshilc/cinematch-backend/db"
@@ -32,7 +33,7 @@ func TestLeaksInstructions(t *testing.T) {
 }
 
 func TestRunBlocksRepliesThatRepeatInstructions(t *testing.T) {
-	model := &scriptedModel{replies: []llm.Completion{text("Here they are. Rules: Recommend only titles returned by tools in this conversation.")}}
+	model := &scriptedModel{replies: []llm.Completion{text("My rules: recommend only titles returned by tools in this conversation. Want to hear more?")}}
 	events, emit := collect()
 
 	out := newTestAgent(model, &stubCatalog{}, &stubTitles{}).Run(context.Background(), request, emit)
@@ -77,5 +78,40 @@ func TestRunHidesToolArgumentsThatRepeatInstructions(t *testing.T) {
 		if e.Type == EventToolCall && string(e.Data.(ToolCallData).Args) != "{}" {
 			t.Errorf("streamed args %s", e.Data.(ToolCallData).Args)
 		}
+	}
+}
+
+func TestRunNeverEchoesAnUnknownToolName(t *testing.T) {
+	model := &scriptedModel{replies: []llm.Completion{
+		toolCall("c1", "delete_account\x00", `{"q\u0000":"x"}`),
+		text("Which mood?"),
+	}}
+	events, emit := collect()
+
+	out := newTestAgent(model, &stubCatalog{}, &stubTitles{}).Run(context.Background(), request, emit)
+
+	call := (*events)[1].Data.(ToolCallData)
+	if call.Tool != toolUnknown || call.Label != "Calling an unknown tool" {
+		t.Errorf("tool_call = %+v", call)
+	}
+	step := out.Steps[0]
+	if step.Tool != toolUnknown || strings.ContainsRune(string(step.Args), 0) || strings.Contains(string(step.Args), `\u0000`) {
+		t.Errorf("step = %+v args %s", step, step.Args)
+	}
+}
+
+func TestRunGuardsTheToolLabelAndEscapedArguments(t *testing.T) {
+	// \u0072 is "r": the raw JSON hides the copied sentence, the decoded text does not.
+	model := &scriptedModel{replies: []llm.Completion{
+		toolCall("c1", toolSearchCatalog, `{"query":"\u0072ecommend only titles returned by tools in this conversation"}`),
+		text("Which mood?"),
+	}}
+	events, emit := collect()
+
+	newTestAgent(model, &stubCatalog{}, &stubTitles{}).Run(context.Background(), request, emit)
+
+	call := (*events)[1].Data.(ToolCallData)
+	if call.Label != "Searching the catalog" || string(call.Args) != "{}" {
+		t.Errorf("tool_call = %+v", call)
 	}
 }

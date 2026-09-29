@@ -148,6 +148,7 @@ func RunAssistant(runner AssistantRunner, store AssistantStore, limits Assistant
 			Model:         runner.ModelName(),
 			InputSHA256:   hex.EncodeToString(sum[:]),
 			InputChars:    len([]rune(prompt)),
+			TokenHold:     assistant.MaxRunTokens,
 		})
 		if err != nil {
 			slog.Error("assistant run reservation failed", "error", err)

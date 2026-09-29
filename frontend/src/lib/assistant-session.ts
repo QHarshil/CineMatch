@@ -129,6 +129,13 @@ export const TOOLS: Record<string, { label: string; description: string }> = {
   present_picks: { label: "Present picks", description: "Ends the run. Only titles a tool returned are accepted." },
 };
 
+/** A quota reset time from the API, in the viewer's local time. */
+export function formatReset(resetsAt?: string): string | null {
+  if (!resetsAt) return null;
+  const date = new Date(resetsAt);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 /** The display name for a tool, or its raw name for one the UI does not know. */
 export function toolLabel(name: string): string {
   return TOOLS[name]?.label ?? name;

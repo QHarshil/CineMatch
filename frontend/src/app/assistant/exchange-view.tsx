@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
 import type { Exchange, ToolStep } from "@/lib/assistant-session";
-import { toolLabel } from "@/lib/assistant-session";
+import { formatReset, toolLabel } from "@/lib/assistant-session";
 import { PickCard } from "./pick-card";
 
 function StepIcon({ status }: { status: ToolStep["status"] }) {
@@ -32,12 +32,6 @@ export function StepList({ steps }: { steps: ToolStep[] }) {
       ))}
     </ol>
   );
-}
-
-function formatReset(resetsAt?: string): string | null {
-  if (!resetsAt) return null;
-  const date = new Date(resetsAt);
-  return Number.isNaN(date.getTime()) ? null : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 interface ExchangeViewProps {

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAssistant } from "@/hooks/use-assistant";
-import { MAX_TURN_CHARS } from "@/lib/assistant-session";
+import { formatReset, MAX_TURN_CHARS } from "@/lib/assistant-session";
 import { SplitHeading } from "@/components/motion/split-heading";
 import { AgentTrace } from "./agent-trace";
 import { Composer } from "./composer";
@@ -214,7 +214,7 @@ export function AssistantView() {
               draft={draft}
               busy={busy}
               disabled={outOfRuns}
-              disabledReason="Daily limit reached. It resets at midnight UTC."
+              disabledReason={`Daily limit reached. It resets at ${formatReset(usage?.resets_at) ?? "midnight UTC"}.`}
               onSend={(prompt) => void send(prompt)}
               onStop={stop}
             />
